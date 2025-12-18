@@ -4,14 +4,19 @@ from storage.minio import MinioStore
 
 router = APIRouter()
 
+
 @router.get("/health")
 def health():
+    # Check Postgres
     pg = PostgresStore()
+    pg.health_check()
 
+    # Check MinIO
     minio = MinioStore()
-    minio.connect()
+    minio._ensure_bucket()
 
     return {
         "status": "ok",
-        "env": "loaded"
+        "postgres": "ok",
+        "minio": "ok",
     }

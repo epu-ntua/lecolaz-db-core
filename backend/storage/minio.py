@@ -38,6 +38,12 @@ class MinioStore:
             content_type=content_type,
         )
 
+    def delete_object(self, object_key: str):
+        try:
+            self.client.remove_object(self.bucket, object_key)
+        except S3Error as e:
+            raise RuntimeError(f"MinIO delete object failed: {e}")
+
     def get_presigned_get_url(self, object_key: str, expires_seconds: int = 3600):
         return self.client.presigned_get_object(
             self.bucket,

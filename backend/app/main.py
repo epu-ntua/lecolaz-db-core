@@ -1,6 +1,6 @@
 from fastapi import FastAPI
 from app.api.health import router as health_router
-from app.api.upload import router as upload_router
+from backend.app.api.upload_file import router as upload_router
 from app.api.list_files import router as list_files_router
 from app.api.download_file import router as download_file_router
 

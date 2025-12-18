@@ -17,6 +17,13 @@ class PostgresStore:
     def __init__(self):
         self.engine = create_engine(settings.POSTGRES_DSN)
 
+    def health_check(self):
+        try:
+            with self.engine.connect() as conn:
+                conn.execute(text("SELECT 1"))
+        except Exception as e:
+            raise RuntimeError(f"Postgres health check failed: {e}")
+
     def insert_file_metadata(
         self,
         file_id: uuid.UUID,
