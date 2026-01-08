@@ -4,7 +4,6 @@ from app.api.upload_file import router as upload_router
 from app.api.list_files import router as list_files_router
 from app.api.download_file import router as download_file_router
 
-
 app = FastAPI(title="LeColaz Platform")
     
 app.include_router(health_router)

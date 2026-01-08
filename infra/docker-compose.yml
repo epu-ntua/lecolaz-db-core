@@ -1,8 +1,6 @@
-version: "3.9"
-
 services:
   postgres:
-    image: postgres:16
+    image: timescale/timescaledb-ha:pg16
     container_name: lecolaz-postgres
     environment:
       POSTGRES_DB: lecolaz

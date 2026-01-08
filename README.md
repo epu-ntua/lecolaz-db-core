@@ -34,6 +34,27 @@ Reason:
 
 ### Prerequisites
 - Docker + Docker Compose
+- Python 3.11+ (for local development)
+
+### Python virtual environment (local)
+From the repo root:
+```bash
+python -m venv .venv
+```
+
+Activate the venv:
+```bash
+# Windows (PowerShell)
+.venv\Scripts\Activate.ps1
+
+# macOS/Linux
+source .venv/bin/activate
+```
+
+Install requirements:
+```bash
+pip install -r backend/requirements.txt
+```
 
 ### Start the platform
 ```bash

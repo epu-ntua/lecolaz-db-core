@@ -1,3 +1,5 @@
+CREATE EXTENSION IF NOT EXISTS timescaledb;
+
 CREATE TABLE IF NOT EXISTS file_metadata (
     id UUID PRIMARY KEY,
     filename TEXT NOT NULL,
