@@ -75,6 +75,15 @@ To view its logs in real time, use:
 docker logs -f lecolaz-backend
 ```
 
+### Frontend (React)
+The frontend is built with React and runs separately in development.
+
+```bash
+cd frontend
+npm install
+npm run dev
+```
+
 ### Access
 - Backend: FastAPI docs at http://localhost:8000/docs
 - MinIO: UI at http://localhost:9001 (user `lecolaz`, password `lecolaz123`)
