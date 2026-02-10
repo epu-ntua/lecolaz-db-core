@@ -1,15 +1,15 @@
 from fastapi import APIRouter
-from storage.postgres import PostgresStore
-from storage.minio import MinioStore
+from app.storage.postgres.file_store import FileStore
+from app.storage.object.minio import MinioStore
 
-router = APIRouter()
+router = APIRouter(prefix="/health", tags=["health"])
 
 
-@router.get("/health")
+@router.get("")
 def health():
     # Check Postgres
-    pg = PostgresStore()
-    pg.health_check()
+    fs = FileStore()
+    fs.health_check()
 
     # Check MinIO
     minio = MinioStore()

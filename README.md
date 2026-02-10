@@ -1,6 +1,6 @@
 # LeColaz Platform - WP6 Backend (Ingestion MVP)
 
-This repository contains a minimal but production-grade ingestion backend for WP6.
+This repository contains a minimal ingestion backend for WP6.
 
 ## What is implemented
 
@@ -8,6 +8,7 @@ This repository contains a minimal but production-grade ingestion backend for WP
 - PostgreSQL 16 (metadata storage)
 - MinIO (S3-compatible object storage)
 - FastAPI backend
+- React frontend
 
 ### Backend features
 - Health check endpoint

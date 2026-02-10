@@ -1,3 +1,5 @@
+name: lecolaz
+
 services:
   postgres:
     image: timescale/timescaledb-ha:pg16

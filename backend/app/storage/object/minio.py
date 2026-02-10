@@ -1,5 +1,5 @@
 from minio import Minio
-from core.config import settings
+from app.core.config import settings
 import io
 from datetime import timedelta
 from minio.error import S3Error
