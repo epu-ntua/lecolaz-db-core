@@ -1,0 +1,71 @@
+﻿/* Optional font (can self-host later) */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    /* Background: Warm Sand rgb(231, 225, 216) */
+    --background: 36 21% 88%;
+    --foreground: 111 12% 25%; /* Text based on Forest Green */
+
+    /* Primary: Forest Green rgb(57, 70, 55) */
+    --primary: 112 12% 25%;
+    --primary-foreground: 36 21% 95%;
+
+    /* Secondary: Slate Grey rgb(63, 68, 75) */
+    --secondary: 215 9% 27%;
+    --secondary-foreground: 36 21% 95%;
+
+    /* Muted/Card backgrounds */
+    --muted: 36 20% 82%;
+    --muted-foreground: 215 9% 35%;
+
+    /* Accents & UI */
+    --accent: 36 20% 82%;
+    --accent-foreground: 112 12% 25%;
+
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 210 40% 98%;
+
+    --border: 112 5% 70%; /* Soft green-tinted border */
+    --input: 112 5% 70%;
+    --ring: 112 12% 25%;
+
+    --radius: 0.5rem;
+  }
+
+  .dark {
+    /* Inverting for Dark Mode */
+    --background: 112 12% 10%;
+    --foreground: 36 21% 88%;
+
+    --primary: 36 21% 88%; /* Swap: Sand becomes the primary on dark */
+    --primary-foreground: 112 12% 15%;
+
+    --secondary: 215 9% 27%;
+    --secondary-foreground: 36 21% 88%;
+
+    --border: 215 9% 20%;
+    --input: 215 9% 20%;
+    --ring: 36 21% 88%;
+  }
+
+  /* ============================= */
+  /*          GLOBAL BASE           */
+  /* ============================= */
+
+  html {
+    font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+  }
+
+  body {
+    @apply bg-background text-foreground antialiased;
+  }
+
+  * {
+    @apply border-border;
+  }
+}

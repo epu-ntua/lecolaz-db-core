@@ -1,5 +1,9 @@
-import { useState } from "react";
-import { uploadFile } from "../api/files";
+import { useState } from 'react';
+import { uploadFile } from '../api/files';
+// 1. Import your new Shadcn component
+import { Button } from "@/components/ui/button"; 
+// 2. (Optional) If you want a nice spinner, Lucide is already installed!
+import { Loader2 } from "lucide-react";
 
 export function FileUpload({ onUploaded }: { onUploaded: () => void }) {
   const [file, setFile] = useState<File | null>(null);
@@ -13,11 +17,11 @@ export function FileUpload({ onUploaded }: { onUploaded: () => void }) {
       setLoading(true);
       setError(null);
       await uploadFile(file);
-      console.log("UPLOAD DONE");
+      console.log('UPLOAD DONE');
       setFile(null);
       onUploaded();
     } catch (e) {
-      setError("Upload failed");
+      setError('Upload failed');
     } finally {
       setLoading(false);
     }
@@ -28,22 +32,27 @@ export function FileUpload({ onUploaded }: { onUploaded: () => void }) {
       <input
         type="file"
         onChange={(e) => setFile(e.target.files?.[0] ?? null)}
-        className="text-sm"
+        className="text-sm file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-primary/10 file:text-primary hover:file:bg-primary/20 cursor-pointer"
       />
 
-      <button
-        onClick={handleUpload}
+      {/* 3. Swap out the old button for the Shadcn Button */}
+      <Button 
+        onClick={handleUpload} 
         disabled={!file || loading}
-        className="px-3 py-1.5 rounded border text-sm
-                   disabled:opacity-50
-                   bg-gray-800 text-white hover:bg-gray-700"
+        variant="default" 
+        size="sm"
       >
-        {loading ? "Uploading…" : "Upload"}
-      </button>
+        {loading ? (
+          <>
+            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+            Uploading...
+          </>
+        ) : (
+          'Upload'
+        )}
+      </Button>
 
-      {error && (
-        <span className="text-sm text-red-600">{error}</span>
-      )}
+      {error && <span className="text-sm text-red-600 font-medium">{error}</span>}
     </div>
   );
 }

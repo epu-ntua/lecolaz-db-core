@@ -16,10 +16,19 @@
     "noEmit": true,
     "jsx": "react-jsx",
 
-    /* Linting */
+    /* Path aliases */
+    "baseUrl": ".",
+    "paths": {
+      "@/*": ["./src/*"]
+    },
+
+    /* Linting / correctness */
     "strict": true,
+
+    /* During scaffolding you may want these ON or OFF */
     "noUnusedLocals": true,
     "noUnusedParameters": true,
+
     "erasableSyntaxOnly": true,
     "noFallthroughCasesInSwitch": true,
     "noUncheckedSideEffectImports": true

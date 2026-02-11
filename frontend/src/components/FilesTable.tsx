@@ -1,5 +1,5 @@
-import { useEffect, useState } from "react";
-import { listFiles } from "../api/files";
+import { useEffect, useState } from 'react';
+import { listFiles } from '../api/files';
 
 type FileMeta = {
   id: string;
@@ -23,20 +23,20 @@ export function FilesTable({ refreshKey }: { refreshKey: number }) {
   }, [refreshKey]);
 
   if (loading) {
-    return <div className="text-sm text-gray-500">Loading metadata…</div>;
+    return <div className="text-sm text-muted-foreground">Loading metadata…</div>;
   }
 
   return (
-    <div className="border rounded bg-white overflow-x-auto">
-      <table className="w-full text-sm">
-        <thead className="border-b bg-gray-50">
+    <div className="border border-border rounded-lg bg-card overflow-x-auto">
+      <table className="w-full text-sm text-foreground">
+        <thead className="border-b border-border bg-muted">
           <tr className="text-left">
-            <th className="px-3 py-2 font-medium">Filename</th>
-            <th className="px-3 py-2 font-medium">Content type</th>
-            <th className="px-3 py-2 font-medium">Size</th>
-            <th className="px-3 py-2 font-medium">Uploaded</th>
-            <th className="px-3 py-2 font-medium">Object key</th>
-            <th className="px-3 py-2 font-medium">Extra</th>
+            <th className="px-3 py-2 font-medium text-muted-foreground">Filename</th>
+            <th className="px-3 py-2 font-medium text-muted-foreground">Content type</th>
+            <th className="px-3 py-2 font-medium text-muted-foreground">Size</th>
+            <th className="px-3 py-2 font-medium text-muted-foreground">Uploaded</th>
+            <th className="px-3 py-2 font-medium text-muted-foreground">Object key</th>
+            <th className="px-3 py-2 font-medium text-muted-foreground">Extra</th>
           </tr>
         </thead>
 
@@ -45,31 +45,27 @@ export function FilesTable({ refreshKey }: { refreshKey: number }) {
             <tr key={f.id} className="border-b last:border-b-0 align-top">
               <td className="px-3 py-2">{f.filename}</td>
 
-              <td className="px-3 py-2 text-gray-600">
-                {f.content_type ?? "—"}
+              <td className="px-3 py-2 text-muted-foreground">{f.content_type ?? '—'}</td>
+
+              <td className="px-3 py-2 text-muted-foreground">
+                {f.size_bytes ? `${Math.round(f.size_bytes / 1024)} KB` : '—'}
               </td>
 
-              <td className="px-3 py-2 text-gray-600">
-                {f.size_bytes
-                  ? `${Math.round(f.size_bytes / 1024)} KB`
-                  : "—"}
-              </td>
-
-              <td className="px-3 py-2 text-gray-600">
+              <td className="px-3 py-2 text-muted-foreground">
                 {new Date(f.created_at).toLocaleString()}
               </td>
 
-              <td className="px-3 py-2 font-mono text-xs text-gray-500">
+              <td className="px-3 py-2 font-mono text-xs text-muted-foreground">
                 {f.object_key}
               </td>
 
               <td className="px-3 py-2">
                 {f.extra ? (
-                  <pre className="text-xs bg-gray-100 rounded p-2 max-w-xs overflow-x-auto">
+                  <pre className="text-xs bg-muted rounded p-2 max-w-xs overflow-x-auto">
                     {JSON.stringify(f.extra, null, 2)}
                   </pre>
                 ) : (
-                  <span className="text-gray-400">—</span>
+                  <span className="text-muted-foreground/60">—</span>
                 )}
               </td>
             </tr>
@@ -77,10 +73,7 @@ export function FilesTable({ refreshKey }: { refreshKey: number }) {
 
           {files.length === 0 && (
             <tr>
-              <td
-                colSpan={6}
-                className="px-4 py-6 text-center text-gray-500"
-              >
+              <td colSpan={6} className="px-4 py-6 text-center text-muted-foreground">
                 No metadata entries
               </td>
             </tr>
@@ -90,3 +83,4 @@ export function FilesTable({ refreshKey }: { refreshKey: number }) {
     </div>
   );
 }
+
