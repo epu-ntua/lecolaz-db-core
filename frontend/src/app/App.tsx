@@ -10,7 +10,6 @@ function App() {
     /* 1. Use bg-background for your Warm Sand and text-foreground for Forest Green */
     <div className="min-h-screen bg-background text-foreground p-6 transition-colors duration-300">
       <div className="max-w-5xl mx-auto space-y-6">
-        
         {/* 2. Using font-bold and tracking-tight makes brand titles look more premium */}
         <header className="border-b border-border pb-4">
           <h1 className="text-2xl font-bold tracking-tight">Uploaded files</h1>
@@ -22,7 +21,7 @@ function App() {
         <main className="space-y-8">
           {/* FileUpload now uses your brand primary (Forest Green) button */}
           <section className="bg-card p-4 rounded-lg border border-border shadow-sm">
-             <FileUpload onUploaded={() => setRefreshKey((k) => k + 1)} />
+            <FileUpload onUploaded={() => setRefreshKey((k) => k + 1)} />
           </section>
 
           <section>
@@ -39,7 +38,6 @@ function App() {
             <BIMFiles refreshKey={refreshKey} />
           </section>
         </main>
-
       </div>
     </div>
   );

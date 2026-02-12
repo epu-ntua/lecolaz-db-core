@@ -1,9 +1,9 @@
 import { useState } from 'react';
 import { uploadFile } from '../api/files';
 // 1. Import your new Shadcn component
-import { Button } from "@/components/ui/button"; 
+import { Button } from '@/components/ui/button';
 // 2. (Optional) If you want a nice spinner, Lucide is already installed!
-import { Loader2 } from "lucide-react";
+import { Loader2 } from 'lucide-react';
 
 export function FileUpload({ onUploaded }: { onUploaded: () => void }) {
   const [file, setFile] = useState<File | null>(null);
@@ -36,10 +36,10 @@ export function FileUpload({ onUploaded }: { onUploaded: () => void }) {
       />
 
       {/* 3. Swap out the old button for the Shadcn Button */}
-      <Button 
-        onClick={handleUpload} 
+      <Button
+        onClick={handleUpload}
         disabled={!file || loading}
-        variant="default" 
+        variant="default"
         size="sm"
       >
         {loading ? (

@@ -100,7 +100,7 @@ Components consume semantic utilities:
 Tailwind JIT generates CSS based on class usage in:
 
 ```ts
-content: ['./index.html', './src/**/*.{ts,tsx}']
+content: ['./index.html', './src/**/*.{ts,tsx}'];
 ```
 
 ### 3.2 Token Definition
@@ -116,13 +116,13 @@ Token variables are defined outside `@layer base` to ensure reliable application
 Dark mode is class-based:
 
 ```ts
-darkMode: ['class']
+darkMode: ['class'];
 ```
 
 To activate manually:
 
 ```ts
-document.documentElement.classList.add('dark')
+document.documentElement.classList.add('dark');
 ```
 
 ### 3.3 What Is Not Allowed
@@ -139,15 +139,15 @@ All colors must come from tokens.
 
 ## 4. File Responsibilities
 
-| File | Responsibility |
-| --- | --- |
-| `src/styles/globals.css` | Global tokens, radius, motion variables, optional component-layer CSS |
-| `tailwind.config.ts` | Maps CSS variables to Tailwind utilities |
-| `postcss.config.js` | Tailwind + Autoprefixer integration |
-| `vite.config.ts` | Build configuration + path aliases |
-| `src/lib/utils.ts` (or `src/utils/cn.ts`) | `cn()` helper for safe class merging |
-| `src/components/ui/` | UI primitives (Button, Card, etc.) |
-| `App.tsx` / layout files | Layout composition only |
+| File                                      | Responsibility                                                        |
+| ----------------------------------------- | --------------------------------------------------------------------- |
+| `src/styles/globals.css`                  | Global tokens, radius, motion variables, optional component-layer CSS |
+| `tailwind.config.ts`                      | Maps CSS variables to Tailwind utilities                              |
+| `postcss.config.js`                       | Tailwind + Autoprefixer integration                                   |
+| `vite.config.ts`                          | Build configuration + path aliases                                    |
+| `src/lib/utils.ts` (or `src/utils/cn.ts`) | `cn()` helper for safe class merging                                  |
+| `src/components/ui/`                      | UI primitives (Button, Card, etc.)                                    |
+| `App.tsx` / layout files                  | Layout composition only                                               |
 
 ## 5. `cn()` Utility
 

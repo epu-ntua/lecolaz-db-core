@@ -39,10 +39,17 @@ export function BIMFiles({ refreshKey }: { refreshKey: number }) {
 
         <tbody>
           {files.map((f, index) => (
-            <tr key={f.bim_id ?? `${index}`} className="border-b last:border-b-0 align-top">
-              <td className="px-3 py-2 font-mono text-xs text-muted-foreground">{f.bim_id}</td>
+            <tr
+              key={f.bim_id ?? `${index}`}
+              className="border-b last:border-b-0 align-top"
+            >
+              <td className="px-3 py-2 font-mono text-xs text-muted-foreground">
+                {f.bim_id}
+              </td>
 
-              <td className="px-3 py-2 font-mono text-xs text-muted-foreground">{f.file_id}</td>
+              <td className="px-3 py-2 font-mono text-xs text-muted-foreground">
+                {f.file_id}
+              </td>
 
               <td className="px-3 py-2 text-muted-foreground">{f.format ?? '--'}</td>
 

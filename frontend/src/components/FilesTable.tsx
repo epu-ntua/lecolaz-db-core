@@ -83,4 +83,3 @@ export function FilesTable({ refreshKey }: { refreshKey: number }) {
     </div>
   );
 }
-
