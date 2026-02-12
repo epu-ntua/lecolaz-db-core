@@ -7,72 +7,128 @@
 
 @layer base {
   :root {
+    /* Le' Colaz – Warm Forest Theme (Merged with Lovable) */
     /* Background: Warm Sand rgb(231, 225, 216) */
-    --background: 36 21% 88%;
-    --foreground: 111 12% 25%; /* Text based on Forest Green */
+    --background: 34 18% 93%;
+    --foreground: 0 0% 13%;
 
-    /* Primary: Forest Green rgb(57, 70, 55) */
+    --card: 0 0% 100%;
+    --card-foreground: 0 0% 13%;
+
+    --popover: 0 0% 100%;
+    --popover-foreground: 0 0% 13%;
+
+    /* Primary: Forest Green */
     --primary: 112 12% 25%;
-    --primary-foreground: 36 21% 95%;
+    --primary-foreground: 34 18% 93%;
 
-    /* Secondary: Slate Grey rgb(63, 68, 75) */
-    --secondary: 215 9% 27%;
-    --secondary-foreground: 36 21% 95%;
+    /* Secondary: Slate Grey / Deep Sand */
+    --secondary: 36 16% 88%;
+    --secondary-foreground: 0 0% 13%;
 
-    /* Muted/Card backgrounds */
-    --muted: 36 20% 82%;
-    --muted-foreground: 215 9% 35%;
+    --muted: 34 12% 90%;
+    --muted-foreground: 40 6% 44%;
 
-    /* Accents & UI */
-    --accent: 36 20% 82%;
-    --accent-foreground: 112 12% 25%;
+    /* Brand Accent: Sage green */
+    --accent: 140 22% 38%;
+    --accent-foreground: 0 0% 100%;
 
-    --destructive: 0 84% 60%;
-    --destructive-foreground: 210 40% 98%;
+    --destructive: 0 65% 48%;
+    --destructive-foreground: 0 0% 100%;
 
-    --border: 112 5% 70%; /* Soft green-tinted border */
-    --input: 112 5% 70%;
-    --ring: 112 12% 25%;
+    --border: 34 10% 82%;
+    --input: 34 10% 82%;
+    --ring: 140 22% 38%;
 
     --radius: 0.5rem;
+
+    /* Sidebar – Deep Forest sub-theme (Essential for your new Sidebar) */
+    --sidebar-background: 112 12% 25%;
+    --sidebar-foreground: 34 18% 93%;
+    --sidebar-primary: 140 30% 45%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 112 10% 30%;
+    --sidebar-accent-foreground: 34 18% 93%;
+    --sidebar-border: 112 8% 20%;
+    --sidebar-ring: 140 30% 45%;
+
+    /* Status Colors */
+    --success: 140 30% 40%;
+    --warning: 38 75% 50%;
+    --info: 200 40% 48%;
   }
 
   .dark {
     /* Inverting for Dark Mode */
-    --background: 112 12% 10%;
-    --foreground: 36 21% 88%;
+    --background: 0 0% 8%;
+    --foreground: 34 12% 90%;
 
-    --primary: 36 21% 88%; /* Swap: Sand becomes the primary on dark */
-    --primary-foreground: 112 12% 15%;
+    --card: 0 0% 12%;
+    --card-foreground: 34 12% 90%;
 
-    --secondary: 215 9% 27%;
-    --secondary-foreground: 36 21% 88%;
+    --popover: 0 0% 12%;
+    --popover-foreground: 34 12% 90%;
 
-    --border: 215 9% 20%;
-    --input: 215 9% 20%;
-    --ring: 36 21% 88%;
+    --primary: 140 30% 45%;
+    --primary-foreground: 0 0% 100%;
+
+    --secondary: 0 0% 16%;
+    --secondary-foreground: 34 12% 90%;
+
+    --muted: 0 0% 16%;
+    --muted-foreground: 34 6% 60%;
+
+    --accent: 140 22% 38%;
+    --accent-foreground: 0 0% 100%;
+
+    --destructive: 0 55% 40%;
+    --destructive-foreground: 34 12% 90%;
+
+    --border: 0 0% 18%;
+    --input: 0 0% 18%;
+    --ring: 140 30% 45%;
+
+    --sidebar-background: 112 12% 12%;
+    --sidebar-foreground: 34 12% 90%;
+    --sidebar-primary: 140 30% 45%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 112 10% 18%;
+    --sidebar-accent-foreground: 34 12% 90%;
+    --sidebar-border: 112 8% 14%;
+    --sidebar-ring: 140 30% 45%;
   }
+}
 
-  /* ============================= */
-  /*          GLOBAL BASE           */
-  /* ============================= */
-
-  html {
-    font-family:
-      Inter,
-      system-ui,
-      -apple-system,
-      Segoe UI,
-      Roboto,
-      Arial,
-      sans-serif;
+@layer base {
+  /* Universal border reset – fixes UI consistency */
+  * {
+    @apply border-border;
   }
 
   body {
     @apply bg-background text-foreground antialiased;
+    font-family: 'Inter', system-ui, -apple-system, sans-serif;
   }
+}
 
-  * {
-    @apply border-border;
+@layer utilities {
+  /* Lovable's Custom Modern Scrollbar */
+  .scrollbar-thin {
+    scrollbar-width: thin;
+    scrollbar-color: hsl(var(--muted-foreground) / 0.3) transparent;
+  }
+  
+  .scrollbar-thin::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+  
+  .scrollbar-thin::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  
+  .scrollbar-thin::-webkit-scrollbar-thumb {
+    background-color: hsl(var(--muted-foreground) / 0.3);
+    border-radius: 3px;
   }
 }
