@@ -23,13 +23,6 @@ Reason:
 - Presigned URLs require a stable public hostname
 - This will be introduced later via Nginx / reverse proxy
 
-### APIs
-- `GET /health`
-- `POST /upload`
-- `GET /files`
-- `GET /files/{id}/download`
-
----
 
 ## How to run (development)
 
@@ -60,12 +53,16 @@ pip install -r backend/requirements.txt
 ### Start the platform
 ```bash
 cd infra
-docker compose -p lecolaz up -d --build
+docker compose up -d --build
+
+or 
+
+docker compose up -d 
 ```
 
 ### Stop the platform
 ```bash
-docker compose -p lecolaz down
+docker compose down
 ```
 ### Backend Logs (Development)
 

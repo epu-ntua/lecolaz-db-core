@@ -2,7 +2,7 @@ name: lecolaz
 
 services:
   postgres:
-    image: timescale/timescaledb-ha:pg16
+    image: timescale/timescaledb:latest-pg16
     container_name: lecolaz-postgres
     environment:
       POSTGRES_DB: lecolaz
