@@ -64,6 +64,12 @@ docker compose up -d
 ```bash
 docker compose down
 ```
+
+if you want to delete volumes (erase data)
+```bash
+docker compose down -v
+```
+
 ### Backend Logs (Development)
 
 The backend runs inside a Docker container.

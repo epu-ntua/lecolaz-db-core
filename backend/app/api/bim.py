@@ -1,9 +1,12 @@
 # app/api/bim.py
 
 from fastapi import APIRouter, UploadFile, File, HTTPException
+from fastapi.responses import StreamingResponse
 
 from app.services.file_ingestion_service import ingest_upload, is_bim_filename
 from app.storage.postgres.bim_store import BimStore
+from app.services.bim_view_service import get_bim_view_file
+
 
 router = APIRouter(prefix="/bim", tags=["BIM"])
 
@@ -26,3 +29,22 @@ async def upload_bim(file: UploadFile = File(...)):
 def list_bim(limit: int = 100):
     bs = BimStore()
     return bs.list_bim_models(limit=limit)
+
+
+@router.get("/{bim_id}/stream")
+def stream_bim(bim_id: str):
+    result = get_bim_view_file(bim_id)
+
+    if not result:
+        raise HTTPException(404, "BIM not found")
+
+    file_stream, content_type, filename = result
+
+    return StreamingResponse(
+        file_stream,
+        media_type=content_type or "application/octet-stream",
+        headers={
+            "Content-Disposition": f'inline; filename="{filename}"'
+        },
+    )
+

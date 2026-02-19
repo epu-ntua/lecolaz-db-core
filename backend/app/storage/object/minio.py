@@ -44,9 +44,12 @@ class MinioStore:
         except S3Error as e:
             raise RuntimeError(f"MinIO delete object failed: {e}")
 
-    def get_presigned_get_url(self, object_key: str, expires_seconds: int = 3600):
-        return self.client.presigned_get_object(
-            self.bucket,
-            object_key,
-            expires=timedelta(seconds=expires_seconds),
-        )
+    def get_presigned_get_url(self, object_key: str, expires_minutes: int = 15) -> str:
+        try:
+            return self.client.presigned_get_object(
+                bucket_name=self.bucket,
+                object_name=object_key,
+                expires=timedelta(minutes=expires_minutes),
+            )
+        except S3Error as e:
+            raise RuntimeError(f"MinIO presigned URL generation failed: {e}")

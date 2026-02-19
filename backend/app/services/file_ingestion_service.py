@@ -65,6 +65,7 @@ def ingest_upload(
             bim_store.create_bim_record(
                 bim_id=uuid.uuid4(),
                 file_id=file_id,
+                filename=filename,
                 format=filename.split(".")[-1],
                 schema=None,
                 extra=None,

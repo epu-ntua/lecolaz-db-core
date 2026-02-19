@@ -18,7 +18,8 @@ class BimModel(Base):
         index=True,
         unique=True,  # 1 BIM record per file (remove if multiple needed)
     )
-
+    filename = Column(String, nullable=False)  # Store original filename for reference
+    
     # Minimal BIM-specific fields (extend later)
     format = Column(String, nullable=False)          # e.g. "ifc"
     schema = Column(String, nullable=True)           # e.g. "IFC4", "IFC2X3" (optional)

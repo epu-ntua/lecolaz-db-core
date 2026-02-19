@@ -22,6 +22,7 @@ class BimStore:
         self,
         bim_id: uuid.UUID,
         file_id: uuid.UUID,
+        filename: str,
         format: str,
         schema: Optional[str] = None,
         extra: Optional[dict] = None,
@@ -30,6 +31,7 @@ class BimStore:
             obj = BimModel(
                 id=bim_id,
                 file_id=file_id,
+                filename=filename,
                 format=format,
                 schema=schema,
                 extra=extra,
@@ -60,6 +62,7 @@ class BimStore:
         return {
             "id": str(obj.id),
             "file_id": str(obj.file_id),
+            "filename": obj.filename,
             "format": obj.format,
             "schema": obj.schema,
             "created_at": obj.created_at.isoformat() if obj.created_at else None,

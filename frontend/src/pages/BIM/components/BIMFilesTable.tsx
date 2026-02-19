@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { listBimFiles } from '@/api/bim_files';
+import { listFiles } from '@/api/files';
 import {
   Table,
   TableBody,
@@ -12,9 +13,15 @@ import {
 type BimFileMeta = {
   bim_id: string;
   file_id: string;
+  filename?: string;
   format: string;
   schema: string | null;
   extra: Record<string, any> | null;
+};
+
+type FileMeta = {
+  id: string;
+  filename: string;
 };
 
 export function BIMFiles({ refreshKey }: { refreshKey: number }) {
@@ -23,8 +30,17 @@ export function BIMFiles({ refreshKey }: { refreshKey: number }) {
 
   useEffect(() => {
     setLoading(true);
-    listBimFiles()
-      .then(setFiles)
+    Promise.all([listBimFiles(), listFiles()])
+      .then(([bimFiles, allFiles]) => {
+        const filenameById = new Map<string, string>(
+          (allFiles as FileMeta[]).map((f) => [f.id, f.filename])
+        );
+        const rows = (bimFiles as BimFileMeta[]).map((f) => ({
+          ...f,
+          filename: filenameById.get(f.file_id) ?? '--',
+        }));
+        setFiles(rows);
+      })
       .finally(() => setLoading(false));
   }, [refreshKey]);
 
@@ -39,6 +55,7 @@ export function BIMFiles({ refreshKey }: { refreshKey: number }) {
           <TableRow className="text-left hover:bg-transparent">
             <TableHead className="px-3 py-2 font-medium text-muted-foreground">BIM ID</TableHead>
             <TableHead className="px-3 py-2 font-medium text-muted-foreground">File ID</TableHead>
+            <TableHead className="px-3 py-2 font-medium text-muted-foreground">Filename</TableHead>
             <TableHead className="px-3 py-2 font-medium text-muted-foreground">Format</TableHead>
             <TableHead className="px-3 py-2 font-medium text-muted-foreground">Schema</TableHead>
             <TableHead className="px-3 py-2 font-medium text-muted-foreground">Extra</TableHead>
@@ -55,6 +72,8 @@ export function BIMFiles({ refreshKey }: { refreshKey: number }) {
               <TableCell className="px-3 py-2 font-mono text-xs text-muted-foreground">
                 {f.file_id}
               </TableCell>
+
+              <TableCell className="px-3 py-2">{f.filename ?? '--'}</TableCell>
 
               <TableCell className="px-3 py-2 text-muted-foreground">{f.format ?? '--'}</TableCell>
 
@@ -74,7 +93,7 @@ export function BIMFiles({ refreshKey }: { refreshKey: number }) {
 
           {files.length === 0 && (
             <TableRow>
-              <TableCell colSpan={5} className="px-4 py-6 text-center text-muted-foreground">
+              <TableCell colSpan={6} className="px-4 py-6 text-center text-muted-foreground">
                 No BIM metadata entries
               </TableCell>
             </TableRow>
