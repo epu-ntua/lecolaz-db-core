@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { uploadFile } from '../api/files';
+import { uploadFile } from '@/api/files';
 // 1. Import your new Shadcn component
 import { Button } from '@/components/ui/button';
 // 2. (Optional) If you want a nice spinner, Lucide is already installed!

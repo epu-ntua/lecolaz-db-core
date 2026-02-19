@@ -176,6 +176,7 @@ Usage:
 We are on Tailwind v3.
 
 If installing via CLI, use a v3-compatible version:
+If components/ui exists no need to run init just skip to adding a component.
 
 ```bash
 npx shadcn@2.3.0 init
@@ -191,6 +192,69 @@ Shadcn components are copied into:
 They are source code, not a dependency black box.
 
 You are allowed to edit them.
+
+## 11. shadcn Table Example
+
+Add a Component (example: Table)
+
+From frontend folder: 
+```bash
+npx shadcn@2.3.0 add table
+```
+
+This creates:
+
+```text
+src/components/ui/table.tsx
+```
+
+It copies the source code into your project.
+
+Import and Use It
+
+Inside your page/component:
+
+```tsx
+import {
+  Table,
+  TableHeader,
+  TableBody,
+  TableRow,
+  TableHead,
+  TableCell,
+} from "@/components/ui/table";
+```
+
+Minimal Example:
+
+```tsx
+<Table>
+  <TableHeader>
+    <TableRow>
+      <TableHead>Name</TableHead>
+      <TableHead>Status</TableHead>
+    </TableRow>
+  </TableHeader>
+
+  <TableBody>
+    <TableRow>
+      <TableCell>File 1</TableCell>
+      <TableCell>Ready</TableCell>
+    </TableRow>
+  </TableBody>
+</Table>
+```
+
+Styling
+
+Use Tailwind classes directly:
+
+```tsx
+<TableRow className="hover:bg-muted">
+```
+
+Use `cn` for conditionals.
+
 
 ## 7. Development Workflow
 
@@ -232,3 +296,5 @@ This can be extended later.
 - shadcn (v3-compatible) documentation
 - Radix UI documentation
 - Vite documentation
+
+
