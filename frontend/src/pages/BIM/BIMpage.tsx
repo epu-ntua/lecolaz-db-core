@@ -1,4 +1,4 @@
-import { BIMFiles } from "@/pages/BIM/components/BIMFilesTable";
+import { BIMFilesTable } from "@/pages/BIM/components/BIMFilesTable";
 
 export default function BIMPage() {
   return (
@@ -11,7 +11,7 @@ export default function BIMPage() {
       </header>
 
       <section>
-        <BIMFiles refreshKey={0} />
+        <BIMFilesTable refreshKey={0} />
       </section>
     </div>
   );

@@ -1,5 +1,12 @@
+// NOTE:
+// This component owns both data fetching and rendering for file metadata.
+// If data logic (pagination, filtering, caching) grows,
+// extract a `useFiles` hook.
+// If rendering becomes complex (actions, expandable rows),
+// extract subcomponents for clarity.
+
 import { useEffect, useState } from 'react';
-import { listFiles } from '@/api/files';
+import { listFiles } from '@/api/files'; 
 import {
   Table,
   TableBody,

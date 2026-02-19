@@ -1,3 +1,2 @@
 export default function AlertsPage() {
-  return <div>page not ready</div>;
-}
+  return <div className="text-center align-middle">page not ready</div>;}

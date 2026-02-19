@@ -1,4 +1,12 @@
+// NOTE:
+// This component owns both data fetching and rendering for BIM files metadata.
+// If data logic (pagination, filtering, caching) grows,
+// extract a `useBIMfiles` hook.
+// If rendering becomes complex (actions, expandable rows),
+// extract subcomponents for clarity.
+
 import { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { listBimFiles } from '@/api/bim_files';
 import { listFiles } from '@/api/files';
 import {
@@ -11,7 +19,7 @@ import {
 } from '@/components/ui/table';
 
 type BimFileMeta = {
-  bim_id: string;
+  id: string;
   file_id: string;
   filename?: string;
   format: string;
@@ -24,7 +32,8 @@ type FileMeta = {
   filename: string;
 };
 
-export function BIMFiles({ refreshKey }: { refreshKey: number }) {
+export function BIMFilesTable({ refreshKey }: { refreshKey: number }) {
+  const navigate = useNavigate();
   const [files, setFiles] = useState<BimFileMeta[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -64,16 +73,24 @@ export function BIMFiles({ refreshKey }: { refreshKey: number }) {
 
         <TableBody>
           {files.map((f, index) => (
-            <TableRow key={f.bim_id ?? `${index}`} className="align-top">
+            <TableRow key={f.id ?? `${index}`} className="align-top">
+              {console.log(f)}
               <TableCell className="px-3 py-2 font-mono text-xs text-muted-foreground">
-                {f.bim_id}
+                {f.id}
               </TableCell>
 
               <TableCell className="px-3 py-2 font-mono text-xs text-muted-foreground">
                 {f.file_id}
               </TableCell>
 
-              <TableCell className="px-3 py-2">{f.filename ?? '--'}</TableCell>
+              <TableCell className="px-3 py-2">
+                <span
+                  className="text-primary underline cursor-pointer"
+                  onClick={() => navigate(`/bim/${f.id}`)}
+                >
+                  {f.filename ?? '--'}
+                </span>
+              </TableCell>
 
               <TableCell className="px-3 py-2 text-muted-foreground">{f.format ?? '--'}</TableCell>
 
