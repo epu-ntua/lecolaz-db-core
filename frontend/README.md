@@ -153,7 +153,7 @@ All colors must come from tokens.
 
 Location:
 
-- `src/lib/utils.ts` (or chosen equivalent)
+- `src/lib/utils.ts` 
 
 Purpose:
 Safely merge class names using:

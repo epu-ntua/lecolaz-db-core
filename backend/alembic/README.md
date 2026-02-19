@@ -43,6 +43,8 @@ Before applying:
 
 ## Applying Migrations
 
+From the infra folder (where docker compose file is)
+
 ```sh
 docker compose exec backend alembic upgrade head
 ```

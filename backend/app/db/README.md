@@ -33,6 +33,7 @@ class FileMetadata(Base):
 4. Add indexes / constraints
 5. Save the file
 6. Do not apply changes manually in the DB
+7. See alembic/README.md for instructions on applying changes
 
 ## Important Rules
 

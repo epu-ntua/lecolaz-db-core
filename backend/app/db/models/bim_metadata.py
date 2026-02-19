@@ -16,7 +16,7 @@ class BimModel(Base):
         ForeignKey("file_metadata.id", ondelete="CASCADE"),
         nullable=False,
         index=True,
-        unique=True,  # 1 BIM record per file (remove if you want multiple)
+        unique=True,  # 1 BIM record per file (remove if multiple needed)
     )
 
     # Minimal BIM-specific fields (extend later)

@@ -7,11 +7,11 @@ import logging
 
 from alembic import context
 
-# import your Base (and ensure models are imported) so that Alembic can find the metadata
+# import Base (and ensure models are imported) so that Alembic can find the metadata
 from app.db.base import Base
-# import your models here to ensure they are registered with the Base metadata
+# import models here to ensure they are registered with the Base metadata
 import app.db.models  # noqa: F401
-# ---- point Alembic to your metadata ----
+# point Alembic to database metadata 
 target_metadata = Base.metadata
 
 # this is the Alembic Config object, which provides
