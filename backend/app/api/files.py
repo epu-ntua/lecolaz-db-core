@@ -1,15 +1,16 @@
 # app/api/files.py
 
 import uuid
-from fastapi import APIRouter, HTTPException, UploadFile, File
+from fastapi import APIRouter, HTTPException, UploadFile, File, status
 
 from app.services.file_ingestion_service import ingest_upload
+from app.schemas import FileMetadataResponse, FileUploadResponse
 from app.storage.postgres.file_store import FileStore
 
 router = APIRouter(prefix="/files", tags=["Files"])
 
 
-@router.post("/upload")
+@router.post("/upload", response_model=FileUploadResponse)
 async def upload_file(file: UploadFile = File(...)):
     data = await file.read()
     return ingest_upload(
@@ -18,7 +19,7 @@ async def upload_file(file: UploadFile = File(...)):
         data=data,
     )
 
-@router.get("")
+@router.get("", response_model=list[FileMetadataResponse])
 def list_files(limit: int = 100):
     fs = FileStore()
     return fs.list_files(limit=limit)

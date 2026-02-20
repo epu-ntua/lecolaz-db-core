@@ -8,7 +8,7 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { listBimFiles } from '@/api/bim_files';
-import { listFiles } from '@/api/files';
+import type { BimFileDto } from '@/types/api/bim';
 import {
   Table,
   TableBody,
@@ -18,38 +18,15 @@ import {
   TableRow,
 } from '@/components/ui/table';
 
-type BimFileMeta = {
-  id: string;
-  file_id: string;
-  filename?: string;
-  format: string;
-  schema: string | null;
-  extra: Record<string, any> | null;
-};
-
-type FileMeta = {
-  id: string;
-  filename: string;
-};
-
 export function BIMFilesTable({ refreshKey }: { refreshKey: number }) {
   const navigate = useNavigate();
-  const [files, setFiles] = useState<BimFileMeta[]>([]);
+  const [files, setFiles] = useState<BimFileDto[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     setLoading(true);
-    Promise.all([listBimFiles(), listFiles()])
-      .then(([bimFiles, allFiles]) => {
-        const filenameById = new Map<string, string>(
-          (allFiles as FileMeta[]).map((f) => [f.id, f.filename])
-        );
-        const rows = (bimFiles as BimFileMeta[]).map((f) => ({
-          ...f,
-          filename: filenameById.get(f.file_id) ?? '--',
-        }));
-        setFiles(rows);
-      })
+    listBimFiles()
+      .then(setFiles)
       .finally(() => setLoading(false));
   }, [refreshKey]);
 
@@ -74,7 +51,6 @@ export function BIMFilesTable({ refreshKey }: { refreshKey: number }) {
         <TableBody>
           {files.map((f, index) => (
             <TableRow key={f.id ?? `${index}`} className="align-top">
-              {console.log(f)}
               <TableCell className="px-3 py-2 font-mono text-xs text-muted-foreground">
                 {f.id}
               </TableCell>

@@ -7,6 +7,7 @@
 
 import { useEffect, useState } from 'react';
 import { listFiles } from '@/api/files'; 
+import type { FileDto } from '@/types/api/files';
 import {
   Table,
   TableBody,
@@ -16,18 +17,8 @@ import {
   TableRow,
 } from '@/components/ui/table';
 
-type FileMeta = {
-  id: string;
-  filename: string;
-  object_key: string;
-  content_type: string | null;
-  size_bytes: number | null;
-  created_at: string;
-  extra: Record<string, any> | null;
-};
-
 export function FilesTable({ refreshKey }: { refreshKey: number }) {
-  const [files, setFiles] = useState<FileMeta[]>([]);
+  const [files, setFiles] = useState<FileDto[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {

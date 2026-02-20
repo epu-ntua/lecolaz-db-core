@@ -1,11 +1,21 @@
-import { useParams, useNavigate } from "react-router-dom";
+import { useEffect, useState } from "react";
+import { useNavigate, useParams } from "react-router-dom";
+import { fetchBimMetadata } from "@/api/bim_files";
+import type { BimMetadataDto } from "@/types/api/bim";
 import BimViewer from "./components/BIMViewer";
 
 export default function BIMViewerPage() {
   const { id } = useParams();
   const navigate = useNavigate();
+  const [bim, setBim] = useState<BimMetadataDto | null>(null);
 
-  console.log("Route param id:", id);
+  useEffect(() => {
+    if (!id) return;
+
+    fetchBimMetadata(id)
+      .then(setBim)
+      .catch(() => setBim(null));
+  }, [id]);
 
   if (!id) return null;
 
@@ -16,8 +26,9 @@ export default function BIMViewerPage() {
           onClick={() => navigate("/bim")}
           className="text-primary hover:underline"
         >
-          ← Back
+          Back
         </button>
+        <h1 className="mt-2 text-lg font-semibold">Displaying: {bim?.filename ?? id}</h1>
       </div>
 
       <div className="flex-1">
