@@ -1,11 +1,9 @@
 import uuid
 
-from fastapi import APIRouter, UploadFile, File, HTTPException
+from fastapi import APIRouter, HTTPException
 
-from app.services.file_ingestion_service import ingest_upload, is_energyplus_filename
 from app.schemas import (
     SimulationFileResponse,
-    FileUploadResponse,
     SimulationProcessResponse,
 )
 from app.services.simulation_processing_service import (
@@ -20,20 +18,6 @@ from app.storage.postgres.simulation_store import SimulationStore
 router = APIRouter(prefix="/simulations", tags=["Simulations"])
 
 
-@router.post("/upload", response_model=FileUploadResponse)
-async def upload_simulation(file: UploadFile = File(...)):
-    if not is_energyplus_filename(file.filename):
-        raise HTTPException(400, "Only simulation files allowed")
-
-    data = await file.read()
-    return ingest_upload(
-        filename=file.filename,
-        content_type=file.content_type,
-        data=data,
-        simulation_strict=True,
-    )
-
-
 @router.get("", response_model=list[SimulationFileResponse])
 def list_simulations(limit: int = 100):
     simulation_store = SimulationStore()
@@ -42,13 +26,21 @@ def list_simulations(limit: int = 100):
 
 @router.post("/{simulation_id}/process", response_model=SimulationProcessResponse)
 def process_simulation_endpoint(simulation_id: str, force: bool = False):
+    simulation_store = SimulationStore()
     try:
         simulation_uuid = uuid.UUID(simulation_id)
     except ValueError:
         raise HTTPException(400, "Invalid simulation id")
 
+    simulation = simulation_store.get_simulation_by_id(simulation_uuid)
+    if not simulation:
+        raise HTTPException(404, "Simulation not found")
+
     try:
-        result = process_simulation(simulation_uuid, allow_reprocess=force)
+        result = process_simulation(
+            uuid.UUID(simulation["dataset_id"]),
+            allow_reprocess=force,
+        )
     except SimulationNotFoundError as exc:
         raise HTTPException(404, str(exc))
     except SimulationConflictError as exc:

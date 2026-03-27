@@ -3,14 +3,15 @@ from typing import Optional, List, Dict, Any
 
 from sqlalchemy import select
 
+from app.db.models.dataset import Dataset
 from app.db.session import SessionLocal
-from app.db.models.simulation_metadata import SimulationModel
+from app.db.models.simulation_dataset import SimulationDataset
 
 
 class SimulationStore:
     """
     PostgreSQL-backed implementation of simulation metadata persistence.
-    Mirrors FileStore boundary rules:
+    Mirrors DatasetStore boundary rules:
     - DB only (no FastAPI, no business workflows)
     - Returns dicts (no ORM leaks)
     """
@@ -21,21 +22,17 @@ class SimulationStore:
     def create_simulation_record(
         self,
         simulation_id: uuid.UUID,
-        file_id: uuid.UUID,
+        dataset_id: uuid.UUID,
         filename: str,
         format: str,
-        schema: Optional[str] = None,
-        status: str = "uploaded",
         extra: Optional[dict] = None,
     ) -> None:
         with self._session_factory() as session:
-            obj = SimulationModel(
+            obj = SimulationDataset(
                 id=simulation_id,
-                file_id=file_id,
+                dataset_id=dataset_id,
                 filename=filename,
                 format=format,
-                schema=schema,
-                status=status,
                 extra=extra,
             )
             session.add(obj)
@@ -44,62 +41,55 @@ class SimulationStore:
     def list_simulation_models(self, limit: int = 100) -> List[Dict[str, Any]]:
         with self._session_factory() as session:
             stmt = (
-                select(SimulationModel)
-                .order_by(SimulationModel.created_at.desc())
+                select(SimulationDataset, Dataset.status, Dataset.dataset_metadata)
+                .join(Dataset, Dataset.id == SimulationDataset.dataset_id)
+                .order_by(SimulationDataset.created_at.desc())
                 .limit(limit)
             )
-            rows = session.execute(stmt).scalars().all()
-            return [self._to_dict(r) for r in rows]
+            rows = session.execute(stmt).all()
+            return [
+                self._to_dict(simulation, dataset_status, dataset_metadata)
+                for simulation, dataset_status, dataset_metadata in rows
+            ]
 
     def get_simulation_by_id(
         self,
         simulation_id: uuid.UUID,
     ) -> Optional[Dict[str, Any]]:
         with self._session_factory() as session:
-            stmt = select(SimulationModel).where(SimulationModel.id == simulation_id)
-            row = session.execute(stmt).scalars().first()
-            return self._to_dict(row) if row else None
+            stmt = (
+                select(SimulationDataset, Dataset.status, Dataset.dataset_metadata)
+                .join(Dataset, Dataset.id == SimulationDataset.dataset_id)
+                .where(SimulationDataset.id == simulation_id)
+            )
+            row = session.execute(stmt).first()
+            return self._to_dict(row[0], row[1], row[2]) if row else None
 
-    def get_simulation_by_file_id(
+    def get_simulation_by_dataset_id(
         self,
-        file_id: uuid.UUID,
+        dataset_id: uuid.UUID,
     ) -> Optional[Dict[str, Any]]:
         with self._session_factory() as session:
-            stmt = select(SimulationModel).where(SimulationModel.file_id == file_id)
-            row = session.execute(stmt).scalars().first()
-            return self._to_dict(row) if row else None
-
-    def update_simulation_status(
-        self,
-        simulation_id: uuid.UUID,
-        status: str,
-        extra_patch: Optional[dict] = None,
-    ) -> Optional[Dict[str, Any]]:
-        with self._session_factory() as session:
-            stmt = select(SimulationModel).where(SimulationModel.id == simulation_id)
-            obj = session.execute(stmt).scalars().first()
-            if not obj:
-                return None
-
-            obj.status = status
-            if extra_patch:
-                merged_extra = dict(obj.extra or {})
-                merged_extra.update(extra_patch)
-                obj.extra = merged_extra
-
-            session.commit()
-            session.refresh(obj)
-            return self._to_dict(obj)
+            stmt = (
+                select(SimulationDataset, Dataset.status, Dataset.dataset_metadata)
+                .join(Dataset, Dataset.id == SimulationDataset.dataset_id)
+                .where(SimulationDataset.dataset_id == dataset_id)
+            )
+            row = session.execute(stmt).first()
+            return self._to_dict(row[0], row[1], row[2]) if row else None
 
     @staticmethod
-    def _to_dict(obj: SimulationModel) -> Dict[str, Any]:
+    def _to_dict(
+        obj: SimulationDataset,
+        dataset_status: str | None,
+        dataset_metadata: dict | None,
+    ) -> Dict[str, Any]:
         return {
             "id": str(obj.id),
-            "file_id": str(obj.file_id),
+            "dataset_id": str(obj.dataset_id),
             "filename": obj.filename,
             "format": obj.format,
-            "schema": obj.schema,
-            "status": obj.status,
+            "status": dataset_status,
             "created_at": obj.created_at.isoformat() if obj.created_at else None,
-            "extra": obj.extra,
+            "extra": dataset_metadata,
         }

@@ -6,8 +6,10 @@ from datetime import datetime, timezone
 from typing import Any, Dict, Iterable
 
 from app.storage.object.minio import MinioStore
-from app.storage.postgres.file_store import FileStore
+from app.storage.postgres.dataset_store import DatasetStore
 from app.storage.postgres.simulation_store import SimulationStore
+from app.storage.postgres.simulation_timeseries_store import SimulationTimeseriesStore
+from app.storage.postgres.simulation_variable_store import SimulationVariableStore
 
 ENVIRONMENT_RECORD_ID = 1
 TIMESTAMP_KEYS = {
@@ -102,6 +104,15 @@ def _build_timestamp_value(parsed: Dict[str, Any]) -> str | None:
         return f"{timestamp} {time_part}" if timestamp else time_part
 
     return timestamp
+
+
+def _parse_iso_timestamp(value: str | None) -> datetime | None:
+    if not value:
+        return None
+    try:
+        return datetime.fromisoformat(value)
+    except ValueError:
+        return None
 
 
 def _build_timestamp(fields: list[str], labels: list[str]) -> Dict[str, Any]:
@@ -263,106 +274,129 @@ def _parse_eso_bytes(data: bytes) -> Dict[str, Any]:
     }
 
 
-def _build_presentation_output(summary: Dict[str, Any], record_limit: int = 100) -> Dict[str, Any]:
-    variable_map = summary.get("variables", {})
+def _build_variable_rows(summary: Dict[str, Any]) -> list[Dict[str, Any]]:
+    rows: list[Dict[str, Any]] = []
+    for variable_id, variable_info in summary.get("variables", {}).items():
+        context_fields = variable_info.get("context") or []
+        key = context_fields[0] if context_fields else variable_info.get("zone")
+        rows.append(
+            {
+                "variable_id": variable_id,
+                "variable_name": variable_info.get("variable"),
+                "unit": variable_info.get("units"),
+                "frequency": variable_info.get("frequency"),
+                "key": key,
+            }
+        )
+    return rows
+
+
+def _build_timeseries_rows(
+    summary: Dict[str, Any],
+    variable_id_map: Dict[str, str],
+) -> tuple[list[Dict[str, Any]], int]:
     timesteps = summary.get("timesteps", [])
     values_map = summary.get("values", {})
+    rows: list[Dict[str, Any]] = []
+    skipped_values_count = 0
 
-    variables = [
-        {
-            "id": variable_id,
-            "variable": variable_info.get("variable"),
-            "unit": variable_info.get("units"),
-            "frequency": variable_info.get("frequency"),
-        }
-        for variable_id, variable_info in variable_map.items()
-    ]
-
-    records: list[Dict[str, Any]] = []
-    for variable_id, variable_info in variable_map.items():
-        variable_values = values_map.get(variable_id, [])
+    for eso_variable_id, db_variable_id in variable_id_map.items():
+        variable_values = values_map.get(eso_variable_id, [])
         for timestep_index, timestep in enumerate(timesteps):
             if timestep_index >= len(variable_values):
                 continue
 
-            value = variable_values[timestep_index]
-            if value is None:
+            timestamp = _parse_iso_timestamp(timestep.get("timestamp"))
+            if timestamp is None:
+                skipped_values_count += 1
                 continue
 
-            records.append(
+            value = variable_values[timestep_index]
+            if not isinstance(value, (int, float)):
+                skipped_values_count += 1
+                continue
+
+            rows.append(
                 {
-                    "timestamp": timestep.get("timestamp"),
-                    "variable": variable_info.get("variable"),
-                    "value": value,
+                    "variable_id": db_variable_id,
+                    "timestamp": timestamp,
+                    "value": float(value),
                 }
             )
-            if len(records) >= record_limit:
-                break
-        if len(records) >= record_limit:
-            break
 
-    metadata = {
-        "variable_count": summary.get("variable_count"),
-        "timestep_count": summary.get("timestep_count"),
-        "processed_at": summary.get("processed_at"),
-    }
-
-    return {
-        "metadata": metadata,
-        "variables": variables,
-        "records": records,
-    }
+    return rows, skipped_values_count
 
 
-def process_simulation(simulation_id: uuid.UUID, *, allow_reprocess: bool = False) -> Dict[str, Any]:
+def process_simulation(dataset_id: uuid.UUID, *, allow_reprocess: bool = False) -> Dict[str, Any]:
     simulation_store = SimulationStore()
-    file_store = FileStore()
+    dataset_store = DatasetStore()
+    simulation_variable_store = SimulationVariableStore()
+    simulation_timeseries_store = SimulationTimeseriesStore()
     minio_store = MinioStore()
 
-    simulation = simulation_store.get_simulation_by_id(simulation_id)
+    dataset_record = dataset_store.get_dataset_by_id(dataset_id)
+    if not dataset_record:
+        raise SimulationNotFoundError("Dataset not found")
+    if dataset_record.get("type") != "simulation":
+        raise SimulationProcessingError("Dataset is not a simulation dataset")
+
+    simulation = simulation_store.get_simulation_by_dataset_id(dataset_id)
     if not simulation:
-        raise SimulationNotFoundError("Simulation not found")
+        raise SimulationNotFoundError("Simulation dataset not found")
 
-    file_id = simulation.get("file_id")
-    if not file_id:
-        raise SimulationProcessingError("Simulation is missing file linkage")
-
-    file_metadata = file_store.get_file_by_id(uuid.UUID(file_id))
-    if not file_metadata:
-        raise SimulationNotFoundError("Source file metadata not found")
-
-    current_status = simulation.get("status")
+    current_status = dataset_record.get("status")
     if current_status == "processing":
         raise SimulationConflictError("Simulation is already processing")
-    # if current_status == "processed" and not allow_reprocess:
-    #     raise SimulationConflictError("Simulation is already processed")
+    if current_status == "processed" and not allow_reprocess:
+        raise SimulationConflictError("Simulation is already processed")
 
-    simulation_store.update_simulation_status(
-        simulation_id,
+    dataset_store.update_dataset_status(
+        dataset_id,
         "processing",
-        extra_patch={"processing_error": None},
+        metadata_patch={"processing_error": None},
     )
 
     try:
-        data = minio_store.get_object_bytes(file_metadata["object_key"])
+        data = minio_store.get_object_bytes(dataset_record["object_key"])
         summary = _parse_eso_bytes(data)
-        presentation_output = _build_presentation_output(summary)
 
-        updated = simulation_store.update_simulation_status(
-            simulation_id,
+        simulation_dataset_id = uuid.UUID(simulation["id"])
+        simulation_timeseries_store.delete_by_simulation_dataset_id(simulation_dataset_id)
+        simulation_variable_store.delete_by_simulation_dataset_id(simulation_dataset_id)
+
+        variable_rows = _build_variable_rows(summary)
+        variable_id_map = simulation_variable_store.replace_variables(
+            simulation_dataset_id,
+            variable_rows,
+        )
+
+        timeseries_rows, skipped_values_count = _build_timeseries_rows(summary, variable_id_map)
+        simulation_timeseries_store.replace_timeseries(
+            simulation_dataset_id,
+            timeseries_rows,
+        )
+
+        updated = dataset_store.update_dataset_status(
+            dataset_id,
             "processed",
-            extra_patch={
+            metadata_patch={
                 "processing_error": None,
-                "processing_summary": presentation_output,
+                "variable_count": len(variable_rows),
+                "timestep_count": len(summary.get("timesteps", [])),
+                "skipped_values": skipped_values_count,
+                "processed_at": datetime.now(timezone.utc).isoformat(),
             },
         )
         if not updated:
-            raise SimulationNotFoundError("Simulation not found during status update")
-        return updated
+            raise SimulationNotFoundError("Dataset not found during status update")
+        return {
+            "id": simulation["id"],
+            "status": updated["status"],
+        }
     except Exception as exc:
-        simulation_store.update_simulation_status(
-            simulation_id,
+        dataset_store.update_dataset_status(
+            dataset_id,
             "failed",
-            extra_patch={"processing_error": str(exc)},
+            metadata_patch={"processing_error": str(exc)},
         )
         raise SimulationProcessingError(str(exc)) from exc

@@ -5,7 +5,7 @@ from pydantic import BaseModel
 
 class BimFileResponse(BaseModel):
     id: str
-    file_id: str
+    dataset_id: str
     filename: str
     format: str
     schema: str | None

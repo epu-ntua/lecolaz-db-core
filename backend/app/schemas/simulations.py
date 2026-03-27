@@ -5,11 +5,10 @@ from pydantic import BaseModel
 
 class SimulationFileResponse(BaseModel):
     id: str
-    file_id: str
+    dataset_id: str
     filename: str
     format: str
-    schema: str | None
-    status: str
+    status: str | None
     created_at: str | None
     extra: dict[str, Any] | None
 

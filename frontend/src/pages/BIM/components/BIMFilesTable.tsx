@@ -40,7 +40,7 @@ export function BIMFilesTable({ refreshKey }: { refreshKey: number }) {
         <TableHeader className="border-b border-border bg-muted">
           <TableRow className="text-left hover:bg-transparent">
             <TableHead className="px-3 py-2 font-medium text-muted-foreground">BIM ID</TableHead>
-            <TableHead className="px-3 py-2 font-medium text-muted-foreground">File ID</TableHead>
+            <TableHead className="px-3 py-2 font-medium text-muted-foreground">Dataset ID</TableHead>
             <TableHead className="px-3 py-2 font-medium text-muted-foreground">Filename</TableHead>
             <TableHead className="px-3 py-2 font-medium text-muted-foreground">Format</TableHead>
             <TableHead className="px-3 py-2 font-medium text-muted-foreground">Schema</TableHead>
@@ -56,7 +56,7 @@ export function BIMFilesTable({ refreshKey }: { refreshKey: number }) {
               </TableCell>
 
               <TableCell className="px-3 py-2 font-mono text-xs text-muted-foreground">
-                {f.file_id}
+                {f.dataset_id}
               </TableCell>
 
               <TableCell className="px-3 py-2">

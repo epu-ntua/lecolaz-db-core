@@ -5,15 +5,15 @@ from sqlalchemy.dialects.postgresql import UUID, JSONB
 from app.db.base import Base
 
 
-class BimModel(Base):
-    __tablename__ = "bim_models"
+class BimDataset(Base):
+    __tablename__ = "bim_datasets"
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
 
-    # Link to the generic file row
-    file_id = Column(
+    # Link to the generic dataset row
+    dataset_id = Column(
         UUID(as_uuid=True),
-        ForeignKey("file_metadata.id", ondelete="CASCADE"),
+        ForeignKey("datasets.id", ondelete="CASCADE"),
         nullable=False,
         index=True,
         unique=True,  # 1 BIM record per file (remove if multiple needed)

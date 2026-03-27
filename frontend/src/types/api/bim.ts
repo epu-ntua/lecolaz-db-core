@@ -1,6 +1,6 @@
 export type BimFileDto = {
   id: string;
-  file_id: string;
+  dataset_id: string;
   filename: string;
   format: string;
   schema: string | null;

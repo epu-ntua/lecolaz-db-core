@@ -5,7 +5,7 @@ export async function uploadBimFile(file: File) {
   const form = new FormData();
   form.append('file', file);
 
-  const res = await fetch(`${API_BASE}/bim/upload`, {
+  const res = await fetch(`${API_BASE}/ingestion/bim/upload`, {
     method: 'POST',
     body: form,
   });

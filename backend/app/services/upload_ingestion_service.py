@@ -1,0 +1,125 @@
+# app/services/upload_ingestion_service.py
+
+import uuid
+from typing import Any, Dict, Optional
+
+from app.storage.object.minio import MinioStore
+from app.storage.postgres.dataset_store import DatasetStore
+from app.storage.postgres.simulation_store import SimulationStore
+
+
+BIM_EXTENSIONS = (".ifc", ".ifczip", ".ifcxml")
+ESO_EXTENSIONS = (".eso",)
+
+
+def classify_dataset(filename: str) -> tuple[str, str | None]:
+    name = (filename or "").lower()
+    if name.endswith(BIM_EXTENSIONS):
+        return "bim", name.split(".")[-1]
+    if name.endswith(ESO_EXTENSIONS):
+        return "simulation", "energyplus_eso"
+    return "generic", name.split(".")[-1] if "." in name else None
+
+
+def resolve_dataset_classification(
+    filename: str,
+    dataset_type: str | None = None,
+) -> tuple[str, str | None]:
+    inferred_type, inferred_subtype = classify_dataset(filename)
+    if dataset_type is None:
+        return inferred_type, inferred_subtype
+    if dataset_type == inferred_type:
+        return inferred_type, inferred_subtype
+    raise ValueError(
+        f"Provided type '{dataset_type}' does not match file classification '{inferred_type}'"
+    )
+
+
+def is_bim_filename(filename: str) -> bool:
+    name = (filename or "").lower()
+    return name.endswith(BIM_EXTENSIONS)
+
+
+def is_energyplus_filename(filename: str) -> bool:
+    name = (filename or "").lower()
+    return name.endswith(ESO_EXTENSIONS)
+
+
+def validate_upload_payload(
+    *,
+    filename: str | None,
+    data: bytes,
+    dataset_type: str | None,
+) -> str:
+    normalized_filename = (filename or "").strip()
+    if not normalized_filename:
+        raise ValueError("Filename is required")
+    if not data:
+        raise ValueError("Uploaded file is empty")
+    if "." not in normalized_filename.strip("."):
+        raise ValueError("File extension is required")
+    if dataset_type not in (None, "bim", "simulation"):
+        raise ValueError("Unsupported dataset type")
+    return normalized_filename
+
+
+def ingest_upload(
+    *,
+    filename: str,
+    content_type: Optional[str],
+    data: bytes,
+    type: str | None = None,
+    metadata: Optional[dict] = None,
+    object_store: Optional[MinioStore] = None,
+    dataset_store: Optional[DatasetStore] = None,
+) -> Dict[str, Any]:
+    """
+    Persists raw uploaded data and registers it as a dataset.
+    """
+    normalized_filename = validate_upload_payload(
+        filename=filename,
+        data=data,
+        dataset_type=type,
+    )
+    object_store = object_store or MinioStore()
+    dataset_store = dataset_store or DatasetStore()
+    simulation_store = SimulationStore()
+
+    dataset_id = uuid.uuid4()
+    object_key = f"uploads/{dataset_id}/{normalized_filename}"
+    dataset_type, subtype = resolve_dataset_classification(filename, type)
+
+    object_store.put_object(
+        object_key=object_key,
+        data=data,
+        content_type=content_type,
+    )
+
+    try:
+        dataset_store.create_dataset(
+            dataset_id=dataset_id,
+            dataset_type=dataset_type,
+            subtype=subtype,
+            filename=normalized_filename,
+            object_key=object_key,
+            content_type=content_type,
+            size_bytes=len(data),
+            status="raw",
+            source="upload",
+            metadata=metadata,
+        )
+        if dataset_type == "simulation":
+            simulation_store.create_simulation_record(
+                simulation_id=uuid.uuid4(),
+                dataset_id=dataset_id,
+                filename=normalized_filename,
+                format=subtype or "eso",
+                extra=None,
+            )
+    except Exception:
+        object_store.delete_object(object_key)
+        raise
+
+    return {
+        "dataset_id": str(dataset_id),
+    }

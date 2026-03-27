@@ -5,7 +5,7 @@ export async function uploadSimulationFile(file: File) {
   const form = new FormData();
   form.append('file', file);
 
-  const res = await fetch(`${API_BASE}/simulations/upload`, {
+  const res = await fetch(`${API_BASE}/ingestion/simulations/upload`, {
     method: 'POST',
     body: form,
   });

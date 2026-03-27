@@ -14,8 +14,8 @@ Each table = one Python class.
 Example:
 
 ```py
-class FileMetadata(Base):
-    __tablename__ = "file_metadata"
+class Dataset(Base):
+    __tablename__ = "datasets"
 ```
 
 ## Creating A New Table

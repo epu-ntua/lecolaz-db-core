@@ -37,19 +37,32 @@ export function FilesTable({ refreshKey }: { refreshKey: number }) {
       <Table className="text-sm text-foreground">
         <TableHeader className="border-b border-border bg-muted">
           <TableRow className="text-left hover:bg-transparent">
+            <TableHead className="px-3 py-2 font-medium text-muted-foreground">Dataset ID</TableHead>
+            <TableHead className="px-3 py-2 font-medium text-muted-foreground">Type</TableHead>
+            <TableHead className="px-3 py-2 font-medium text-muted-foreground">Subtype</TableHead>
             <TableHead className="px-3 py-2 font-medium text-muted-foreground">Filename</TableHead>
+            <TableHead className="px-3 py-2 font-medium text-muted-foreground">Status</TableHead>
             <TableHead className="px-3 py-2 font-medium text-muted-foreground">Content type</TableHead>
             <TableHead className="px-3 py-2 font-medium text-muted-foreground">Size</TableHead>
             <TableHead className="px-3 py-2 font-medium text-muted-foreground">Uploaded</TableHead>
             <TableHead className="px-3 py-2 font-medium text-muted-foreground">Object key</TableHead>
-            <TableHead className="px-3 py-2 font-medium text-muted-foreground">Extra</TableHead>
+            <TableHead className="px-3 py-2 font-medium text-muted-foreground">Metadata</TableHead>
           </TableRow>
         </TableHeader>
 
         <TableBody>
           {files.map((f) => (
             <TableRow key={f.id} className="align-top">
+              <TableCell className="px-3 py-2 font-mono text-xs text-muted-foreground">{f.id}</TableCell>
+              <TableCell className="px-3 py-2 text-muted-foreground capitalize">{f.type}</TableCell>
+              <TableCell className="px-3 py-2 text-muted-foreground">{f.subtype ?? '--'}</TableCell>
               <TableCell className="px-3 py-2">{f.filename}</TableCell>
+
+              <TableCell className="px-3 py-2">
+                <span className="inline-flex rounded-full bg-muted px-2 py-1 text-xs font-medium capitalize text-foreground">
+                  {f.status}
+                </span>
+              </TableCell>
 
               <TableCell className="px-3 py-2 text-muted-foreground">{f.content_type ?? '--'}</TableCell>
 
@@ -58,7 +71,7 @@ export function FilesTable({ refreshKey }: { refreshKey: number }) {
               </TableCell>
 
               <TableCell className="px-3 py-2 text-muted-foreground">
-                {new Date(f.created_at).toLocaleString()}
+                {f.created_at ? new Date(f.created_at).toLocaleString() : '--'}
               </TableCell>
 
               <TableCell className="px-3 py-2 font-mono text-xs text-muted-foreground">
@@ -66,9 +79,9 @@ export function FilesTable({ refreshKey }: { refreshKey: number }) {
               </TableCell>
 
               <TableCell className="px-3 py-2">
-                {f.extra ? (
+                {f.metadata ? (
                   <pre className="text-xs bg-muted rounded p-2 max-w-xs overflow-x-auto">
-                    {JSON.stringify(f.extra, null, 2)}
+                    {JSON.stringify(f.metadata, null, 2)}
                   </pre>
                 ) : (
                   <span className="text-muted-foreground/60">--</span>
@@ -79,7 +92,7 @@ export function FilesTable({ refreshKey }: { refreshKey: number }) {
 
           {files.length === 0 && (
             <TableRow>
-              <TableCell colSpan={6} className="px-4 py-6 text-center text-muted-foreground">
+              <TableCell colSpan={10} className="px-4 py-6 text-center text-muted-foreground">
                 No metadata entries
               </TableCell>
             </TableRow>
