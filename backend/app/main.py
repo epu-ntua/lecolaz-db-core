@@ -1,5 +1,5 @@
 from fastapi import FastAPI
-from app.api import health,files,bim
+from app.api import health,files,bim,simulations
 from fastapi.middleware.cors import CORSMiddleware
 
 app = FastAPI(title="LeColaz Platform")
@@ -17,3 +17,4 @@ app.add_middleware(
 app.include_router(health.router)
 app.include_router(files.router)
 app.include_router(bim.router)
+app.include_router(simulations.router)

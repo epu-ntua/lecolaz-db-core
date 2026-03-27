@@ -9,12 +9,15 @@ from app.storage.postgres.bim_store import BimStore
 
 
 BIM_EXTENSIONS = (".ifc", ".ifczip", ".ifcxml")
-
+ESO_EXTENSIONS = (".eso",)
 
 def is_bim_filename(filename: str) -> bool:
     name = (filename or "").lower()
     return name.endswith(BIM_EXTENSIONS)
 
+def is_energyplus_filename(filename: str) -> bool:
+    name = (filename or "").lower()
+    return name.endswith(ESO_EXTENSIONS)
 
 def ingest_upload(
     *,
@@ -25,6 +28,7 @@ def ingest_upload(
     object_store: Optional[MinioStore] = None,
     file_store: Optional[FileStore] = None,
     bim_strict: bool = False,
+    simulation_strict: bool = False,
 ) -> Dict[str, Any]:
     """
     Orchestrates upload + metadata persistence.
@@ -58,7 +62,7 @@ def ingest_upload(
         object_store.delete_object(object_key)
         raise
 
-    # 3) Optional BIM specialization (placeholder)
+    # 3) Optional BIM specialization 
     if is_bim_filename(filename):
         try:
             bim_store = BimStore()
@@ -76,6 +80,28 @@ def ingest_upload(
                 raise
             else:
                 print(f"[WARN] BIM record insert failed for file_id={file_id}")
+
+    # 4) Optional Simulation specialization
+    if is_energyplus_filename(filename):
+        try:
+            from app.storage.postgres.simulation_store import SimulationStore
+            simulation_store = SimulationStore()
+
+            simulation_store.create_simulation_record(
+            simulation_id=uuid.uuid4(),
+            file_id=file_id,
+            filename=filename,
+            format="eso",
+            extra=None,
+            )
+
+        except Exception:
+            if simulation_strict:
+                object_store.delete_object(object_key)
+                raise
+            else:
+                print(f"[WARN] Simulation record insert failed for file_id={file_id}")
+
 
     return {
         "id": str(file_id),

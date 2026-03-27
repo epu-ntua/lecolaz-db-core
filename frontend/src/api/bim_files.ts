@@ -1,6 +1,19 @@
 import { API_BASE } from './client';
 import type { BimFileDto, BimMetadataDto } from '@/types/api/bim';
 
+export async function uploadBimFile(file: File) {
+  const form = new FormData();
+  form.append('file', file);
+
+  const res = await fetch(`${API_BASE}/bim/upload`, {
+    method: 'POST',
+    body: form,
+  });
+
+  if (!res.ok) throw new Error('Upload BIM file failed');
+  return res.json();
+}
+
 export async function listBimFiles(): Promise<BimFileDto[]> {
   const res = await fetch(`${API_BASE}/bim`);
   if (!res.ok) throw new Error('List BIM files failed');

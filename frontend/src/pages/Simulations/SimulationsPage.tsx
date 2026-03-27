@@ -1,31 +1,31 @@
 import { useState } from "react";
-import { uploadBimFile } from "@/api/bim_files";
-import { BIMFilesTable } from "@/pages/BIM/components/BIMFilesTable";
+import { uploadSimulationFile } from "@/api/simulation_files";
 import { FileUpload } from "@/pages/DataDiscovery/components/FileUpload";
+import { SimulationsFilesTable } from "@/pages/Simulations/components/SimulationsFilesTable";
 
-export default function BIMPage() {
+export default function SimulationsPage() {
   const [refreshKey, setRefreshKey] = useState(0);
 
   return (
     <div className="space-y-6">
       <header className="border-b border-border pb-4">
-        <h1 className="text-2xl font-bold tracking-tight">BIM files</h1>
+        <h1 className="text-2xl font-bold tracking-tight">Simulation files</h1>
         <p className="text-sm text-muted-foreground">
-          BIM records linked to uploaded files.
+          Simulation records linked to uploaded files.
         </p>
       </header>
 
       <section className="bg-card p-4 rounded-lg border border-border shadow-sm">
         <FileUpload
           onUploaded={() => setRefreshKey((k) => k + 1)}
-          uploadAction={uploadBimFile}
-          accept=".ifc,.ifczip,.ifcxml"
-          errorMessage="BIM upload failed"
+          uploadAction={uploadSimulationFile}
+          accept=".eso"
+          errorMessage="Simulation upload failed"
         />
       </section>
 
       <section>
-        <BIMFilesTable refreshKey={refreshKey} />
+        <SimulationsFilesTable refreshKey={refreshKey} />
       </section>
     </div>
   );

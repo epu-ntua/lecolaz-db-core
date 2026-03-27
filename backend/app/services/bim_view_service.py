@@ -28,10 +28,7 @@ def get_bim_view_file(bim_id: str):
         return None
 
     # Get object from MinIO
-    response = minio_store.client.get_object(
-        minio_store.bucket,
-        file["object_key"]
-    )
+    response = minio_store.get_object_stream(file["object_key"])
 
     # Define streaming generator
     def file_iterator():

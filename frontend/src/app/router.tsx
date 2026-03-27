@@ -9,6 +9,7 @@ import DataDiscoveryPage from "@/pages/DataDiscovery/DataDiscoveryPage";
 import GovernancePage from "@/pages/GovernanceReporting/GovernancePage";
 import NotFoundPage from "@/pages/NotFound/NotFoundPage";
 import QueryingAnalyticsPage from "@/pages/QueryingAnalytics/QueryingAnalyticsPage";
+import SimulationsPage from "@/pages/Simulations/SimulationsPage";
 
 export const router = createBrowserRouter([
   {
@@ -24,6 +25,7 @@ export const router = createBrowserRouter([
       { path: "data-discovery", element: <DataDiscoveryPage /> },
       { path: "governance-reporting", element: <GovernancePage /> },
       { path: "querying-analytics", element: <QueryingAnalyticsPage /> },
+      { path: "simulations", element: <SimulationsPage /> },
       { path: "*", element: <NotFoundPage /> },
     ],
   },

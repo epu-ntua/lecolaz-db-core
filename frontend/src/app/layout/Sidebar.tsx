@@ -11,6 +11,7 @@ import {
   Settings,
   ChevronLeft,
   ChevronRight,
+  Activity,
 } from "lucide-react";
 
 const modules = [
@@ -18,6 +19,7 @@ const modules = [
   { title: "Data Discovery", url: "/data-discovery", icon: Database },
   { title: "Querying & Analytics", url: "/querying-analytics", icon: Search },
   { title: "BIM & Assets", url: "/bim", icon: Box },
+  { title: "Simulations", url: "/simulations", icon: Activity },
   { title: "Alerts & Events", url: "/alerts", icon: Bell },
   { title: "Governance & Reporting", url: "/governance-reporting", icon: FileText },
   { title: "Admin Panel", url: "/admin", icon: Settings },

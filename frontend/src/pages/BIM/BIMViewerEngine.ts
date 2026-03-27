@@ -106,7 +106,6 @@ export class BIMViewerEngine {
     // Revoke worker blob URL if we created it
     if (this.workerUrl) URL.revokeObjectURL(this.workerUrl);
 
-    this.renderer?.dispose?.();
     this.components.dispose();
   }
 }

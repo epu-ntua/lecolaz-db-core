@@ -10,3 +10,4 @@ No logic should live here.
 
 from .file_metadata import FileMetadata  # noqa: F401
 from .bim_metadata import BimModel  # noqa: F401
+from .simulation_metadata import SimulationModel  # noqa: F401
