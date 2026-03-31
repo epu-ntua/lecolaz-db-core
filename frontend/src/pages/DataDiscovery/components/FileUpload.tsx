@@ -2,10 +2,11 @@ import { useState } from 'react';
 import { uploadFile } from '@/api/files';
 import { Button } from '@/components/ui/button';
 import { Loader2 } from 'lucide-react';
+import type { FileUploadResult } from '@/types/api/files';
 
 type FileUploadProps = {
-  onUploaded: () => void;
-  uploadAction?: (file: File) => Promise<unknown>;
+  onUploaded: (result: FileUploadResult) => void;
+  uploadAction?: (file: File) => Promise<FileUploadResult>;
   accept?: string;
   buttonLabel?: string;
   uploadingLabel?: string;
@@ -30,10 +31,9 @@ export function FileUpload({
     try {
       setLoading(true);
       setError(null);
-      await uploadAction(file);
-      console.log('UPLOAD DONE');
+      const result = await uploadAction(file);
       setFile(null);
-      onUploaded();
+      onUploaded(result);
     } catch (e) {
       setError(errorMessage);
     } finally {

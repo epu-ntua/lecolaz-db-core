@@ -5,6 +5,8 @@ from pydantic import BaseModel
 
 class FileUploadResponse(BaseModel):
     dataset_id: str
+    type: str
+    status: str
 
 
 class DatasetResponse(BaseModel):

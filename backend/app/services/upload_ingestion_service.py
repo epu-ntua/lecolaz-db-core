@@ -3,13 +3,22 @@
 import uuid
 from typing import Any, Dict, Optional
 
+from fastapi import BackgroundTasks
+
+from app.services.bim_processing_service import process_bim
+from app.services.simulation_processing_service import process_simulation
 from app.storage.object.minio import MinioStore
+from app.storage.postgres.bim_store import BimStore
 from app.storage.postgres.dataset_store import DatasetStore
 from app.storage.postgres.simulation_store import SimulationStore
 
 
 BIM_EXTENSIONS = (".ifc", ".ifczip", ".ifcxml")
 ESO_EXTENSIONS = (".eso",)
+
+
+class UploadIngestionError(Exception):
+    pass
 
 
 def classify_dataset(filename: str) -> tuple[str, str | None]:
@@ -70,6 +79,7 @@ def ingest_upload(
     data: bytes,
     type: str | None = None,
     metadata: Optional[dict] = None,
+    background_tasks: Optional[BackgroundTasks] = None,
     object_store: Optional[MinioStore] = None,
     dataset_store: Optional[DatasetStore] = None,
 ) -> Dict[str, Any]:
@@ -83,17 +93,21 @@ def ingest_upload(
     )
     object_store = object_store or MinioStore()
     dataset_store = dataset_store or DatasetStore()
+    bim_store = BimStore()
     simulation_store = SimulationStore()
 
     dataset_id = uuid.uuid4()
     object_key = f"uploads/{dataset_id}/{normalized_filename}"
     dataset_type, subtype = resolve_dataset_classification(filename, type)
 
-    object_store.put_object(
-        object_key=object_key,
-        data=data,
-        content_type=content_type,
-    )
+    try:
+        object_store.put_object(
+            object_key=object_key,
+            data=data,
+            content_type=content_type,
+        )
+    except Exception as exc:
+        raise UploadIngestionError("Failed to store uploaded file") from exc
 
     try:
         dataset_store.create_dataset(
@@ -108,6 +122,15 @@ def ingest_upload(
             source="upload",
             metadata=metadata,
         )
+        if dataset_type == "bim":
+            bim_store.create_bim_record(
+                bim_id=uuid.uuid4(),
+                dataset_id=dataset_id,
+                filename=normalized_filename,
+                format=subtype or "ifc",
+                schema=None,
+                extra=None,
+            )
         if dataset_type == "simulation":
             simulation_store.create_simulation_record(
                 simulation_id=uuid.uuid4(),
@@ -116,10 +139,26 @@ def ingest_upload(
                 format=subtype or "eso",
                 extra=None,
             )
-    except Exception:
-        object_store.delete_object(object_key)
-        raise
+    except Exception as exc:
+        try:
+            object_store.delete_object(object_key)
+        except Exception:
+            pass
+        raise UploadIngestionError("Failed to register uploaded dataset") from exc
+
+    if dataset_type == "bim":
+        if background_tasks is not None:
+            background_tasks.add_task(process_bim, dataset_id)
+        else:
+            process_bim(dataset_id)
+    elif dataset_type == "simulation":
+        if background_tasks is not None:
+            background_tasks.add_task(process_simulation, dataset_id)
+        else:
+            process_simulation(dataset_id)
 
     return {
         "dataset_id": str(dataset_id),
+        "type": dataset_type,
+        "status": "raw",
     }

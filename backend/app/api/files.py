@@ -14,6 +14,15 @@ def list_files(limit: int = 100):
     dataset_store = DatasetStore()
     return dataset_store.list_datasets(limit=limit)
 
+
+@router.get("/{file_id}", response_model=DatasetResponse)
+def get_file(file_id: uuid.UUID):
+    dataset_store = DatasetStore()
+    dataset = dataset_store.get_dataset_by_id(file_id)
+    if not dataset:
+        raise HTTPException(status_code=404, detail="File not found")
+    return dataset
+
 @router.get("/{file_id}/download")
 def download_file(file_id: uuid.UUID):
     # implement with a service in future when we have reverse proxy + presigned URLs working

@@ -10,10 +10,24 @@ class SimulationFileResponse(BaseModel):
     format: str
     status: str | None
     created_at: str | None
-    extra: dict[str, Any] | None
+    metadata: dict[str, Any] | None
 
 
-class SimulationProcessResponse(BaseModel):
+class SimulationVariableResponse(BaseModel):
     id: str
-    status: str
-    message: str
+    simulation_dataset_id: str
+    variable_id: str
+    variable_name: str
+    unit: str | None
+    frequency: str | None
+    key: str | None
+    created_at: str | None
+
+
+class SimulationTimeseriesResponse(BaseModel):
+    id: str
+    simulation_dataset_id: str
+    variable_id: str
+    timestamp: str | None
+    value: float
+    created_at: str | None

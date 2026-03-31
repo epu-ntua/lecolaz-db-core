@@ -1,8 +1,9 @@
 import uuid
 import csv
 import io
+import logging
 import re
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, Iterable
 
 from app.storage.object.minio import MinioStore
@@ -12,6 +13,7 @@ from app.storage.postgres.simulation_timeseries_store import SimulationTimeserie
 from app.storage.postgres.simulation_variable_store import SimulationVariableStore
 
 ENVIRONMENT_RECORD_ID = 1
+TIMESTAMP_RECORD_IDS = {2, 3, 4, 5, 6}
 TIMESTAMP_KEYS = {
     "year": ["calendar year of simulation"],
     "month": ["month"],
@@ -31,6 +33,9 @@ class SimulationNotFoundError(SimulationProcessingError):
 
 class SimulationConflictError(SimulationProcessingError):
     pass
+
+
+logger = logging.getLogger("uvicorn.error")
 
 
 def _normalize_label(value: str) -> str:
@@ -61,15 +66,6 @@ def _to_number(value: str) -> int | float | str:
     return numeric
 
 
-def _is_timestamp_dictionary_row(fields: Iterable[str]) -> bool:
-    normalized = [_normalize_label(field) for field in fields]
-    has_month = any("month" in field for field in normalized)
-    has_day = any("day of month" in field or field == "day" for field in normalized)
-    has_hour = any("hour" in field for field in normalized)
-    has_year = any("calendar year of simulation" in field for field in normalized)
-    return (has_month and has_day) or has_hour or has_year
-
-
 def _resolve_timestamp_value(parsed: Dict[str, Any], key: str) -> Any:
     for label in TIMESTAMP_KEYS[key]:
         normalized = _normalize_label(label)
@@ -85,13 +81,25 @@ def _build_timestamp_value(parsed: Dict[str, Any]) -> str | None:
     hour = _resolve_timestamp_value(parsed, "hour")
     minute = _resolve_timestamp_value(parsed, "minute")
 
-    if all(isinstance(value, int) for value in (year, month, day, hour)):
+    # EnergyPlus ESO timestamp records frequently omit the year and may encode
+    # midnight as hour 24. Normalize those cases so timeseries rows are not
+    # dropped just because they are not ISO-ready on first parse.
+    if isinstance(month, int) and isinstance(day, int) and isinstance(hour, int):
+        normalized_year = year if isinstance(year, int) else 2001
         minute_value = minute if isinstance(minute, int) else 0
-        return datetime(year, month, day, hour, minute_value).isoformat()
+
+        try:
+            base = datetime(normalized_year, month, day, 0, 0)
+        except ValueError:
+            return None
+
+        normalized = base + timedelta(hours=hour, minutes=minute_value)
+        return normalized.isoformat()
 
     date_parts: list[str] = []
-    if isinstance(year, int):
-        date_parts.append(f"{year:04d}")
+    normalized_year = year if isinstance(year, int) else 2001
+    if isinstance(month, int) and isinstance(day, int):
+        date_parts.append(f"{normalized_year:04d}")
     if isinstance(month, int):
         date_parts.append(f"{month:02d}")
     if isinstance(day, int):
@@ -100,8 +108,16 @@ def _build_timestamp_value(parsed: Dict[str, Any]) -> str | None:
     timestamp = "-".join(date_parts) if date_parts else None
     if isinstance(hour, int):
         minute_value = minute if isinstance(minute, int) else 0
+        if timestamp:
+            try:
+                base = datetime.fromisoformat(timestamp)
+            except ValueError:
+                return None
+            normalized = base + timedelta(hours=hour, minutes=minute_value)
+            return normalized.isoformat()
+
         time_part = f"{hour:02d}:{minute_value:02d}"
-        return f"{timestamp} {time_part}" if timestamp else time_part
+        return time_part
 
     return timestamp
 
@@ -202,7 +218,7 @@ def _parse_eso_bytes(data: bytes) -> Dict[str, Any]:
             dictionary_info["environment_value_count"] = value_count
             continue
 
-        if _is_timestamp_dictionary_row(field_labels):
+        if record_id in TIMESTAMP_RECORD_IDS:
             timestamp_record_definitions[record_id] = field_labels
             continue
 
@@ -211,10 +227,11 @@ def _parse_eso_bytes(data: bytes) -> Dict[str, Any]:
     if not variables:
         raise ValueError("No simulation variables found in ESO dictionary")
 
-    timesteps: list[Dict[str, Any]] = []
-    values: Dict[str, list[Any]] = {}
-    used_variable_ids: set[str] = set()
-    current_timestep_index = -1
+    events: list[Dict[str, Any]] = []
+    event_variable_ids: set[str] = set()
+    timestep_values_seen: set[str] = set()
+    skipped_values_count = 0
+    current_timestamp: datetime | None = None
 
     for row in data_rows:
         if not row or not row[0].isdigit():
@@ -222,55 +239,56 @@ def _parse_eso_bytes(data: bytes) -> Dict[str, Any]:
 
         record_id = int(row[0])
         if record_id in timestamp_record_definitions:
-            timesteps.append(_build_timestamp(row[1:], timestamp_record_definitions[record_id]))
-            current_timestep_index += 1
+            timestamp_info = _build_timestamp(row[1:], timestamp_record_definitions[record_id])
+            current_timestamp = _parse_iso_timestamp(timestamp_info.get("timestamp"))
             continue
 
         variable_id = str(record_id)
         if variable_id not in variables:
             continue
-        if current_timestep_index < 0:
-            continue
 
-        variable_values = values.setdefault(variable_id, [])
-        if len(variable_values) <= current_timestep_index:
-            variable_values.extend([None] * (current_timestep_index + 1 - len(variable_values)))
-        variable_values[current_timestep_index] = _parse_variable_value(
+        value = _parse_variable_value(
             row[1:],
             variables[variable_id].get("value_count"),
         )
-        used_variable_ids.add(variable_id)
+        if current_timestamp is None:
+            skipped_values_count += 1
+            continue
 
-    timestep_count = len(timesteps)
-    valid_variable_ids = used_variable_ids - {str(record_id) for record_id in timestamp_record_definitions}
+        if not isinstance(value, (int, float)):
+            skipped_values_count += 1
+            continue
+
+        events.append(
+            {
+                "eso_variable_id": variable_id,
+                "timestamp": current_timestamp,
+                "value": float(value),
+            }
+        )
+        event_variable_ids.add(variable_id)
+        timestep_values_seen.add(current_timestamp.isoformat())
 
     filtered_variables = {
         variable_id: variable_info
         for variable_id, variable_info in variables.items()
-        if variable_id in valid_variable_ids
+        if variable_id in event_variable_ids
     }
 
-    filtered_values: Dict[str, list[Any]] = {}
-    for variable_id in filtered_variables:
-        variable_values = values.setdefault(variable_id, [])
-        if len(variable_values) < timestep_count:
-            variable_values.extend([None] * (timestep_count - len(variable_values)))
-        filtered_values[variable_id] = variable_values
-
     if not filtered_variables:
-        raise ValueError("No simulation variables produced timestep values")
+        raise ValueError("No simulation values produced valid timestamped events")
 
     return {
         "parser": "structured_eso_text",
         "encoding": encoding,
         "line_count": len(rows),
         "variable_count": len(filtered_variables),
-        "timestep_count": len(timesteps),
+        "timestep_count": len(timestep_values_seen),
+        "skipped_values": skipped_values_count,
         "processed_at": datetime.now(timezone.utc).isoformat(),
         "dictionary_info": dictionary_info,
         "variables": filtered_variables,
-        "timesteps": timesteps,
-        "values": filtered_values,
+        "events": events,
     }
 
 
@@ -295,36 +313,25 @@ def _build_timeseries_rows(
     summary: Dict[str, Any],
     variable_id_map: Dict[str, str],
 ) -> tuple[list[Dict[str, Any]], int]:
-    timesteps = summary.get("timesteps", [])
-    values_map = summary.get("values", {})
+    events = summary.get("events", [])
     rows: list[Dict[str, Any]] = []
     skipped_values_count = 0
 
-    for eso_variable_id, db_variable_id in variable_id_map.items():
-        variable_values = values_map.get(eso_variable_id, [])
-        for timestep_index, timestep in enumerate(timesteps):
-            if timestep_index >= len(variable_values):
-                continue
+    for event in events:
+        db_variable_id = variable_id_map.get(event["eso_variable_id"])
+        if not db_variable_id:
+            skipped_values_count += 1
+            continue
 
-            timestamp = _parse_iso_timestamp(timestep.get("timestamp"))
-            if timestamp is None:
-                skipped_values_count += 1
-                continue
+        rows.append(
+            {
+                "variable_id": db_variable_id,
+                "timestamp": event["timestamp"],
+                "value": event["value"],
+            }
+        )
 
-            value = variable_values[timestep_index]
-            if not isinstance(value, (int, float)):
-                skipped_values_count += 1
-                continue
-
-            rows.append(
-                {
-                    "variable_id": db_variable_id,
-                    "timestamp": timestamp,
-                    "value": float(value),
-                }
-            )
-
-    return rows, skipped_values_count
+    return rows, skipped_values_count + int(summary.get("skipped_values", 0))
 
 
 def process_simulation(dataset_id: uuid.UUID, *, allow_reprocess: bool = False) -> Dict[str, Any]:
@@ -340,9 +347,22 @@ def process_simulation(dataset_id: uuid.UUID, *, allow_reprocess: bool = False) 
     if dataset_record.get("type") != "simulation":
         raise SimulationProcessingError("Dataset is not a simulation dataset")
 
+    logger.info(
+        "simulation_processing_started dataset_id=%s allow_reprocess=%s current_status=%s",
+        dataset_id,
+        allow_reprocess,
+        dataset_record.get("status"),
+    )
+
     simulation = simulation_store.get_simulation_by_dataset_id(dataset_id)
     if not simulation:
         raise SimulationNotFoundError("Simulation dataset not found")
+
+    logger.info(
+        "simulation_processing_validated dataset_id=%s simulation_dataset_id=%s",
+        dataset_id,
+        simulation["id"],
+    )
 
     current_status = dataset_record.get("status")
     if current_status == "processing":
@@ -357,23 +377,67 @@ def process_simulation(dataset_id: uuid.UUID, *, allow_reprocess: bool = False) 
     )
 
     try:
+        logger.info(
+            "simulation_processing_fetch_object dataset_id=%s object_key=%s",
+            dataset_id,
+            dataset_record["object_key"],
+        )
         data = minio_store.get_object_bytes(dataset_record["object_key"])
+        logger.info(
+            "simulation_processing_object_loaded dataset_id=%s bytes=%s",
+            dataset_id,
+            len(data),
+        )
         summary = _parse_eso_bytes(data)
+        logger.info(
+            "simulation_processing_parsed dataset_id=%s variable_count=%s timestep_count=%s event_count=%s skipped_values=%s",
+            dataset_id,
+            summary.get("variable_count", 0),
+            summary.get("timestep_count", 0),
+            len(summary.get("events", [])),
+            summary.get("skipped_values", 0),
+        )
 
         simulation_dataset_id = uuid.UUID(simulation["id"])
+        logger.info(
+            "simulation_processing_reset_existing_rows dataset_id=%s simulation_dataset_id=%s",
+            dataset_id,
+            simulation_dataset_id,
+        )
         simulation_timeseries_store.delete_by_simulation_dataset_id(simulation_dataset_id)
         simulation_variable_store.delete_by_simulation_dataset_id(simulation_dataset_id)
 
         variable_rows = _build_variable_rows(summary)
+        logger.info(
+            "simulation_processing_insert_variables dataset_id=%s variable_rows=%s",
+            dataset_id,
+            len(variable_rows),
+        )
         variable_id_map = simulation_variable_store.replace_variables(
             simulation_dataset_id,
             variable_rows,
         )
+        logger.info(
+            "simulation_processing_variables_inserted dataset_id=%s inserted_variables=%s",
+            dataset_id,
+            len(variable_id_map),
+        )
 
         timeseries_rows, skipped_values_count = _build_timeseries_rows(summary, variable_id_map)
+        logger.info(
+            "simulation_processing_insert_timeseries dataset_id=%s timeseries_rows=%s skipped_values=%s",
+            dataset_id,
+            len(timeseries_rows),
+            skipped_values_count,
+        )
         simulation_timeseries_store.replace_timeseries(
             simulation_dataset_id,
             timeseries_rows,
+        )
+        logger.info(
+            "simulation_processing_timeseries_inserted dataset_id=%s inserted_timeseries=%s",
+            dataset_id,
+            len(timeseries_rows),
         )
 
         updated = dataset_store.update_dataset_status(
@@ -381,19 +445,39 @@ def process_simulation(dataset_id: uuid.UUID, *, allow_reprocess: bool = False) 
             "processed",
             metadata_patch={
                 "processing_error": None,
-                "variable_count": len(variable_rows),
-                "timestep_count": len(summary.get("timesteps", [])),
-                "skipped_values": skipped_values_count,
-                "processed_at": datetime.now(timezone.utc).isoformat(),
             },
         )
         if not updated:
             raise SimulationNotFoundError("Dataset not found during status update")
+
+        simulation_store.update_simulation_extra(
+            dataset_id,
+            {
+                "variable_count": len(variable_rows),
+                "timestep_count": int(summary.get("timestep_count", 0)),
+                "skipped_values": skipped_values_count,
+                "processed_at": datetime.now(timezone.utc).isoformat(),
+            },
+        )
+        logger.info(
+            "simulation_processing_completed dataset_id=%s status=%s variable_count=%s timestep_count=%s timeseries_rows=%s skipped_values=%s",
+            dataset_id,
+            updated["status"],
+            len(variable_rows),
+            int(summary.get("timestep_count", 0)),
+            len(timeseries_rows),
+            skipped_values_count,
+        )
         return {
             "id": simulation["id"],
             "status": updated["status"],
         }
     except Exception as exc:
+        logger.exception(
+            "simulation_processing_failed dataset_id=%s error=%s",
+            dataset_id,
+            exc,
+        )
         dataset_store.update_dataset_status(
             dataset_id,
             "failed",

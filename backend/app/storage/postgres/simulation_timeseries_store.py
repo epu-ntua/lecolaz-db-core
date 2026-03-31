@@ -20,21 +20,23 @@ class SimulationTimeseriesStore:
         rows: List[Dict[str, Any]],
     ) -> None:
         with self._session_factory() as session:
-            records: List[SimulationTimeseries] = []
+            records: List[Dict[str, Any]] = []
             for row in rows:
                 records.append(
-                    SimulationTimeseries(
-                        id=uuid.uuid4(),
-                        simulation_dataset_id=simulation_dataset_id,
-                        variable_id=uuid.UUID(row["variable_id"]),
-                        timestamp=row["timestamp"],
-                        value=row["value"],
-                    )
+                    {
+                        "id": uuid.uuid4(),
+                        "simulation_dataset_id": simulation_dataset_id,
+                        "variable_id": uuid.UUID(row["variable_id"]),
+                        "timestamp": row["timestamp"],
+                        "value": row["value"],
+                    }
                 )
 
             for start in range(0, len(records), self._BATCH_SIZE):
-                session.add_all(records[start:start + self._BATCH_SIZE])
-                session.flush()
+                session.bulk_insert_mappings(
+                    SimulationTimeseries,
+                    records[start:start + self._BATCH_SIZE],
+                )
             session.commit()
 
     def delete_by_simulation_dataset_id(self, simulation_dataset_id: uuid.UUID) -> None:
@@ -55,6 +57,23 @@ class SimulationTimeseriesStore:
             stmt = (
                 select(SimulationTimeseries)
                 .where(SimulationTimeseries.simulation_dataset_id == simulation_dataset_id)
+                .order_by(SimulationTimeseries.timestamp.asc())
+                .limit(limit)
+            )
+            rows = session.execute(stmt).scalars().all()
+            return [self._to_dict(row) for row in rows]
+
+    def list_by_simulation_dataset_and_variable_id(
+        self,
+        simulation_dataset_id: uuid.UUID,
+        variable_id: uuid.UUID,
+        limit: int = 500,
+    ) -> List[Dict[str, Any]]:
+        with self._session_factory() as session:
+            stmt = (
+                select(SimulationTimeseries)
+                .where(SimulationTimeseries.simulation_dataset_id == simulation_dataset_id)
+                .where(SimulationTimeseries.variable_id == variable_id)
                 .order_by(SimulationTimeseries.timestamp.asc())
                 .limit(limit)
             )

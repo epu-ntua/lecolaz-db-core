@@ -1,7 +1,12 @@
 import { API_BASE } from './client';
-import type { SimulationFileDto } from '@/types/api/simulations';
+import type { FileUploadResult } from '@/types/api/files';
+import type {
+  SimulationFileDto,
+  SimulationTimeseriesPointDto,
+  SimulationVariableDto,
+} from '@/types/api/simulations';
 
-export async function uploadSimulationFile(file: File) {
+export async function uploadSimulationFile(file: File): Promise<FileUploadResult> {
   const form = new FormData();
   form.append('file', file);
 
@@ -11,7 +16,7 @@ export async function uploadSimulationFile(file: File) {
   });
 
   if (!res.ok) throw new Error('Upload simulation file failed');
-  return res.json();
+  return res.json() as Promise<FileUploadResult>;
 }
 
 export async function listSimulationFiles(): Promise<SimulationFileDto[]> {
@@ -20,11 +25,30 @@ export async function listSimulationFiles(): Promise<SimulationFileDto[]> {
   return res.json() as Promise<SimulationFileDto[]>;
 }
 
-export async function processSimulationFile(simulationId: string) {
-  const res = await fetch(`${API_BASE}/simulations/${simulationId}/process`, {
-    method: 'POST',
-  });
+export async function getSimulationFileByDataset(datasetId: string): Promise<SimulationFileDto> {
+  const res = await fetch(`${API_BASE}/simulations/by-dataset/${datasetId}`);
+  if (!res.ok) throw new Error('Get simulation file failed');
+  return res.json() as Promise<SimulationFileDto>;
+}
 
-  if (!res.ok) throw new Error('Process simulation file failed');
-  return res.json();
+export async function listSimulationVariablesByDataset(
+  datasetId: string,
+): Promise<SimulationVariableDto[]> {
+  const res = await fetch(`${API_BASE}/simulations/by-dataset/${datasetId}/variables`);
+  if (!res.ok) throw new Error('List simulation variables failed');
+  return res.json() as Promise<SimulationVariableDto[]>;
+}
+
+export async function listSimulationTimeseriesByDataset(
+  datasetId: string,
+  variableId: string,
+  limit: number = 200,
+): Promise<SimulationTimeseriesPointDto[]> {
+  const params = new URLSearchParams({
+    variable_id: variableId,
+    limit: String(limit),
+  });
+  const res = await fetch(`${API_BASE}/simulations/by-dataset/${datasetId}/timeseries?${params}`);
+  if (!res.ok) throw new Error('List simulation timeseries failed');
+  return res.json() as Promise<SimulationTimeseriesPointDto[]>;
 }

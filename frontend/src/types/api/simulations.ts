@@ -18,3 +18,23 @@ export type SimulationFileDto = {
   created_at: string | null;
   metadata: Record<string, unknown> | null;
 };
+
+export type SimulationVariableDto = {
+  id: string;
+  simulation_dataset_id: string;
+  variable_id: string;
+  variable_name: string;
+  unit: string | null;
+  frequency: string | null;
+  key: string | null;
+  created_at: string | null;
+};
+
+export type SimulationTimeseriesPointDto = {
+  id: string;
+  simulation_dataset_id: string;
+  variable_id: string;
+  timestamp: string | null;
+  value: number;
+  created_at: string | null;
+};

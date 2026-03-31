@@ -17,6 +17,7 @@ class SimulationDataset(Base):
         ForeignKey("datasets.id", ondelete="CASCADE"),
         nullable=False,
         index=True,
+        unique=True,
     )
     filename = Column(String, nullable=False)  # Store original filename for reference
 

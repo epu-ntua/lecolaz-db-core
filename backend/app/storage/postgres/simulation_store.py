@@ -78,12 +78,42 @@ class SimulationStore:
             row = session.execute(stmt).first()
             return self._to_dict(row[0], row[1], row[2]) if row else None
 
+    def update_simulation_extra(
+        self,
+        dataset_id: uuid.UUID,
+        extra: Optional[dict],
+    ) -> Optional[Dict[str, Any]]:
+        with self._session_factory() as session:
+            stmt = select(SimulationDataset, Dataset.status).join(
+                Dataset, Dataset.id == SimulationDataset.dataset_id
+            ).where(SimulationDataset.dataset_id == dataset_id)
+            row = session.execute(stmt).first()
+            if not row:
+                return None
+
+            simulation, dataset_status = row
+            merged_extra = dict(simulation.extra or {})
+            merged_extra.update(extra or {})
+            simulation.extra = merged_extra
+            session.commit()
+            session.refresh(simulation)
+            return self._to_dict(simulation, dataset_status, None)
+
     @staticmethod
     def _to_dict(
         obj: SimulationDataset,
         dataset_status: str | None,
         dataset_metadata: dict | None,
     ) -> Dict[str, Any]:
+        metadata: dict[str, Any]
+        if isinstance(obj.extra, dict):
+            metadata = dict(obj.extra)
+        else:
+            metadata = {}
+        processing_error = (dataset_metadata or {}).get("processing_error")
+        if processing_error is not None:
+            metadata["processing_error"] = processing_error
+
         return {
             "id": str(obj.id),
             "dataset_id": str(obj.dataset_id),
@@ -91,5 +121,5 @@ class SimulationStore:
             "format": obj.format,
             "status": dataset_status,
             "created_at": obj.created_at.isoformat() if obj.created_at else None,
-            "extra": dataset_metadata,
+            "metadata": metadata or None,
         }

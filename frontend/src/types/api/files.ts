@@ -1,3 +1,9 @@
+export type FileUploadResult = {
+  dataset_id: string;
+  type: string;
+  status: string;
+};
+
 export type FileDto = {
   id: string;
   type: string;

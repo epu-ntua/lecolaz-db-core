@@ -1,10 +1,32 @@
-import { useState } from "react";
-import { uploadBimFile } from "@/api/bim_files";
+import { useEffect, useState } from "react";
+import { getBimFileByDataset, listBimFiles, uploadBimFile } from "@/api/bim_files";
+import type { BimFileDto } from "@/types/api/bim";
 import { BIMFilesTable } from "@/pages/BIM/components/BIMFilesTable";
 import { FileUpload } from "@/pages/DataDiscovery/components/FileUpload";
 
 export default function BIMPage() {
-  const [refreshKey, setRefreshKey] = useState(0);
+  const [files, setFiles] = useState<BimFileDto[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    listBimFiles()
+      .then((rows) => {
+        if (!cancelled) {
+          setFiles(rows);
+        }
+      })
+      .finally(() => {
+        if (!cancelled) {
+          setLoading(false);
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   return (
     <div className="space-y-6">
@@ -17,7 +39,13 @@ export default function BIMPage() {
 
       <section className="bg-card p-4 rounded-lg border border-border shadow-sm">
         <FileUpload
-          onUploaded={() => setRefreshKey((k) => k + 1)}
+          onUploaded={async (result) => {
+            const bim = await getBimFileByDataset(result.dataset_id);
+            setFiles((current) => {
+              const next = current.filter((row) => row.id !== bim.id);
+              return [bim, ...next];
+            });
+          }}
           uploadAction={uploadBimFile}
           accept=".ifc,.ifczip,.ifcxml"
           errorMessage="BIM upload failed"
@@ -25,7 +53,7 @@ export default function BIMPage() {
       </section>
 
       <section>
-        <BIMFilesTable refreshKey={refreshKey} />
+        <BIMFilesTable files={files} loading={loading} />
       </section>
     </div>
   );

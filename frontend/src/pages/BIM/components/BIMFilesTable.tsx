@@ -5,9 +5,7 @@
 // If rendering becomes complex (actions, expandable rows),
 // extract subcomponents for clarity.
 
-import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { listBimFiles } from '@/api/bim_files';
 import type { BimFileDto } from '@/types/api/bim';
 import {
   Table,
@@ -18,17 +16,14 @@ import {
   TableRow,
 } from '@/components/ui/table';
 
-export function BIMFilesTable({ refreshKey }: { refreshKey: number }) {
+export function BIMFilesTable({
+  files,
+  loading,
+}: {
+  files: BimFileDto[];
+  loading: boolean;
+}) {
   const navigate = useNavigate();
-  const [files, setFiles] = useState<BimFileDto[]>([]);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    setLoading(true);
-    listBimFiles()
-      .then(setFiles)
-      .finally(() => setLoading(false));
-  }, [refreshKey]);
 
   if (loading) {
     return <div className="text-sm text-muted-foreground">Loading BIM metadata...</div>;
@@ -36,15 +31,16 @@ export function BIMFilesTable({ refreshKey }: { refreshKey: number }) {
 
   return (
     <div className="border border-border rounded-lg bg-card">
-      <Table className="text-sm text-foreground">
+      <div className="max-h-[65vh] overflow-auto">
+        <Table className="min-w-[900px] text-sm text-foreground">
         <TableHeader className="border-b border-border bg-muted">
           <TableRow className="text-left hover:bg-transparent">
-            <TableHead className="px-3 py-2 font-medium text-muted-foreground">BIM ID</TableHead>
-            <TableHead className="px-3 py-2 font-medium text-muted-foreground">Dataset ID</TableHead>
-            <TableHead className="px-3 py-2 font-medium text-muted-foreground">Filename</TableHead>
-            <TableHead className="px-3 py-2 font-medium text-muted-foreground">Format</TableHead>
-            <TableHead className="px-3 py-2 font-medium text-muted-foreground">Schema</TableHead>
-            <TableHead className="px-3 py-2 font-medium text-muted-foreground">Extra</TableHead>
+            <TableHead className="sticky top-0 z-10 bg-muted px-3 py-2 font-medium text-muted-foreground">BIM ID</TableHead>
+            <TableHead className="sticky top-0 z-10 bg-muted px-3 py-2 font-medium text-muted-foreground">Dataset ID</TableHead>
+            <TableHead className="sticky top-0 z-10 bg-muted px-3 py-2 font-medium text-muted-foreground">Filename</TableHead>
+            <TableHead className="sticky top-0 z-10 bg-muted px-3 py-2 font-medium text-muted-foreground">Format</TableHead>
+            <TableHead className="sticky top-0 z-10 bg-muted px-3 py-2 font-medium text-muted-foreground">Schema</TableHead>
+            <TableHead className="sticky top-0 z-10 bg-muted px-3 py-2 font-medium text-muted-foreground">Extra</TableHead>
           </TableRow>
         </TableHeader>
 
@@ -92,7 +88,8 @@ export function BIMFilesTable({ refreshKey }: { refreshKey: number }) {
             </TableRow>
           )}
         </TableBody>
-      </Table>
+        </Table>
+      </div>
     </div>
   );
 }

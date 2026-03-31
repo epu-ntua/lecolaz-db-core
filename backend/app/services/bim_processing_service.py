@@ -27,25 +27,11 @@ def process_bim(dataset_id: uuid.UUID) -> Dict[str, Any]:
     if dataset.get("type") != "bim":
         raise BimProcessingError("Dataset is not a BIM dataset")
 
-    existing_bim = bim_store.get_bim_by_dataset_id(dataset_id)
-    if existing_bim:
-        raise BimConflictError("BIM dataset is already processed")
-
-    subtype = dataset.get("subtype")
-    if not subtype:
-        raise BimProcessingError("BIM dataset subtype is missing")
+    bim_dataset = bim_store.get_bim_by_dataset_id(dataset_id)
+    if not bim_dataset:
+        raise BimNotFoundError("BIM dataset not found")
 
     try:
-        bim_id = uuid.uuid4()
-        bim_store.create_bim_record(
-            bim_id=bim_id,
-            dataset_id=dataset_id,
-            filename=dataset["filename"],
-            format=subtype,
-            schema=None,
-            extra=None,
-        )
-
         updated_dataset = dataset_store.update_dataset_status(
             dataset_id,
             "processed",
@@ -55,7 +41,7 @@ def process_bim(dataset_id: uuid.UUID) -> Dict[str, Any]:
 
         return {
             "dataset_id": str(dataset_id),
-            "bim_id": str(bim_id),
+            "bim_id": bim_dataset["id"],
             "status": updated_dataset["status"],
         }
     except Exception as exc:

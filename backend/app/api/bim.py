@@ -17,6 +17,20 @@ def list_bim(limit: int = 100):
     return bs.list_bim_models(limit=limit)
 
 
+@router.get("/by-dataset/{dataset_id}", response_model=BimFileResponse)
+def get_bim_by_dataset(dataset_id: str):
+    bs = BimStore()
+    try:
+        dataset_uuid = uuid.UUID(dataset_id)
+    except ValueError:
+        raise HTTPException(400, "Invalid dataset id")
+
+    bim = bs.get_bim_by_dataset_id(dataset_uuid)
+    if not bim:
+        raise HTTPException(404, "BIM not found")
+    return bim
+
+
 @router.get("/{bim_id}/metadata", response_model=BimMetadataResponse)
 def metadata_bim(bim_id: str):
     metadata = get_bim_metadata(bim_id)
