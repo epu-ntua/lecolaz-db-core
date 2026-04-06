@@ -1,10 +1,10 @@
-export type FileUploadResult = {
+export type DatasetUploadResult = {
   dataset_id: string;
   type: string;
   status: string;
 };
 
-export type FileDto = {
+export type DatasetDto = {
   id: string;
   type: string;
   subtype: string | null;

@@ -1,12 +1,12 @@
 import { useState } from 'react';
-import { uploadFile } from '@/api/files';
+import { uploadDataset } from '@/api/datasets';
 import { Button } from '@/components/ui/button';
 import { Loader2 } from 'lucide-react';
-import type { FileUploadResult } from '@/types/api/files';
+import type { DatasetUploadResult } from '@/types/api/datasets';
 
 type FileUploadProps = {
-  onUploaded: (result: FileUploadResult) => void;
-  uploadAction?: (file: File) => Promise<FileUploadResult>;
+  onUploaded: (result: DatasetUploadResult) => void;
+  uploadAction?: (file: File) => Promise<DatasetUploadResult>;
   accept?: string;
   buttonLabel?: string;
   uploadingLabel?: string;
@@ -15,7 +15,7 @@ type FileUploadProps = {
 
 export function FileUpload({
   onUploaded,
-  uploadAction = uploadFile,
+  uploadAction = uploadDataset,
   accept,
   buttonLabel = 'Upload',
   uploadingLabel = 'Uploading...',

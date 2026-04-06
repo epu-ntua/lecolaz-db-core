@@ -1,8 +1,8 @@
 import { API_BASE } from './client';
-import type { FileUploadResult } from '@/types/api/files';
+import type { DatasetUploadResult } from '@/types/api/datasets';
 import type { BimFileDto, BimMetadataDto } from '@/types/api/bim';
 
-export async function uploadBimFile(file: File): Promise<FileUploadResult> {
+export async function uploadBimFile(file: File): Promise<DatasetUploadResult> {
   const form = new FormData();
   form.append('file', file);
 
@@ -12,7 +12,7 @@ export async function uploadBimFile(file: File): Promise<FileUploadResult> {
   });
 
   if (!res.ok) throw new Error('Upload BIM file failed');
-  return res.json() as Promise<FileUploadResult>;
+  return res.json() as Promise<DatasetUploadResult>;
 }
 
 export async function listBimFiles(): Promise<BimFileDto[]> {

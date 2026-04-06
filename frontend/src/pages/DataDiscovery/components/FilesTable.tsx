@@ -6,7 +6,7 @@
 // extract subcomponents for clarity.
 
 import { useState } from 'react';
-import type { FileDto } from '@/types/api/files';
+import type { DatasetDto } from '@/types/api/datasets';
 import { SimulationDetailsModal } from '@/pages/Simulations/components/SimulationDetailsModal';
 import {
   Table,
@@ -21,10 +21,10 @@ export function FilesTable({
   files,
   loading,
 }: {
-  files: FileDto[];
+  files: DatasetDto[];
   loading: boolean;
 }) {
-  const [selectedSimulation, setSelectedSimulation] = useState<FileDto | null>(null);
+  const [selectedSimulation, setSelectedSimulation] = useState<DatasetDto | null>(null);
 
   if (loading) {
     return <div className="text-sm text-muted-foreground">Loading metadata...</div>;

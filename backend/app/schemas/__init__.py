@@ -7,7 +7,7 @@ validated, and easy to import from one place.
 """
 
 from app.schemas.bim import BimFileResponse, BimMetadataResponse
-from app.schemas.files import DatasetResponse, FileUploadResponse
+from app.schemas.datasets import DatasetResponse, FileUploadResponse
 from app.schemas.health import HealthResponse
 from app.schemas.simulations import (
     SimulationFileResponse,

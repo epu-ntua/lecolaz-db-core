@@ -1,20 +1,20 @@
 import { useEffect, useState } from "react";
-import { getFile, listFiles } from "@/api/files";
-import type { FileDto } from "@/types/api/files";
+import { getDataset, listDatasets } from "@/api/datasets";
+import type { DatasetDto } from "@/types/api/datasets";
 import { FileUpload } from "@/pages/DataDiscovery/components/FileUpload";
 import { FilesTable } from "@/pages/DataDiscovery/components/FilesTable";
 
 const TERMINAL_STATUSES = new Set(["processed", "failed"]);
 
 export default function DataDiscoveryPage() {
-  const [files, setFiles] = useState<FileDto[]>([]);
+  const [files, setFiles] = useState<DatasetDto[]>([]);
   const [loading, setLoading] = useState(true);
   const [pendingDatasetIds, setPendingDatasetIds] = useState<string[]>([]);
 
   useEffect(() => {
     let cancelled = false;
 
-    listFiles()
+    listDatasets()
       .then((rows) => {
         if (!cancelled) {
           setFiles(rows);
@@ -40,7 +40,7 @@ export default function DataDiscoveryPage() {
       const results = await Promise.allSettled(
         pendingDatasetIds.map(async (datasetId) => ({
           datasetId,
-          dataset: await getFile(datasetId),
+          dataset: await getDataset(datasetId),
         })),
       );
 
@@ -86,7 +86,7 @@ export default function DataDiscoveryPage() {
       <section className="bg-card p-4 rounded-lg border border-border shadow-sm">
         <FileUpload
           onUploaded={async (result) => {
-            const dataset = await getFile(result.dataset_id);
+            const dataset = await getDataset(result.dataset_id);
             setFiles((current) => {
               const next = current.filter((row) => row.id !== dataset.id);
               return [dataset, ...next];
