@@ -33,61 +33,80 @@ export function BIMFilesTable({
     <div className="border border-border rounded-lg bg-card">
       <div className="max-h-[65vh] overflow-auto">
         <Table className="min-w-[900px] text-sm text-foreground">
-        <TableHeader className="border-b border-border bg-muted">
-          <TableRow className="text-left hover:bg-transparent">
-            <TableHead className="sticky top-0 z-10 bg-muted px-3 py-2 font-medium text-muted-foreground">BIM ID</TableHead>
-            <TableHead className="sticky top-0 z-10 bg-muted px-3 py-2 font-medium text-muted-foreground">Dataset ID</TableHead>
-            <TableHead className="sticky top-0 z-10 bg-muted px-3 py-2 font-medium text-muted-foreground">Filename</TableHead>
-            <TableHead className="sticky top-0 z-10 bg-muted px-3 py-2 font-medium text-muted-foreground">Format</TableHead>
-            <TableHead className="sticky top-0 z-10 bg-muted px-3 py-2 font-medium text-muted-foreground">Schema</TableHead>
-            <TableHead className="sticky top-0 z-10 bg-muted px-3 py-2 font-medium text-muted-foreground">Extra</TableHead>
-          </TableRow>
-        </TableHeader>
+          <TableHeader className="border-b border-border bg-muted">
+            <TableRow className="text-left hover:bg-transparent">
+              <TableHead className="sticky top-0 z-10 bg-muted px-3 py-2 font-medium text-muted-foreground">
+                BIM ID
+              </TableHead>
+              <TableHead className="sticky top-0 z-10 bg-muted px-3 py-2 font-medium text-muted-foreground">
+                Dataset ID
+              </TableHead>
+              <TableHead className="sticky top-0 z-10 bg-muted px-3 py-2 font-medium text-muted-foreground">
+                Filename
+              </TableHead>
+              <TableHead className="sticky top-0 z-10 bg-muted px-3 py-2 font-medium text-muted-foreground">
+                Format
+              </TableHead>
+              <TableHead className="sticky top-0 z-10 bg-muted px-3 py-2 font-medium text-muted-foreground">
+                Schema
+              </TableHead>
+              <TableHead className="sticky top-0 z-10 bg-muted px-3 py-2 font-medium text-muted-foreground">
+                Extra
+              </TableHead>
+            </TableRow>
+          </TableHeader>
 
-        <TableBody>
-          {files.map((f, index) => (
-            <TableRow key={f.id ?? `${index}`} className="align-top">
-              <TableCell className="px-3 py-2 font-mono text-xs text-muted-foreground">
-                {f.id}
-              </TableCell>
+          <TableBody>
+            {files.map((f, index) => (
+              <TableRow key={f.id ?? `${index}`} className="align-top">
+                <TableCell className="px-3 py-2 font-mono text-xs text-muted-foreground">
+                  {f.id}
+                </TableCell>
 
-              <TableCell className="px-3 py-2 font-mono text-xs text-muted-foreground">
-                {f.dataset_id}
-              </TableCell>
+                <TableCell className="px-3 py-2 font-mono text-xs text-muted-foreground">
+                  {f.dataset_id}
+                </TableCell>
 
-              <TableCell className="px-3 py-2">
-                <span
-                  className="text-primary underline cursor-pointer"
-                  onClick={() => navigate(`/bim/${f.id}`)}
+                <TableCell className="px-3 py-2">
+                  <span
+                    className="text-primary underline cursor-pointer"
+                    onClick={() => navigate(`/bim/${f.id}`)}
+                  >
+                    {f.filename ?? '--'}
+                  </span>
+                </TableCell>
+
+                <TableCell className="px-3 py-2 text-muted-foreground">
+                  {f.format ?? '--'}
+                </TableCell>
+
+                <TableCell className="px-3 py-2 text-muted-foreground">
+                  {f.schema ?? '--'}
+                </TableCell>
+
+                <TableCell className="px-3 py-2">
+                  {f.extra ? (
+                    <pre className="text-xs bg-muted rounded p-2 max-w-xs overflow-x-auto">
+                      {JSON.stringify(f.extra, null, 2)}
+                    </pre>
+                  ) : (
+                    <span className="text-muted-foreground/60">--</span>
+                  )}
+                </TableCell>
+              </TableRow>
+            ))}
+
+            {files.length === 0 && (
+              <TableRow>
+                <TableCell
+                  colSpan={6}
+                  className="px-4 py-6 text-center text-muted-foreground"
                 >
-                  {f.filename ?? '--'}
-                </span>
-              </TableCell>
-
-              <TableCell className="px-3 py-2 text-muted-foreground">{f.format ?? '--'}</TableCell>
-
-              <TableCell className="px-3 py-2 text-muted-foreground">{f.schema ?? '--'}</TableCell>
-
-              <TableCell className="px-3 py-2">
-                {f.extra ? (
-                  <pre className="text-xs bg-muted rounded p-2 max-w-xs overflow-x-auto">
-                    {JSON.stringify(f.extra, null, 2)}
-                  </pre>
-                ) : (
-                  <span className="text-muted-foreground/60">--</span>
-                )}
-              </TableCell>
-            </TableRow>
-          ))}
-
-          {files.length === 0 && (
-            <TableRow>
-              <TableCell colSpan={6} className="px-4 py-6 text-center text-muted-foreground">
-                No BIM metadata entries
-              </TableCell>
-            </TableRow>
-          )}
-        </TableBody>
+                  No BIM metadata entries
+                </TableCell>
+              </TableRow>
+            )}
+          </TableBody>
         </Table>
       </div>
     </div>

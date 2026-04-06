@@ -56,7 +56,10 @@ Purpose:
 - Catch unused variables
 - Enforce consistent patterns
 
-Lint errors must be resolved before merging.
+ESLint is an indicator, not a hard gate.
+
+Use it to catch real issues and inconsistencies early.
+Not every rule violation should force code changes if the rule is a poor fit for the project or for copied shadcn primitives.
 
 ### 2.3 Prettier – Formatting
 
@@ -108,10 +111,11 @@ content: ['./index.html', './src/**/*.{ts,tsx}'];
 In `src/styles/globals.css`:
 
 - `:root` defines light theme variables
-- `:root.dark` overrides them for dark mode
+- `.dark` overrides them for dark mode
 
 Important:
-Token variables are defined outside `@layer base` to ensure reliable application.
+Declare theme tokens inside `@layer base` in this project so global theme state stays in one predictable place.
+Do not split token declarations between multiple files or scattered global blocks without a reason.
 
 Dark mode is class-based:
 
@@ -153,7 +157,7 @@ All colors must come from tokens.
 
 Location:
 
-- `src/lib/utils.ts` 
+- `src/lib/utils.ts`
 
 Purpose:
 Safely merge class names using:
@@ -197,7 +201,8 @@ You are allowed to edit them.
 
 Add a Component (example: Table)
 
-From frontend folder: 
+From frontend folder:
+
 ```bash
 npx shadcn@2.3.0 add table
 ```
@@ -209,6 +214,9 @@ src/components/ui/table.tsx
 ```
 
 It copies the source code into your project.
+
+Or copy manually from:
+https://ui.shadcn.com/docs/components
 
 Import and Use It
 
@@ -222,7 +230,7 @@ import {
   TableRow,
   TableHead,
   TableCell,
-} from "@/components/ui/table";
+} from '@/components/ui/table';
 ```
 
 Minimal Example:
@@ -255,7 +263,6 @@ Use Tailwind classes directly:
 
 Use `cn` for conditionals.
 
-
 ## 7. Development Workflow
 
 Start dev server:
@@ -272,7 +279,7 @@ npm run lint
 npm run typecheck
 ```
 
-Only push code that passes all three.
+Aim to keep all three clean before pushing, but treat ESLint as guidance when a rule is overly restrictive for this codebase.
 
 ## 8. Dark Mode Policy
 
@@ -289,6 +296,7 @@ This can be extended later.
 - Do not modify Tailwind version casually.
 - Do not introduce global CSS outside `globals.css`.
 - Prefer semantic utilities over raw Tailwind color utilities.
+- Do not use hardcoded color utilities in components. Use tokens such as `bg-card`, `text-destructive`, `border-border`, or token-derived opacity variants.
 
 ## 10. References
 
@@ -296,5 +304,3 @@ This can be extended later.
 - shadcn (v3-compatible) documentation
 - Radix UI documentation
 - Vite documentation
-
-

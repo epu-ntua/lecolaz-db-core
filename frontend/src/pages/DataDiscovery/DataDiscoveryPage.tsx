@@ -1,10 +1,10 @@
-import { useEffect, useState } from "react";
-import { getDataset, listDatasets } from "@/api/datasets";
-import type { DatasetDto } from "@/types/api/datasets";
-import { FileUpload } from "@/pages/DataDiscovery/components/FileUpload";
-import { FilesTable } from "@/pages/DataDiscovery/components/FilesTable";
+import { useEffect, useState } from 'react';
+import { getDataset, listDatasets } from '@/api/datasets';
+import type { DatasetDto } from '@/types/api/datasets';
+import { FileUpload } from '@/pages/DataDiscovery/components/FileUpload';
+import { FilesTable } from '@/pages/DataDiscovery/components/FilesTable';
 
-const TERMINAL_STATUSES = new Set(["processed", "failed"]);
+const TERMINAL_STATUSES = new Set(['processed', 'failed']);
 
 export default function DataDiscoveryPage() {
   const [files, setFiles] = useState<DatasetDto[]>([]);
@@ -47,7 +47,7 @@ export default function DataDiscoveryPage() {
       const nextPendingDatasetIds: string[] = [];
 
       results.forEach((result, index) => {
-        if (result.status === "rejected") {
+        if (result.status === 'rejected') {
           nextPendingDatasetIds.push(pendingDatasetIds[index]);
           return;
         }
@@ -60,8 +60,6 @@ export default function DataDiscoveryPage() {
           return;
         }
 
-        if (dataset.status === "processing") {
-        }
         setFiles((current) =>
           current.map((row) => (row.id === datasetId ? dataset : row)),
         );
@@ -91,7 +89,7 @@ export default function DataDiscoveryPage() {
               const next = current.filter((row) => row.id !== dataset.id);
               return [dataset, ...next];
             });
-            if (result.type === "bim" || result.type === "simulation") {
+            if (result.type === 'bim' || result.type === 'simulation') {
               setPendingDatasetIds((current) =>
                 current.includes(result.dataset_id)
                   ? current

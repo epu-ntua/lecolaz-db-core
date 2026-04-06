@@ -17,7 +17,7 @@
  * - The React layer is responsible for lifecycle and data fetching.
  */
 
-import * as OBC from "@thatopen/components";
+import * as OBC from '@thatopen/components';
 
 export class BIMViewerEngine {
   private components: OBC.Components;
@@ -38,7 +38,7 @@ export class BIMViewerEngine {
 
     const worlds = this.components.get(OBC.Worlds);
     const world = worlds.create<OBC.SimpleScene, OBC.SimpleCamera, OBC.SimpleRenderer>();
-    if (!world) throw new Error("Failed to create world");
+    if (!world) throw new Error('Failed to create world');
     this.world = world;
 
     // Create concrete instances and keep references
@@ -63,21 +63,21 @@ export class BIMViewerEngine {
 
     // Ensure camera controls exist
     const controls = this.camera.controls;
-    if (!controls) throw new Error("Camera controls not available");
+    if (!controls) throw new Error('Camera controls not available');
 
     // Worker (consider moving local later; this keeps your current behavior)
-    const workerSrc = "https://thatopen.github.io/engine_fragment/resources/worker.mjs";
+    const workerSrc = 'https://thatopen.github.io/engine_fragment/resources/worker.mjs';
     const fetched = await fetch(workerSrc);
-    if (!fetched.ok) throw new Error("Failed to fetch fragments worker");
+    if (!fetched.ok) throw new Error('Failed to fetch fragments worker');
 
     const workerBlob = await fetched.blob();
-    const workerFile = new File([workerBlob], "worker.mjs", { type: "text/javascript" });
+    const workerFile = new File([workerBlob], 'worker.mjs', { type: 'text/javascript' });
     this.workerUrl = URL.createObjectURL(workerFile);
 
     this.fragments.init(this.workerUrl);
 
     // Fragments update hooks
-    controls.addEventListener("update", () => {
+    controls.addEventListener('update', () => {
       this.fragments?.core.update();
     });
 
@@ -87,16 +87,16 @@ export class BIMViewerEngine {
       this.fragments?.core.update(true);
     });
 
-    // WASM path must be manual 
+    // WASM path must be manual
     await this.ifcLoader.setup({
       autoSetWasm: false,
-      wasm: { path: "/wasm/", absolute: false },
+      wasm: { path: '/wasm/', absolute: false },
     });
   }
 
-  async loadIFCFromArrayBuffer(arrayBuffer: ArrayBuffer, name = "model.ifc") {
+  async loadIFCFromArrayBuffer(arrayBuffer: ArrayBuffer, name = 'model.ifc') {
     if (!this.ifcLoader) {
-      throw new Error("IFC loader not initialized. Call initIfcPipeline() first.");
+      throw new Error('IFC loader not initialized. Call initIfcPipeline() first.');
     }
     const buffer = new Uint8Array(arrayBuffer);
     await this.ifcLoader.load(buffer, false, name);

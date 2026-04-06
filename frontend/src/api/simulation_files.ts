@@ -25,7 +25,9 @@ export async function listSimulationFiles(): Promise<SimulationFileDto[]> {
   return res.json() as Promise<SimulationFileDto[]>;
 }
 
-export async function getSimulationFileByDataset(datasetId: string): Promise<SimulationFileDto> {
+export async function getSimulationFileByDataset(
+  datasetId: string,
+): Promise<SimulationFileDto> {
   const res = await fetch(`${API_BASE}/simulations/by-dataset/${datasetId}`);
   if (!res.ok) throw new Error('Get simulation file failed');
   return res.json() as Promise<SimulationFileDto>;
@@ -48,7 +50,9 @@ export async function listSimulationTimeseriesByDataset(
     variable_id: variableId,
     limit: String(limit),
   });
-  const res = await fetch(`${API_BASE}/simulations/by-dataset/${datasetId}/timeseries?${params}`);
+  const res = await fetch(
+    `${API_BASE}/simulations/by-dataset/${datasetId}/timeseries?${params}`,
+  );
   if (!res.ok) throw new Error('List simulation timeseries failed');
   return res.json() as Promise<SimulationTimeseriesPointDto[]>;
 }

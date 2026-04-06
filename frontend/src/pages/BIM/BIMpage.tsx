@@ -1,8 +1,8 @@
-import { useEffect, useState } from "react";
-import { getBimFileByDataset, listBimFiles, uploadBimFile } from "@/api/bim_files";
-import type { BimFileDto } from "@/types/api/bim";
-import { BIMFilesTable } from "@/pages/BIM/components/BIMFilesTable";
-import { FileUpload } from "@/pages/DataDiscovery/components/FileUpload";
+import { useEffect, useState } from 'react';
+import { getBimFileByDataset, listBimFiles, uploadBimFile } from '@/api/bim_files';
+import type { BimFileDto } from '@/types/api/bim';
+import { BIMFilesTable } from '@/pages/BIM/components/BIMFilesTable';
+import { FileUpload } from '@/pages/DataDiscovery/components/FileUpload';
 
 export default function BIMPage() {
   const [files, setFiles] = useState<BimFileDto[]>([]);

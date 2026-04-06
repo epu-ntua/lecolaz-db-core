@@ -6,6 +6,7 @@
 // extract subcomponents for clarity.
 
 import { useState } from 'react';
+import { Button } from '@/components/ui/button';
 import type { DatasetDto } from '@/types/api/datasets';
 import { SimulationDetailsModal } from '@/pages/Simulations/components/SimulationDetailsModal';
 import {
@@ -37,34 +38,61 @@ export function FilesTable({
           <Table className="min-w-[1100px] text-sm text-foreground">
             <TableHeader className="border-b border-border bg-muted">
               <TableRow className="text-left hover:bg-transparent">
-                <TableHead className="sticky top-0 z-10 bg-muted px-3 py-2 font-medium text-muted-foreground">Dataset ID</TableHead>
-                <TableHead className="sticky top-0 z-10 bg-muted px-3 py-2 font-medium text-muted-foreground">Type</TableHead>
-                <TableHead className="sticky top-0 z-10 bg-muted px-3 py-2 font-medium text-muted-foreground">Subtype</TableHead>
-                <TableHead className="sticky top-0 z-10 bg-muted px-3 py-2 font-medium text-muted-foreground">Filename</TableHead>
-                <TableHead className="sticky top-0 z-10 bg-muted px-3 py-2 font-medium text-muted-foreground">Status</TableHead>
-                <TableHead className="sticky top-0 z-10 bg-muted px-3 py-2 font-medium text-muted-foreground">Content type</TableHead>
-                <TableHead className="sticky top-0 z-10 bg-muted px-3 py-2 font-medium text-muted-foreground">Size</TableHead>
-                <TableHead className="sticky top-0 z-10 bg-muted px-3 py-2 font-medium text-muted-foreground">Uploaded</TableHead>
-                <TableHead className="sticky top-0 z-10 bg-muted px-3 py-2 font-medium text-muted-foreground">Object key</TableHead>
-                <TableHead className="sticky top-0 z-10 bg-muted px-3 py-2 font-medium text-muted-foreground">Metadata</TableHead>
+                <TableHead className="sticky top-0 z-10 bg-muted px-3 py-2 font-medium text-muted-foreground">
+                  Dataset ID
+                </TableHead>
+                <TableHead className="sticky top-0 z-10 bg-muted px-3 py-2 font-medium text-muted-foreground">
+                  Type
+                </TableHead>
+                <TableHead className="sticky top-0 z-10 bg-muted px-3 py-2 font-medium text-muted-foreground">
+                  Subtype
+                </TableHead>
+                <TableHead className="sticky top-0 z-10 bg-muted px-3 py-2 font-medium text-muted-foreground">
+                  Filename
+                </TableHead>
+                <TableHead className="sticky top-0 z-10 bg-muted px-3 py-2 font-medium text-muted-foreground">
+                  Status
+                </TableHead>
+                <TableHead className="sticky top-0 z-10 bg-muted px-3 py-2 font-medium text-muted-foreground">
+                  Content type
+                </TableHead>
+                <TableHead className="sticky top-0 z-10 bg-muted px-3 py-2 font-medium text-muted-foreground">
+                  Size
+                </TableHead>
+                <TableHead className="sticky top-0 z-10 bg-muted px-3 py-2 font-medium text-muted-foreground">
+                  Uploaded
+                </TableHead>
+                <TableHead className="sticky top-0 z-10 bg-muted px-3 py-2 font-medium text-muted-foreground">
+                  Object key
+                </TableHead>
+                <TableHead className="sticky top-0 z-10 bg-muted px-3 py-2 font-medium text-muted-foreground">
+                  Metadata
+                </TableHead>
               </TableRow>
             </TableHeader>
 
             <TableBody>
               {files.map((f) => (
                 <TableRow key={f.id} className="align-top">
-                  <TableCell className="px-3 py-2 font-mono text-xs text-muted-foreground">{f.id}</TableCell>
-                  <TableCell className="px-3 py-2 text-muted-foreground capitalize">{f.type}</TableCell>
-                  <TableCell className="px-3 py-2 text-muted-foreground">{f.subtype ?? '--'}</TableCell>
+                  <TableCell className="px-3 py-2 font-mono text-xs text-muted-foreground">
+                    {f.id}
+                  </TableCell>
+                  <TableCell className="px-3 py-2 text-muted-foreground capitalize">
+                    {f.type}
+                  </TableCell>
+                  <TableCell className="px-3 py-2 text-muted-foreground">
+                    {f.subtype ?? '--'}
+                  </TableCell>
                   <TableCell className="px-3 py-2">
                     {f.type === 'simulation' ? (
-                      <button
+                      <Button
                         type="button"
-                        className="text-primary underline underline-offset-4"
+                        variant="link"
+                        className="h-auto p-0"
                         onClick={() => setSelectedSimulation(f)}
                       >
                         {f.filename}
-                      </button>
+                      </Button>
                     ) : (
                       f.filename
                     )}
@@ -76,7 +104,9 @@ export function FilesTable({
                     </span>
                   </TableCell>
 
-                  <TableCell className="px-3 py-2 text-muted-foreground">{f.content_type ?? '--'}</TableCell>
+                  <TableCell className="px-3 py-2 text-muted-foreground">
+                    {f.content_type ?? '--'}
+                  </TableCell>
 
                   <TableCell className="px-3 py-2 text-muted-foreground">
                     {f.size_bytes ? `${Math.round(f.size_bytes / 1024)} KB` : '--'}
@@ -104,7 +134,10 @@ export function FilesTable({
 
               {files.length === 0 && (
                 <TableRow>
-                  <TableCell colSpan={10} className="px-4 py-6 text-center text-muted-foreground">
+                  <TableCell
+                    colSpan={10}
+                    className="px-4 py-6 text-center text-muted-foreground"
+                  >
                     No metadata entries
                   </TableCell>
                 </TableRow>

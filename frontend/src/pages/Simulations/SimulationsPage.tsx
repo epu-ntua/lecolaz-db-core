@@ -1,14 +1,14 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState } from 'react';
 import {
   getSimulationFileByDataset,
   listSimulationFiles,
   uploadSimulationFile,
-} from "@/api/simulation_files";
-import type { SimulationFileDto } from "@/types/api/simulations";
-import { FileUpload } from "@/pages/DataDiscovery/components/FileUpload";
-import { SimulationsFilesTable } from "@/pages/Simulations/components/SimulationsFilesTable";
+} from '@/api/simulation_files';
+import type { SimulationFileDto } from '@/types/api/simulations';
+import { FileUpload } from '@/pages/DataDiscovery/components/FileUpload';
+import { SimulationsFilesTable } from '@/pages/Simulations/components/SimulationsFilesTable';
 
-const TERMINAL_STATUSES = new Set(["processed", "failed"]);
+const TERMINAL_STATUSES = new Set(['processed', 'failed']);
 
 export default function SimulationsPage() {
   const [files, setFiles] = useState<SimulationFileDto[]>([]);
@@ -51,31 +51,21 @@ export default function SimulationsPage() {
       const nextPendingDatasetIds: string[] = [];
 
       results.forEach((result, index) => {
-        if (result.status === "rejected") {
+        if (result.status === 'rejected') {
           nextPendingDatasetIds.push(pendingDatasetIds[index]);
           return;
         }
 
         const { datasetId, simulation } = result.value;
-        if (TERMINAL_STATUSES.has(simulation.status ?? "")) {
+        if (TERMINAL_STATUSES.has(simulation.status ?? '')) {
           setFiles((current) =>
-            current.map((row) =>
-              row.dataset_id === datasetId
-                ? simulation
-                : row,
-            ),
+            current.map((row) => (row.dataset_id === datasetId ? simulation : row)),
           );
           return;
         }
 
-        if (simulation.status === "processing") {
-        }
         setFiles((current) =>
-          current.map((row) =>
-            row.dataset_id === datasetId
-              ? simulation
-              : row,
-          ),
+          current.map((row) => (row.dataset_id === datasetId ? simulation : row)),
         );
         nextPendingDatasetIds.push(datasetId);
       });

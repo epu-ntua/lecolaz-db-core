@@ -16,23 +16,30 @@ import {
   TableRow,
 } from '@/components/ui/table';
 
-function getProcessingSummary(extra: Record<string, unknown> | null): SimulationProcessingSummary | null {
+function getProcessingSummary(
+  extra: Record<string, unknown> | null,
+): SimulationProcessingSummary | null {
   if (!extra) {
     return null;
   }
 
   return {
     metadata: {
-      variable_count: typeof extra.variable_count === 'number' ? extra.variable_count : null,
-      timestep_count: typeof extra.timestep_count === 'number' ? extra.timestep_count : null,
-      skipped_values: typeof extra.skipped_values === 'number' ? extra.skipped_values : null,
+      variable_count:
+        typeof extra.variable_count === 'number' ? extra.variable_count : null,
+      timestep_count:
+        typeof extra.timestep_count === 'number' ? extra.timestep_count : null,
+      skipped_values:
+        typeof extra.skipped_values === 'number' ? extra.skipped_values : null,
       processed_at: typeof extra.processed_at === 'string' ? extra.processed_at : null,
     },
   };
 }
 
 function getProcessingError(metadata: Record<string, unknown> | null) {
-  return typeof metadata?.processing_error === 'string' ? metadata.processing_error : null;
+  return typeof metadata?.processing_error === 'string'
+    ? metadata.processing_error
+    : null;
 }
 
 export function SimulationDetailsModal({
@@ -96,7 +103,9 @@ export function SimulationDetailsModal({
       <div className="max-h-[90vh] w-full max-w-5xl overflow-hidden rounded-xl border border-border bg-card shadow-2xl">
         <div className="flex items-start justify-between border-b border-border px-6 py-4">
           <div>
-            <h2 className="text-xl font-semibold text-foreground">{resolvedFile.filename}</h2>
+            <h2 className="text-xl font-semibold text-foreground">
+              {resolvedFile.filename}
+            </h2>
             <p className="mt-1 text-sm text-muted-foreground">
               Parsed simulation output preview
             </p>
@@ -109,23 +118,33 @@ export function SimulationDetailsModal({
         <div className="max-h-[calc(90vh-81px)] space-y-6 overflow-y-auto px-6 py-5">
           <section className="grid gap-4 md:grid-cols-4">
             <div className="rounded-lg border border-border bg-muted/40 p-4">
-              <div className="text-xs uppercase tracking-wide text-muted-foreground">Status</div>
-              <div className="mt-2 text-lg font-semibold capitalize">{resolvedFile.status}</div>
+              <div className="text-xs uppercase tracking-wide text-muted-foreground">
+                Status
+              </div>
+              <div className="mt-2 text-lg font-semibold capitalize">
+                {resolvedFile.status}
+              </div>
             </div>
             <div className="rounded-lg border border-border bg-muted/40 p-4">
-              <div className="text-xs uppercase tracking-wide text-muted-foreground">Variables</div>
+              <div className="text-xs uppercase tracking-wide text-muted-foreground">
+                Variables
+              </div>
               <div className="mt-2 text-lg font-semibold">
                 {summary?.metadata.variable_count ?? '--'}
               </div>
             </div>
             <div className="rounded-lg border border-border bg-muted/40 p-4">
-              <div className="text-xs uppercase tracking-wide text-muted-foreground">Timesteps</div>
+              <div className="text-xs uppercase tracking-wide text-muted-foreground">
+                Timesteps
+              </div>
               <div className="mt-2 text-lg font-semibold">
                 {summary?.metadata.timestep_count ?? '--'}
               </div>
             </div>
             <div className="rounded-lg border border-border bg-muted/40 p-4">
-              <div className="text-xs uppercase tracking-wide text-muted-foreground">Skipped values</div>
+              <div className="text-xs uppercase tracking-wide text-muted-foreground">
+                Skipped values
+              </div>
               <div className="mt-2 text-lg font-semibold">
                 {summary?.metadata.skipped_values ?? '--'}
               </div>
@@ -141,17 +160,19 @@ export function SimulationDetailsModal({
           )}
 
           {processingError && (
-            <section className="rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-700">
+            <section className="rounded-lg border border-destructive/30 bg-destructive/10 p-4 text-sm text-destructive">
               {processingError}
             </section>
           )}
 
           <section className="rounded-lg border border-border bg-muted/30 p-4">
-            <div className="mb-3 text-sm font-medium text-foreground">Simulation Variables</div>
+            <div className="mb-3 text-sm font-medium text-foreground">
+              Simulation Variables
+            </div>
             {variablesLoading ? (
               <div className="text-sm text-muted-foreground">Loading variables...</div>
             ) : variablesError ? (
-              <div className="text-sm text-red-600">{variablesError}</div>
+              <div className="text-sm text-destructive">{variablesError}</div>
             ) : variables.length === 0 ? (
               <div className="text-sm text-muted-foreground">No variables found</div>
             ) : (
@@ -180,13 +201,14 @@ export function SimulationDetailsModal({
                         className={`align-top ${selectedVariableId === variable.id ? 'bg-muted/60' : ''}`}
                       >
                         <TableCell className="px-3 py-2">
-                          <button
+                          <Button
                             type="button"
-                            className="w-full text-left font-medium"
+                            variant="ghost"
+                            className="h-auto w-full justify-start px-0 py-0 font-medium"
                             onClick={() => setSelectedVariableId(variable.id)}
                           >
                             {variable.variable_name}
-                          </button>
+                          </Button>
                         </TableCell>
                         <TableCell className="px-3 py-2 text-muted-foreground">
                           {variable.unit ?? '--'}
@@ -207,7 +229,9 @@ export function SimulationDetailsModal({
 
           <section className="rounded-lg border border-border bg-muted/30 p-4">
             <div className="mb-3 flex items-center justify-between gap-3">
-              <div className="text-sm font-medium text-foreground">Variable Timeseries</div>
+              <div className="text-sm font-medium text-foreground">
+                Variable Timeseries
+              </div>
               {selectedVariableId && (
                 <div className="text-xs text-muted-foreground">
                   Previewing up to 200 points for the selected variable
@@ -221,9 +245,11 @@ export function SimulationDetailsModal({
             ) : pointsLoading ? (
               <div className="text-sm text-muted-foreground">Loading timeseries...</div>
             ) : pointsError ? (
-              <div className="text-sm text-red-600">{pointsError}</div>
+              <div className="text-sm text-destructive">{pointsError}</div>
             ) : points.length === 0 ? (
-              <div className="text-sm text-muted-foreground">No timeseries values found</div>
+              <div className="text-sm text-muted-foreground">
+                No timeseries values found
+              </div>
             ) : (
               <div className="max-h-72 overflow-auto rounded-md border border-border bg-card">
                 <Table className="min-w-[560px] text-sm text-foreground">
@@ -241,7 +267,9 @@ export function SimulationDetailsModal({
                     {points.map((point) => (
                       <TableRow key={point.id} className="align-top">
                         <TableCell className="px-3 py-2">
-                          {point.timestamp ? new Date(point.timestamp).toLocaleString() : '--'}
+                          {point.timestamp
+                            ? new Date(point.timestamp).toLocaleString()
+                            : '--'}
                         </TableCell>
                         <TableCell className="px-3 py-2 text-muted-foreground">
                           {point.value}

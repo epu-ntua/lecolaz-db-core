@@ -18,9 +18,9 @@
  * - React is only responsible for lifecycle management and data fetching.
  */
 
-import { useEffect, useRef } from "react";
-import { fetchBimStream } from "@/api/bim_files"; // your function
-import { BIMViewerEngine } from "../BIMViewerEngine";
+import { useEffect, useRef } from 'react';
+import { fetchBimStream } from '@/api/bim_files'; // your function
+import { BIMViewerEngine } from '../BIMViewerEngine';
 
 export default function BIMViewer({ bimId }: { bimId: string }) {
   const containerRef = useRef<HTMLDivElement>(null);

@@ -34,7 +34,7 @@ export function FileUpload({
       const result = await uploadAction(file);
       setFile(null);
       onUploaded(result);
-    } catch (e) {
+    } catch {
       setError(errorMessage);
     } finally {
       setLoading(false);
@@ -66,7 +66,7 @@ export function FileUpload({
         )}
       </Button>
 
-      {error && <span className="text-sm text-red-600 font-medium">{error}</span>}
+      {error && <span className="text-sm text-destructive font-medium">{error}</span>}
     </div>
   );
 }

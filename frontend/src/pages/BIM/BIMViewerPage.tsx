@@ -1,8 +1,9 @@
-import { useEffect, useState } from "react";
-import { useNavigate, useParams } from "react-router-dom";
-import { fetchBimMetadata } from "@/api/bim_files";
-import type { BimMetadataDto } from "@/types/api/bim";
-import BimViewer from "./components/BIMViewer";
+import { useEffect, useState } from 'react';
+import { useNavigate, useParams } from 'react-router-dom';
+import { fetchBimMetadata } from '@/api/bim_files';
+import { Button } from '@/components/ui/button';
+import type { BimMetadataDto } from '@/types/api/bim';
+import BimViewer from './components/BIMViewer';
 
 export default function BIMViewerPage() {
   const { id } = useParams();
@@ -22,12 +23,9 @@ export default function BIMViewerPage() {
   return (
     <div className="h-screen flex flex-col">
       <div className="p-4 border-b">
-        <button
-          onClick={() => navigate("/bim")}
-          className="text-primary hover:underline"
-        >
+        <Button variant="link" className="px-0" onClick={() => navigate('/bim')}>
           Back
-        </button>
+        </Button>
         <h1 className="mt-2 text-lg font-semibold">Displaying: {bim?.filename ?? id}</h1>
       </div>
 

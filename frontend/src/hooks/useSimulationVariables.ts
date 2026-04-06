@@ -1,6 +1,6 @@
-import { useEffect, useState } from "react";
-import { listSimulationVariablesByDataset } from "@/api/simulation_files";
-import type { SimulationVariableDto } from "@/types/api/simulations";
+import { useEffect, useState } from 'react';
+import { listSimulationVariablesByDataset } from '@/api/simulation_files';
+import type { SimulationVariableDto } from '@/types/api/simulations';
 
 export function useSimulationVariables(datasetId: string, enabled: boolean = true) {
   const [variables, setVariables] = useState<SimulationVariableDto[]>([]);
@@ -27,7 +27,7 @@ export function useSimulationVariables(datasetId: string, enabled: boolean = tru
       })
       .catch(() => {
         if (!cancelled) {
-          setError("Failed to load simulation variables");
+          setError('Failed to load simulation variables');
         }
       })
       .finally(() => {
