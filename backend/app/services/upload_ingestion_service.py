@@ -96,9 +96,9 @@ def ingest_upload(
     bim_store = BimStore()
     simulation_store = SimulationStore()
 
-    dataset_id = uuid.uuid4()
-    object_key = f"uploads/{dataset_id}/{normalized_filename}"
     dataset_type, subtype = resolve_dataset_classification(filename, type)
+    dataset_id = uuid.uuid4()
+    object_key = f"{dataset_type}/{dataset_id}/{normalized_filename}"
 
     try:
         object_store.put_object(
