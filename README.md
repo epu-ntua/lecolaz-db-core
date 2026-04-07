@@ -10,20 +10,6 @@ This repository contains a minimal ingestion backend for WP6.
 - FastAPI backend
 - React frontend
 
-### Backend features
-- Health check endpoint
-- File upload to MinIO
-- File metadata persistence in PostgreSQL
-- File listing API
-
-### Files download
-Direct browser downloads via MinIO presigned URLs are intentionally disabled
-during early development.
-Reason:
-- Presigned URLs require a stable public hostname
-- This will be introduced later via Nginx / reverse proxy
-
-
 ## How to run (development)
 
 ### Prerequisites
