@@ -1,6 +1,11 @@
 import { API_BASE } from './client';
 import type { DatasetUploadResult } from '@/types/api/datasets';
-import type { BimFileDto, BimMetadataDto } from '@/types/api/bim';
+import type {
+  BimFileDto,
+  BimMetadataDto,
+  BimSpaceDto,
+  BimStoreyDto,
+} from '@/types/api/bim';
 
 export async function uploadBimFile(file: File): Promise<DatasetUploadResult> {
   const form = new FormData();
@@ -41,4 +46,20 @@ export async function fetchBimMetadata(bimId: string): Promise<BimMetadataDto> {
   const res = await fetch(`${API_BASE}/bim/${bimId}/metadata`);
   if (!res.ok) throw new Error('Failed to fetch BIM metadata');
   return res.json() as Promise<BimMetadataDto>;
+}
+
+export async function listBimStoreysByDataset(
+  datasetId: string,
+): Promise<BimStoreyDto[]> {
+  const res = await fetch(`${API_BASE}/bim/by-dataset/${datasetId}/storeys`);
+  if (!res.ok) throw new Error('Failed to fetch BIM storeys');
+  return res.json() as Promise<BimStoreyDto[]>;
+}
+
+export async function listBimSpacesByDataset(
+  datasetId: string,
+): Promise<BimSpaceDto[]> {
+  const res = await fetch(`${API_BASE}/bim/by-dataset/${datasetId}/spaces`);
+  if (!res.ok) throw new Error('Failed to fetch BIM spaces');
+  return res.json() as Promise<BimSpaceDto[]>;
 }

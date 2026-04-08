@@ -44,12 +44,14 @@ export async function listSimulationVariablesByDataset(
 export async function listSimulationTimeseriesByDataset(
   datasetId: string,
   variableId: string,
-  limit: number = 200,
+  limit?: number,
 ): Promise<SimulationTimeseriesPointDto[]> {
   const params = new URLSearchParams({
     variable_id: variableId,
-    limit: String(limit),
   });
+  if (typeof limit === 'number') {
+    params.set('limit', String(limit));
+  }
   const res = await fetch(
     `${API_BASE}/simulations/by-dataset/${datasetId}/timeseries?${params}`,
   );

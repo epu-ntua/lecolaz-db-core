@@ -4,16 +4,19 @@ import {
   listSimulationFiles,
   uploadSimulationFile,
 } from '@/api/simulation_files';
+import { usePendingDatasetPolling } from '@/hooks/usePendingDatasetPolling';
 import type { SimulationFileDto } from '@/types/api/simulations';
 import { FileUpload } from '@/pages/DataDiscovery/components/FileUpload';
 import { SimulationsFilesTable } from '@/pages/Simulations/components/SimulationsFilesTable';
 
-const TERMINAL_STATUSES = new Set(['processed', 'failed']);
-
 export default function SimulationsPage() {
   const [files, setFiles] = useState<SimulationFileDto[]>([]);
   const [loading, setLoading] = useState(true);
-  const [pendingDatasetIds, setPendingDatasetIds] = useState<string[]>([]);
+  const { resolvedRows, clearResolvedRows, queueDatasetId } = usePendingDatasetPolling({
+    fetchByDatasetId: getSimulationFileByDataset,
+    getStatus: (row) => row.status,
+    getDatasetId: (row) => row.dataset_id,
+  });
 
   useEffect(() => {
     let cancelled = false;
@@ -36,45 +39,22 @@ export default function SimulationsPage() {
   }, []);
 
   useEffect(() => {
-    if (pendingDatasetIds.length === 0) {
+    if (resolvedRows.length === 0) {
       return;
     }
 
-    const timeoutId = window.setTimeout(async () => {
-      const results = await Promise.allSettled(
-        pendingDatasetIds.map(async (datasetId) => ({
-          datasetId,
-          simulation: await getSimulationFileByDataset(datasetId),
-        })),
-      );
-
-      const nextPendingDatasetIds: string[] = [];
-
-      results.forEach((result, index) => {
-        if (result.status === 'rejected') {
-          nextPendingDatasetIds.push(pendingDatasetIds[index]);
-          return;
+    setFiles((current) => {
+      const next = [...current];
+      resolvedRows.forEach((simulation) => {
+        const index = next.findIndex((row) => row.dataset_id === simulation.dataset_id);
+        if (index >= 0) {
+          next[index] = simulation;
         }
-
-        const { datasetId, simulation } = result.value;
-        if (TERMINAL_STATUSES.has(simulation.status ?? '')) {
-          setFiles((current) =>
-            current.map((row) => (row.dataset_id === datasetId ? simulation : row)),
-          );
-          return;
-        }
-
-        setFiles((current) =>
-          current.map((row) => (row.dataset_id === datasetId ? simulation : row)),
-        );
-        nextPendingDatasetIds.push(datasetId);
       });
-
-      setPendingDatasetIds(nextPendingDatasetIds);
-    }, 1500);
-
-    return () => window.clearTimeout(timeoutId);
-  }, [pendingDatasetIds]);
+      return next;
+    });
+    clearResolvedRows();
+  }, [clearResolvedRows, resolvedRows]);
 
   return (
     <div className="space-y-6">
@@ -93,11 +73,7 @@ export default function SimulationsPage() {
               const next = current.filter((row) => row.id !== simulation.id);
               return [simulation, ...next];
             });
-            setPendingDatasetIds((current) =>
-              current.includes(result.dataset_id)
-                ? current
-                : [...current, result.dataset_id],
-            );
+            queueDatasetId(result.dataset_id);
           }}
           uploadAction={uploadSimulationFile}
           accept=".eso"

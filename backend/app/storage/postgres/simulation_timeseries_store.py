@@ -62,7 +62,7 @@ class SimulationTimeseriesStore:
         self,
         simulation_dataset_id: uuid.UUID,
         variable_id: uuid.UUID,
-        limit: int = 500,
+        limit: int | None = None,
     ) -> List[Dict[str, Any]]:
         with self._session_factory() as session:
             stmt = (
@@ -70,8 +70,9 @@ class SimulationTimeseriesStore:
                 .where(SimulationTimeseries.simulation_dataset_id == simulation_dataset_id)
                 .where(SimulationTimeseries.variable_id == variable_id)
                 .order_by(SimulationTimeseries.timestamp.asc())
-                .limit(limit)
             )
+            if limit is not None:
+                stmt = stmt.limit(limit)
             rows = session.execute(stmt).scalars().all()
             return [self._to_dict(row) for row in rows]
 

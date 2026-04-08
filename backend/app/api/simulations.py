@@ -61,7 +61,7 @@ def list_simulation_variables_by_dataset(dataset_id: str):
 def list_simulation_timeseries_by_dataset(
     dataset_id: str,
     variable_id: str,
-    limit: int = 500,
+    limit: int | None = None,
 ):
     simulation_store = SimulationStore()
     timeseries_store = SimulationTimeseriesStore()

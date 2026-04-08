@@ -1,12 +1,17 @@
 import { useEffect, useState } from 'react';
+import { Download } from 'lucide-react';
+import { getDatasetDownloadUrl } from '@/api/datasets';
 import { getSimulationFileByDataset } from '@/api/simulation_files';
-import { useSimulationTimeseries } from '@/hooks/useSimulationTimeseries';
-import { useSimulationVariables } from '@/hooks/useSimulationVariables';
-import type {
-  SimulationFileDto,
-  SimulationProcessingSummary,
-} from '@/types/api/simulations';
+import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
 import {
   Table,
   TableBody,
@@ -15,6 +20,14 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
+import { useSimulationVariables } from '@/hooks/useSimulationVariables';
+import { cn } from '@/lib/utils';
+import { SimulationVariableChartDialog } from '@/pages/Simulations/components/SimulationVariableChartDialog';
+import type {
+  SimulationFileDto,
+  SimulationProcessingSummary,
+  SimulationVariableDto,
+} from '@/types/api/simulations';
 
 function getProcessingSummary(
   extra: Record<string, unknown> | null,
@@ -42,6 +55,18 @@ function getProcessingError(metadata: Record<string, unknown> | null) {
     : null;
 }
 
+function getStatusVariant(status: string | null) {
+  if (status === 'failed') {
+    return 'destructive' as const;
+  }
+
+  if (status === 'processed') {
+    return 'default' as const;
+  }
+
+  return 'secondary' as const;
+}
+
 export function SimulationDetailsModal({
   file,
   onClose,
@@ -50,7 +75,9 @@ export function SimulationDetailsModal({
   onClose: () => void;
 }) {
   const [resolvedFile, setResolvedFile] = useState<SimulationFileDto>(file);
-  const [selectedVariableId, setSelectedVariableId] = useState<string | null>(null);
+  const [selectedVariable, setSelectedVariable] = useState<SimulationVariableDto | null>(
+    null,
+  );
 
   useEffect(() => {
     let cancelled = false;
@@ -80,209 +107,171 @@ export function SimulationDetailsModal({
     loading: variablesLoading,
     error: variablesError,
   } = useSimulationVariables(file.dataset_id);
-  const {
-    points,
-    loading: pointsLoading,
-    error: pointsError,
-  } = useSimulationTimeseries(file.dataset_id, selectedVariableId, !!selectedVariableId);
-
-  useEffect(() => {
-    if (variables.length === 0) {
-      setSelectedVariableId(null);
-      return;
-    }
-
-    const hasSelected = variables.some((variable) => variable.id === selectedVariableId);
-    if (!hasSelected) {
-      setSelectedVariableId(variables[0].id);
-    }
-  }, [selectedVariableId, variables]);
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/45 p-4">
-      <div className="max-h-[90vh] w-full max-w-5xl overflow-hidden rounded-xl border border-border bg-card shadow-2xl">
-        <div className="flex items-start justify-between border-b border-border px-6 py-4">
-          <div>
-            <h2 className="text-xl font-semibold text-foreground">
-              {resolvedFile.filename}
-            </h2>
-            <p className="mt-1 text-sm text-muted-foreground">
-              Parsed simulation output preview
-            </p>
-          </div>
-          <Button variant="outline" size="sm" onClick={onClose}>
-            Close
-          </Button>
-        </div>
+    <>
+      <Dialog open onOpenChange={(open) => !open && onClose()}>
+        <DialogContent className="flex max-h-[90vh] w-full max-w-5xl flex-col gap-0 overflow-hidden p-0">
+          <DialogHeader className="border-b border-border px-6 py-4 text-left">
+            <div className="flex items-start justify-between gap-4 pr-8">
+              <div className="space-y-2">
+                <DialogTitle className="text-xl">{resolvedFile.filename}</DialogTitle>
+                <DialogDescription>Parsed simulation output preview</DialogDescription>
+              </div>
+              <div className="flex items-center gap-2">
+                <Badge variant={getStatusVariant(resolvedFile.status)} className="capitalize">
+                  {resolvedFile.status ?? '--'}
+                </Badge>
+                <Button asChild variant="outline" size="sm">
+                  <a href={getDatasetDownloadUrl(resolvedFile.dataset_id)} download>
+                    <Download />
+                    Download
+                  </a>
+                </Button>
+              </div>
+            </div>
+          </DialogHeader>
 
-        <div className="max-h-[calc(90vh-81px)] space-y-6 overflow-y-auto px-6 py-5">
-          <section className="grid gap-4 md:grid-cols-4">
-            <div className="rounded-lg border border-border bg-muted/40 p-4">
-              <div className="text-xs uppercase tracking-wide text-muted-foreground">
-                Status
-              </div>
-              <div className="mt-2 text-lg font-semibold capitalize">
-                {resolvedFile.status}
-              </div>
-            </div>
-            <div className="rounded-lg border border-border bg-muted/40 p-4">
-              <div className="text-xs uppercase tracking-wide text-muted-foreground">
-                Variables
-              </div>
-              <div className="mt-2 text-lg font-semibold">
-                {summary?.metadata.variable_count ?? '--'}
-              </div>
-            </div>
-            <div className="rounded-lg border border-border bg-muted/40 p-4">
-              <div className="text-xs uppercase tracking-wide text-muted-foreground">
-                Timesteps
-              </div>
-              <div className="mt-2 text-lg font-semibold">
-                {summary?.metadata.timestep_count ?? '--'}
-              </div>
-            </div>
-            <div className="rounded-lg border border-border bg-muted/40 p-4">
-              <div className="text-xs uppercase tracking-wide text-muted-foreground">
-                Skipped values
-              </div>
-              <div className="mt-2 text-lg font-semibold">
-                {summary?.metadata.skipped_values ?? '--'}
-              </div>
-            </div>
-          </section>
+          <div className="space-y-6 overflow-y-auto px-6 py-5">
+            <section className="grid gap-4 md:grid-cols-4">
+              <Card className="shadow-none">
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-xs uppercase tracking-wide text-muted-foreground">
+                    Status
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <Badge
+                    variant={getStatusVariant(resolvedFile.status)}
+                    className="capitalize"
+                  >
+                    {resolvedFile.status ?? '--'}
+                  </Badge>
+                </CardContent>
+              </Card>
+              <Card className="shadow-none">
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-xs uppercase tracking-wide text-muted-foreground">
+                    Variables
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="text-lg font-semibold">
+                  {summary?.metadata.variable_count ?? '--'}
+                </CardContent>
+              </Card>
+              <Card className="shadow-none">
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-xs uppercase tracking-wide text-muted-foreground">
+                    Timesteps
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="text-lg font-semibold">
+                  {summary?.metadata.timestep_count ?? '--'}
+                </CardContent>
+              </Card>
+              <Card className="shadow-none">
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-xs uppercase tracking-wide text-muted-foreground">
+                    Skipped values
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="text-lg font-semibold">
+                  {summary?.metadata.skipped_values ?? '--'}
+                </CardContent>
+              </Card>
+            </section>
 
-          {summary?.metadata.processed_at && (
-            <section>
-              <div className="text-sm text-muted-foreground">
+            {summary?.metadata.processed_at && (
+              <section className="text-sm text-muted-foreground">
                 Processed at {new Date(summary.metadata.processed_at).toLocaleString()}
-              </div>
-            </section>
-          )}
+              </section>
+            )}
 
-          {processingError && (
-            <section className="rounded-lg border border-destructive/30 bg-destructive/10 p-4 text-sm text-destructive">
-              {processingError}
-            </section>
-          )}
+            {processingError && (
+              <section className="rounded-lg border border-destructive/30 bg-destructive/10 p-4 text-sm text-destructive">
+                {processingError}
+              </section>
+            )}
 
-          <section className="rounded-lg border border-border bg-muted/30 p-4">
-            <div className="mb-3 text-sm font-medium text-foreground">
-              Simulation Variables
-            </div>
-            {variablesLoading ? (
-              <div className="text-sm text-muted-foreground">Loading variables...</div>
-            ) : variablesError ? (
-              <div className="text-sm text-destructive">{variablesError}</div>
-            ) : variables.length === 0 ? (
-              <div className="text-sm text-muted-foreground">No variables found</div>
-            ) : (
-              <div className="max-h-72 overflow-auto rounded-md border border-border bg-card">
-                <Table className="min-w-[720px] text-sm text-foreground">
-                  <TableHeader className="border-b border-border bg-muted">
-                    <TableRow className="text-left hover:bg-transparent">
-                      <TableHead className="sticky top-0 z-10 bg-muted px-3 py-2 font-medium text-muted-foreground">
-                        Variable
-                      </TableHead>
-                      <TableHead className="sticky top-0 z-10 bg-muted px-3 py-2 font-medium text-muted-foreground">
-                        Unit
-                      </TableHead>
-                      <TableHead className="sticky top-0 z-10 bg-muted px-3 py-2 font-medium text-muted-foreground">
-                        Frequency
-                      </TableHead>
-                      <TableHead className="sticky top-0 z-10 bg-muted px-3 py-2 font-medium text-muted-foreground">
-                        Key
-                      </TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {variables.map((variable) => (
-                      <TableRow
-                        key={variable.id}
-                        className={`align-top ${selectedVariableId === variable.id ? 'bg-muted/60' : ''}`}
-                      >
-                        <TableCell className="px-3 py-2">
-                          <Button
-                            type="button"
-                            variant="ghost"
-                            className="h-auto w-full justify-start px-0 py-0 font-medium"
-                            onClick={() => setSelectedVariableId(variable.id)}
+            <Card className="shadow-none">
+              <CardHeader className="pb-4">
+                <CardTitle className="text-sm font-medium">Simulation Variables</CardTitle>
+                <DialogDescription className="text-left">
+                  Select a variable to open its full timeseries chart.
+                </DialogDescription>
+              </CardHeader>
+              <CardContent>
+                {variablesLoading ? (
+                  <div className="text-sm text-muted-foreground">Loading variables...</div>
+                ) : variablesError ? (
+                  <div className="text-sm text-destructive">{variablesError}</div>
+                ) : variables.length === 0 ? (
+                  <div className="text-sm text-muted-foreground">No variables found</div>
+                ) : (
+                  <div className="max-h-72 overflow-auto rounded-md border border-border bg-card">
+                    <Table className="min-w-[720px] text-sm text-foreground">
+                      <TableHeader className="border-b border-border bg-muted">
+                        <TableRow className="text-left hover:bg-transparent">
+                          <TableHead className="sticky top-0 z-10 bg-muted px-3 py-2 font-medium text-muted-foreground">
+                            Variable
+                          </TableHead>
+                          <TableHead className="sticky top-0 z-10 bg-muted px-3 py-2 font-medium text-muted-foreground">
+                            Unit
+                          </TableHead>
+                          <TableHead className="sticky top-0 z-10 bg-muted px-3 py-2 font-medium text-muted-foreground">
+                            Frequency
+                          </TableHead>
+                          <TableHead className="sticky top-0 z-10 bg-muted px-3 py-2 font-medium text-muted-foreground">
+                            Key
+                          </TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {variables.map((variable) => (
+                          <TableRow
+                            key={variable.id}
+                            className={cn(
+                              'align-top',
+                              selectedVariable?.id === variable.id && 'bg-muted/60',
+                            )}
                           >
-                            {variable.variable_name}
-                          </Button>
-                        </TableCell>
-                        <TableCell className="px-3 py-2 text-muted-foreground">
-                          {variable.unit ?? '--'}
-                        </TableCell>
-                        <TableCell className="px-3 py-2 text-muted-foreground">
-                          {variable.frequency ?? '--'}
-                        </TableCell>
-                        <TableCell className="px-3 py-2 text-muted-foreground">
-                          {variable.key ?? '--'}
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </div>
-            )}
-          </section>
-
-          <section className="rounded-lg border border-border bg-muted/30 p-4">
-            <div className="mb-3 flex items-center justify-between gap-3">
-              <div className="text-sm font-medium text-foreground">
-                Variable Timeseries
-              </div>
-              {selectedVariableId && (
-                <div className="text-xs text-muted-foreground">
-                  Previewing up to 200 points for the selected variable
-                </div>
-              )}
-            </div>
-            {!selectedVariableId ? (
-              <div className="text-sm text-muted-foreground">
-                Select a variable to inspect its timeseries.
-              </div>
-            ) : pointsLoading ? (
-              <div className="text-sm text-muted-foreground">Loading timeseries...</div>
-            ) : pointsError ? (
-              <div className="text-sm text-destructive">{pointsError}</div>
-            ) : points.length === 0 ? (
-              <div className="text-sm text-muted-foreground">
-                No timeseries values found
-              </div>
-            ) : (
-              <div className="max-h-72 overflow-auto rounded-md border border-border bg-card">
-                <Table className="min-w-[560px] text-sm text-foreground">
-                  <TableHeader className="border-b border-border bg-muted">
-                    <TableRow className="text-left hover:bg-transparent">
-                      <TableHead className="sticky top-0 z-10 bg-muted px-3 py-2 font-medium text-muted-foreground">
-                        Timestamp
-                      </TableHead>
-                      <TableHead className="sticky top-0 z-10 bg-muted px-3 py-2 font-medium text-muted-foreground">
-                        Value
-                      </TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {points.map((point) => (
-                      <TableRow key={point.id} className="align-top">
-                        <TableCell className="px-3 py-2">
-                          {point.timestamp
-                            ? new Date(point.timestamp).toLocaleString()
-                            : '--'}
-                        </TableCell>
-                        <TableCell className="px-3 py-2 text-muted-foreground">
-                          {point.value}
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </div>
-            )}
-          </section>
-        </div>
-      </div>
-    </div>
+                            <TableCell className="px-3 py-2">
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                className="h-auto w-full justify-start px-0 py-0 font-medium"
+                                onClick={() => setSelectedVariable(variable)}
+                              >
+                                {variable.variable_name}
+                              </Button>
+                            </TableCell>
+                            <TableCell className="px-3 py-2 text-muted-foreground">
+                              {variable.unit ?? '--'}
+                            </TableCell>
+                            <TableCell className="px-3 py-2 text-muted-foreground">
+                              {variable.frequency ?? '--'}
+                            </TableCell>
+                            <TableCell className="px-3 py-2 text-muted-foreground">
+                              {variable.key ?? '--'}
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </div>
+        </DialogContent>
+      </Dialog>
+      {selectedVariable && (
+        <SimulationVariableChartDialog
+          datasetId={resolvedFile.dataset_id}
+          variable={selectedVariable}
+          onClose={() => setSelectedVariable(null)}
+        />
+      )}
+    </>
   );
 }
