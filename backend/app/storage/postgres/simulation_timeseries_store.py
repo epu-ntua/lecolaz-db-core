@@ -1,15 +1,14 @@
 import uuid
-from datetime import datetime
 from typing import Any, Dict, List
 
-from sqlalchemy import delete, select
+from sqlalchemy import delete, insert, select
 
 from app.db.models.simulation_timeseries import SimulationTimeseries
 from app.db.session import SessionLocal
 
 
 class SimulationTimeseriesStore:
-    _BATCH_SIZE = 1000
+    _BATCH_SIZE = 10000
 
     def __init__(self, session_factory=SessionLocal):
         self._session_factory = session_factory
@@ -20,9 +19,9 @@ class SimulationTimeseriesStore:
         rows: List[Dict[str, Any]],
     ) -> None:
         with self._session_factory() as session:
-            records: List[Dict[str, Any]] = []
-            for row in rows:
-                records.append(
+            for start in range(0, len(rows), self._BATCH_SIZE):
+                batch = rows[start:start + self._BATCH_SIZE]
+                records = [
                     {
                         "id": uuid.uuid4(),
                         "simulation_dataset_id": simulation_dataset_id,
@@ -30,14 +29,10 @@ class SimulationTimeseriesStore:
                         "timestamp": row["timestamp"],
                         "value": row["value"],
                     }
-                )
-
-            for start in range(0, len(records), self._BATCH_SIZE):
-                session.bulk_insert_mappings(
-                    SimulationTimeseries,
-                    records[start:start + self._BATCH_SIZE],
-                )
-            session.commit()
+                    for row in batch
+                ]
+                session.execute(insert(SimulationTimeseries), records)
+                session.commit()
 
     def delete_by_simulation_dataset_id(self, simulation_dataset_id: uuid.UUID) -> None:
         with self._session_factory() as session:

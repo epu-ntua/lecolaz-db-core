@@ -10,6 +10,7 @@ class BimFileResponse(BaseModel):
     dataset_id: str
     filename: str
     format: str
+    status: str | None
     bim_schema: str | None = Field(
         default=None,
         validation_alias="schema",

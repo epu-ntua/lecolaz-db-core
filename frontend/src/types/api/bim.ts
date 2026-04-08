@@ -3,7 +3,14 @@ export type BimFileDto = {
   dataset_id: string;
   filename: string;
   format: string;
+  status: string | null;
   schema: string | null;
+  stats: {
+    storeys?: number;
+    spaces?: number;
+    entities?: number;
+  } | null;
+  units: Array<Record<string, unknown>> | null;
   created_at: string | null;
   extra: Record<string, unknown> | null;
 };

@@ -16,6 +16,28 @@ import {
   TableRow,
 } from '@/components/ui/table';
 
+function renderStatsSummary(stats: BimFileDto['stats']) {
+  if (!stats) {
+    return <span className="text-muted-foreground/60">--</span>;
+  }
+
+  const storeys = typeof stats.storeys === 'number' ? stats.storeys : null;
+  const spaces = typeof stats.spaces === 'number' ? stats.spaces : null;
+  const entities = typeof stats.entities === 'number' ? stats.entities : null;
+
+  if (storeys === null && spaces === null && entities === null) {
+    return <span className="text-muted-foreground/60">--</span>;
+  }
+
+  return (
+    <div className="space-y-1 text-xs">
+      {storeys !== null && <div className="text-muted-foreground">Storeys: {storeys}</div>}
+      {spaces !== null && <div className="text-muted-foreground">Spaces: {spaces}</div>}
+      {entities !== null && <div className="text-muted-foreground">Entities: {entities}</div>}
+    </div>
+  );
+}
+
 export function BIMFilesTable({
   files,
   loading,
@@ -32,7 +54,7 @@ export function BIMFilesTable({
   return (
     <div className="border border-border rounded-lg bg-card">
       <div className="max-h-[65vh] overflow-auto">
-        <Table className="min-w-[900px] text-sm text-foreground">
+        <Table className="min-w-[980px] text-sm text-foreground">
           <TableHeader className="border-b border-border bg-muted">
             <TableRow className="text-left hover:bg-transparent">
               <TableHead className="sticky top-0 z-10 bg-muted px-3 py-2 font-medium text-muted-foreground">
@@ -48,10 +70,13 @@ export function BIMFilesTable({
                 Format
               </TableHead>
               <TableHead className="sticky top-0 z-10 bg-muted px-3 py-2 font-medium text-muted-foreground">
+                Status
+              </TableHead>
+              <TableHead className="sticky top-0 z-10 bg-muted px-3 py-2 font-medium text-muted-foreground">
                 Schema
               </TableHead>
               <TableHead className="sticky top-0 z-10 bg-muted px-3 py-2 font-medium text-muted-foreground">
-                Extra
+                Stats
               </TableHead>
             </TableRow>
           </TableHeader>
@@ -80,18 +105,18 @@ export function BIMFilesTable({
                   {f.format ?? '--'}
                 </TableCell>
 
+                <TableCell className="px-3 py-2">
+                  <span className="inline-flex rounded-full bg-muted px-2 py-1 text-xs font-medium capitalize text-foreground">
+                    {f.status ?? '--'}
+                  </span>
+                </TableCell>
+
                 <TableCell className="px-3 py-2 text-muted-foreground">
                   {f.schema ?? '--'}
                 </TableCell>
 
                 <TableCell className="px-3 py-2">
-                  {f.extra ? (
-                    <pre className="text-xs bg-muted rounded p-2 max-w-xs overflow-x-auto">
-                      {JSON.stringify(f.extra, null, 2)}
-                    </pre>
-                  ) : (
-                    <span className="text-muted-foreground/60">--</span>
-                  )}
+                  {renderStatsSummary(f.stats)}
                 </TableCell>
               </TableRow>
             ))}
@@ -99,7 +124,7 @@ export function BIMFilesTable({
             {files.length === 0 && (
               <TableRow>
                 <TableCell
-                  colSpan={6}
+                  colSpan={7}
                   className="px-4 py-6 text-center text-muted-foreground"
                 >
                   No BIM metadata entries
