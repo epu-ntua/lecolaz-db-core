@@ -89,6 +89,14 @@ def _resolve_space_storey_global_id(space: Any) -> str | None:
         structure = getattr(rel, "RelatingStructure", None)
         if structure is not None and structure.is_a("IfcBuildingStorey"):
             return getattr(structure, "GlobalId", None)
+
+    for rel in getattr(space, "Decomposes", []) or []:
+        if not rel.is_a("IfcRelAggregates"):
+            continue
+        parent = getattr(rel, "RelatingObject", None)
+        if parent is not None and parent.is_a("IfcBuildingStorey"):
+            return getattr(parent, "GlobalId", None)
+
     return None
 
 
