@@ -1,5 +1,8 @@
 # app/api/bim.py
 
+import uuid
+
+
 from fastapi import APIRouter, HTTPException
 from fastapi.responses import StreamingResponse
 
