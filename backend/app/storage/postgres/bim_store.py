@@ -1,10 +1,12 @@
 import uuid
 from typing import Optional, List, Dict, Any
 
-from sqlalchemy import select
+from sqlalchemy import delete, select
 
 from app.db.session import SessionLocal
 from app.db.models.bim_dataset import BimDataset
+from app.db.models.bim_space import BimSpace
+from app.db.models.bim_storey import BimStorey
 
 
 class BimStore:
@@ -57,6 +59,70 @@ class BimStore:
             row = session.execute(stmt).scalars().first()
             return self._to_dict(row) if row else None
 
+    def update_bim_record(
+        self,
+        dataset_id: uuid.UUID,
+        *,
+        schema: Optional[str] = None,
+        stats: Optional[dict] = None,
+        units: Optional[list] = None,
+        extra: Optional[dict] = None,
+    ) -> Optional[Dict[str, Any]]:
+        with self._session_factory() as session:
+            stmt = select(BimDataset).where(BimDataset.dataset_id == dataset_id)
+            obj = session.execute(stmt).scalars().first()
+            if not obj:
+                return None
+
+            obj.schema = schema
+            obj.stats = stats
+            obj.units = units
+            obj.extra = extra
+            session.commit()
+            session.refresh(obj)
+            return self._to_dict(obj)
+
+    def replace_spatial_structure(
+        self,
+        *,
+        bim_dataset_id: uuid.UUID,
+        storeys: List[Dict[str, Any]],
+        spaces: List[Dict[str, Any]],
+    ) -> None:
+        with self._session_factory() as session:
+            session.execute(
+                delete(BimSpace).where(BimSpace.bim_dataset_id == bim_dataset_id)
+            )
+            session.execute(
+                delete(BimStorey).where(BimStorey.bim_dataset_id == bim_dataset_id)
+            )
+
+            storey_ids_by_global_id: Dict[str, uuid.UUID] = {}
+            for storey in storeys:
+                obj = BimStorey(
+                    bim_dataset_id=bim_dataset_id,
+                    global_id=storey["global_id"],
+                    name=storey.get("name"),
+                    elevation=storey.get("elevation"),
+                )
+                session.add(obj)
+                session.flush()
+                storey_ids_by_global_id[storey["global_id"]] = obj.id
+
+            for space in spaces:
+                obj = BimSpace(
+                    bim_dataset_id=bim_dataset_id,
+                    global_id=space["global_id"],
+                    name=space.get("name"),
+                    raw_name=space.get("raw_name"),
+                    storey_id=storey_ids_by_global_id.get(space.get("storey_global_id")),
+                    area=space.get("area"),
+                    volume=space.get("volume"),
+                )
+                session.add(obj)
+
+            session.commit()
+
     @staticmethod
     def _to_dict(obj: BimDataset) -> Dict[str, Any]:
         return {
@@ -65,6 +131,8 @@ class BimStore:
             "filename": obj.filename,
             "format": obj.format,
             "schema": obj.schema,
+            "stats": obj.stats,
+            "units": obj.units,
             "created_at": obj.created_at.isoformat() if obj.created_at else None,
             "extra": obj.extra,
         }

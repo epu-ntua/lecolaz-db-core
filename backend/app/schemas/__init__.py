@@ -6,7 +6,12 @@ declarations so endpoint contracts are explicit,
 validated, and easy to import from one place.
 """
 
-from app.schemas.bim import BimFileResponse, BimMetadataResponse
+from app.schemas.bim import (
+    BimFileResponse,
+    BimMetadataResponse,
+    BimSpaceResponse,
+    BimStoreyResponse,
+)
 from app.schemas.datasets import DatasetResponse, FileUploadResponse
 from app.schemas.health import HealthResponse
 from app.schemas.simulations import (
@@ -18,6 +23,8 @@ from app.schemas.simulations import (
 __all__ = [
     "BimFileResponse",
     "BimMetadataResponse",
+    "BimSpaceResponse",
+    "BimStoreyResponse",
     "DatasetResponse",
     "FileUploadResponse",
     "HealthResponse",

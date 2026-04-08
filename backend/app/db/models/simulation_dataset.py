@@ -23,6 +23,7 @@ class SimulationDataset(Base):
 
     format = Column(String, nullable=False)  # e.g. "eso"
 
+    simulation_metadata = Column("metadata", JSONB, nullable=True)
     extra = Column(JSONB, nullable=True)
 
     created_at = Column(

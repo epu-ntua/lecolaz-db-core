@@ -285,7 +285,6 @@ def _parse_eso_bytes(data: bytes) -> Dict[str, Any]:
         "variable_count": len(filtered_variables),
         "timestep_count": len(timestep_values_seen),
         "skipped_values": skipped_values_count,
-        "processed_at": datetime.now(timezone.utc).isoformat(),
         "dictionary_info": dictionary_info,
         "variables": filtered_variables,
         "events": events,
@@ -445,18 +444,17 @@ def process_simulation(dataset_id: uuid.UUID, *, allow_reprocess: bool = False) 
             "processed",
             metadata_patch={
                 "processing_error": None,
+                "processed_at": datetime.now(timezone.utc).isoformat(),
             },
         )
         if not updated:
             raise SimulationNotFoundError("Dataset not found during status update")
-
-        simulation_store.update_simulation_extra(
+        simulation_store.update_simulation_metadata(
             dataset_id,
             {
                 "variable_count": len(variable_rows),
                 "timestep_count": int(summary.get("timestep_count", 0)),
                 "skipped_values": skipped_values_count,
-                "processed_at": datetime.now(timezone.utc).isoformat(),
             },
         )
         logger.info(

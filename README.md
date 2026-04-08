@@ -55,6 +55,9 @@ if you want to delete volumes (erase data)
 ```bash
 docker compose down -v
 ```
+and to recreate the db:
+docker compose exec backend alembic upgrade head
+
 
 ### Backend Logs (Development)
 

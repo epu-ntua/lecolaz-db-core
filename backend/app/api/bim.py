@@ -6,8 +6,15 @@ import uuid
 from fastapi import APIRouter, HTTPException
 from fastapi.responses import StreamingResponse
 
-from app.schemas import BimFileResponse, BimMetadataResponse
+from app.schemas import (
+    BimFileResponse,
+    BimMetadataResponse,
+    BimSpaceResponse,
+    BimStoreyResponse,
+)
+from app.storage.postgres.bim_space_store import BimSpaceStore
 from app.storage.postgres.bim_store import BimStore
+from app.storage.postgres.bim_storey_store import BimStoreyStore
 from app.services.bim_view_service import get_bim_view_file, get_bim_metadata
 
 
@@ -34,6 +41,46 @@ def get_bim_by_dataset(dataset_id: str):
     return bim
 
 
+@router.get(
+    "/by-dataset/{dataset_id}/storeys",
+    response_model=list[BimStoreyResponse],
+)
+def list_bim_storeys_by_dataset(dataset_id: str, limit: int = 500):
+    bs = BimStore()
+    storey_store = BimStoreyStore()
+
+    try:
+        dataset_uuid = uuid.UUID(dataset_id)
+    except ValueError:
+        raise HTTPException(400, "Invalid dataset id")
+
+    bim = bs.get_bim_by_dataset_id(dataset_uuid)
+    if not bim:
+        raise HTTPException(404, "BIM not found")
+
+    return storey_store.list_by_bim_dataset_id(uuid.UUID(bim["id"]), limit=limit)
+
+
+@router.get(
+    "/by-dataset/{dataset_id}/spaces",
+    response_model=list[BimSpaceResponse],
+)
+def list_bim_spaces_by_dataset(dataset_id: str, limit: int = 2000):
+    bs = BimStore()
+    space_store = BimSpaceStore()
+
+    try:
+        dataset_uuid = uuid.UUID(dataset_id)
+    except ValueError:
+        raise HTTPException(400, "Invalid dataset id")
+
+    bim = bs.get_bim_by_dataset_id(dataset_uuid)
+    if not bim:
+        raise HTTPException(404, "BIM not found")
+
+    return space_store.list_by_bim_dataset_id(uuid.UUID(bim["id"]), limit=limit)
+
+
 @router.get("/{bim_id}/metadata", response_model=BimMetadataResponse)
 def metadata_bim(bim_id: str):
     metadata = get_bim_metadata(bim_id)
@@ -58,4 +105,3 @@ def stream_bim(bim_id: str):
             "Content-Disposition": f'inline; filename="{filename}"'
         },
     )
-
