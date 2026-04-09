@@ -32,6 +32,12 @@ export async function getBimFileByDataset(datasetId: string): Promise<BimFileDto
   return res.json() as Promise<BimFileDto>;
 }
 
+export async function getBimFile(bimId: string): Promise<BimFileDto> {
+  const res = await fetch(`${API_BASE}/bim/${bimId}`);
+  if (!res.ok) throw new Error('Get BIM file failed');
+  return res.json() as Promise<BimFileDto>;
+}
+
 export async function fetchBimStream(bimId: string): Promise<ArrayBuffer> {
   const res = await fetch(`${API_BASE}/bim/${bimId}/stream`);
 
@@ -48,18 +54,18 @@ export async function fetchBimMetadata(bimId: string): Promise<BimMetadataDto> {
   return res.json() as Promise<BimMetadataDto>;
 }
 
-export async function listBimStoreysByDataset(
-  datasetId: string,
+export async function listBimStoreys(
+  bimId: string,
 ): Promise<BimStoreyDto[]> {
-  const res = await fetch(`${API_BASE}/bim/by-dataset/${datasetId}/storeys`);
+  const res = await fetch(`${API_BASE}/bim/${bimId}/storeys`);
   if (!res.ok) throw new Error('Failed to fetch BIM storeys');
   return res.json() as Promise<BimStoreyDto[]>;
 }
 
-export async function listBimSpacesByDataset(
-  datasetId: string,
+export async function listBimSpaces(
+  bimId: string,
 ): Promise<BimSpaceDto[]> {
-  const res = await fetch(`${API_BASE}/bim/by-dataset/${datasetId}/spaces`);
+  const res = await fetch(`${API_BASE}/bim/${bimId}/spaces`);
   if (!res.ok) throw new Error('Failed to fetch BIM spaces');
   return res.json() as Promise<BimSpaceDto[]>;
 }

@@ -25,6 +25,7 @@ class SimulationVariableStore:
                 record = SimulationVariable(
                     id=uuid.uuid4(),
                     simulation_dataset_id=simulation_dataset_id,
+                    bim_space_id=variable.get("bim_space_id"),
                     variable_id=variable["variable_id"],
                     variable_name=variable["variable_name"],
                     unit=variable.get("unit"),
@@ -67,6 +68,7 @@ class SimulationVariableStore:
         return {
             "id": str(obj.id),
             "simulation_dataset_id": str(obj.simulation_dataset_id),
+            "bim_space_id": str(obj.bim_space_id) if obj.bim_space_id else None,
             "variable_id": obj.variable_id,
             "variable_name": obj.variable_name,
             "unit": obj.unit,

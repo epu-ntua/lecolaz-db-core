@@ -1,9 +1,9 @@
 import { useEffect, useState } from 'react';
-import { listSimulationTimeseriesByDataset } from '@/api/simulation_files';
+import { listSimulationTimeseries } from '@/api/simulation_files';
 import type { SimulationTimeseriesPointDto } from '@/types/api/simulations';
 
 export function useSimulationTimeseries(
-  datasetId: string,
+  simulationId: string,
   variableId: string | null,
   enabled: boolean = true,
 ) {
@@ -12,7 +12,7 @@ export function useSimulationTimeseries(
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!enabled || !datasetId || !variableId) {
+    if (!enabled || !simulationId || !variableId) {
       setPoints([]);
       setLoading(false);
       setError(null);
@@ -23,7 +23,7 @@ export function useSimulationTimeseries(
     setLoading(true);
     setError(null);
 
-    listSimulationTimeseriesByDataset(datasetId, variableId)
+    listSimulationTimeseries(simulationId, variableId)
       .then((rows) => {
         if (!cancelled) {
           setPoints(rows);
@@ -43,7 +43,7 @@ export function useSimulationTimeseries(
     return () => {
       cancelled = true;
     };
-  }, [datasetId, enabled, variableId]);
+  }, [enabled, simulationId, variableId]);
 
   return {
     points,

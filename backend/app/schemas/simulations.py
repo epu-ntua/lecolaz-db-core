@@ -6,6 +6,7 @@ from pydantic import BaseModel
 class SimulationFileResponse(BaseModel):
     id: str
     dataset_id: str
+    bim_dataset_id: str | None
     filename: str
     format: str
     status: str | None
@@ -16,6 +17,7 @@ class SimulationFileResponse(BaseModel):
 class SimulationVariableResponse(BaseModel):
     id: str
     simulation_dataset_id: str
+    bim_space_id: str | None
     variable_id: str
     variable_name: str
     unit: str | None

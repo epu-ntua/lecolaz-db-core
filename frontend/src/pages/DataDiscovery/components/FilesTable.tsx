@@ -151,6 +151,7 @@ export function FilesTable({
           file={{
             id: selectedSimulation.id,
             dataset_id: selectedSimulation.id,
+            bim_dataset_id: null,
             filename: selectedSimulation.filename,
             format: selectedSimulation.subtype ?? '--',
             status: selectedSimulation.status,

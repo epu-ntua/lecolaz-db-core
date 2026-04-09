@@ -41,44 +41,58 @@ def get_bim_by_dataset(dataset_id: str):
     return bim
 
 
+@router.get("/{bim_id}", response_model=BimFileResponse)
+def get_bim(bim_id: str):
+    bs = BimStore()
+    try:
+        bim_uuid = uuid.UUID(bim_id)
+    except ValueError:
+        raise HTTPException(400, "Invalid BIM id")
+
+    bim = bs.get_bim_by_id(bim_uuid)
+    if not bim:
+        raise HTTPException(404, "BIM not found")
+    return bim
+
+
 @router.get(
-    "/by-dataset/{dataset_id}/storeys",
+    "/{bim_id}/storeys",
     response_model=list[BimStoreyResponse],
 )
-def list_bim_storeys_by_dataset(dataset_id: str, limit: int = 500):
-    bs = BimStore()
+def list_bim_storeys(bim_id: str, limit: int = 500):
     storey_store = BimStoreyStore()
 
     try:
-        dataset_uuid = uuid.UUID(dataset_id)
+        bim_uuid = uuid.UUID(bim_id)
     except ValueError:
-        raise HTTPException(400, "Invalid dataset id")
+        raise HTTPException(400, "Invalid BIM id")
 
-    bim = bs.get_bim_by_dataset_id(dataset_uuid)
+    bs = BimStore()
+    bim = bs.get_bim_by_id(bim_uuid)
     if not bim:
         raise HTTPException(404, "BIM not found")
 
-    return storey_store.list_by_bim_dataset_id(uuid.UUID(bim["id"]), limit=limit)
+    return storey_store.list_by_bim_dataset_id(bim_uuid, limit=limit)
 
 
 @router.get(
-    "/by-dataset/{dataset_id}/spaces",
+    "/{bim_id}/spaces",
     response_model=list[BimSpaceResponse],
 )
-def list_bim_spaces_by_dataset(dataset_id: str, limit: int = 2000):
-    bs = BimStore()
+def list_bim_spaces(bim_id: str, limit: int = 2000):
     space_store = BimSpaceStore()
 
     try:
-        dataset_uuid = uuid.UUID(dataset_id)
+        bim_uuid = uuid.UUID(bim_id)
     except ValueError:
-        raise HTTPException(400, "Invalid dataset id")
+        raise HTTPException(400, "Invalid BIM id")
 
-    bim = bs.get_bim_by_dataset_id(dataset_uuid)
+    bs = BimStore()
+    bim = bs.get_bim_by_id(bim_uuid)
     if not bim:
         raise HTTPException(404, "BIM not found")
 
-    return space_store.list_by_bim_dataset_id(uuid.UUID(bim["id"]), limit=limit)
+    return space_store.list_by_bim_dataset_id(bim_uuid, limit=limit)
 
 
 @router.get("/{bim_id}/metadata", response_model=BimMetadataResponse)

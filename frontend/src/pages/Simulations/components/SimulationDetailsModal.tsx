@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Download } from 'lucide-react';
+import { getBimFile, listBimSpaces } from '@/api/bim_files';
 import { getDatasetDownloadUrl } from '@/api/datasets';
 import { getSimulationFileByDataset } from '@/api/simulation_files';
 import { Badge } from '@/components/ui/badge';
@@ -22,7 +23,9 @@ import {
 } from '@/components/ui/table';
 import { useSimulationVariables } from '@/hooks/useSimulationVariables';
 import { cn } from '@/lib/utils';
+import { BIMDetailsDialog } from '@/pages/BIM/components/BIMDetailsDialog';
 import { SimulationVariableChartDialog } from '@/pages/Simulations/components/SimulationVariableChartDialog';
+import type { BimFileDto, BimSpaceDto } from '@/types/api/bim';
 import type {
   SimulationFileDto,
   SimulationProcessingSummary,
@@ -78,6 +81,9 @@ export function SimulationDetailsModal({
   const [selectedVariable, setSelectedVariable] = useState<SimulationVariableDto | null>(
     null,
   );
+  const [linkedBim, setLinkedBim] = useState<BimFileDto | null>(null);
+  const [linkedBimSpaces, setLinkedBimSpaces] = useState<BimSpaceDto[]>([]);
+  const [showLinkedBimDialog, setShowLinkedBimDialog] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -106,7 +112,46 @@ export function SimulationDetailsModal({
     variables,
     loading: variablesLoading,
     error: variablesError,
-  } = useSimulationVariables(file.dataset_id);
+  } = useSimulationVariables(resolvedFile.id);
+  useEffect(() => {
+    if (!resolvedFile.bim_dataset_id) {
+      setLinkedBim(null);
+      setLinkedBimSpaces([]);
+      return;
+    }
+
+    let cancelled = false;
+
+    getBimFile(resolvedFile.bim_dataset_id)
+      .then((bim) => {
+        if (cancelled) {
+          return;
+        }
+        setLinkedBim(bim);
+        return listBimSpaces(bim.id).then((spaces) => {
+          if (!cancelled) {
+            setLinkedBimSpaces(spaces);
+          }
+        });
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setLinkedBim(null);
+          setLinkedBimSpaces([]);
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [resolvedFile.bim_dataset_id]);
+
+  const spaceLabelById = new Map(
+    linkedBimSpaces.map((space) => [
+      space.id,
+      space.name || space.global_id,
+    ] as const),
+  );
 
   return (
     <>
@@ -193,6 +238,24 @@ export function SimulationDetailsModal({
               </section>
             )}
 
+            {linkedBim && (
+              <section className="rounded-lg border border-border bg-muted/30 p-4">
+                <div className="flex items-center justify-between gap-4">
+                  <div className="space-y-1">
+                    <div className="text-sm font-medium text-foreground">
+                      Connected BIM file
+                    </div>
+                    <div className="text-sm text-muted-foreground">
+                      This simulation is linked to <span className="font-medium text-foreground">{linkedBim.filename}</span>.
+                    </div>
+                  </div>
+                  <Button size="sm" onClick={() => setShowLinkedBimDialog(true)}>
+                    Open BIM
+                  </Button>
+                </div>
+              </section>
+            )}
+
             <Card className="shadow-none">
               <CardHeader className="pb-4">
                 <CardTitle className="text-sm font-medium">Simulation Variables</CardTitle>
@@ -222,7 +285,7 @@ export function SimulationDetailsModal({
                             Frequency
                           </TableHead>
                           <TableHead className="sticky top-0 z-10 bg-muted px-3 py-2 font-medium text-muted-foreground">
-                            Key
+                            Space / Key
                           </TableHead>
                         </TableRow>
                       </TableHeader>
@@ -252,7 +315,9 @@ export function SimulationDetailsModal({
                               {variable.frequency ?? '--'}
                             </TableCell>
                             <TableCell className="px-3 py-2 text-muted-foreground">
-                              {variable.key ?? '--'}
+                              {variable.bim_space_id
+                                ? (spaceLabelById.get(variable.bim_space_id) ?? variable.key ?? '--')
+                                : (variable.key ?? '--')}
                             </TableCell>
                           </TableRow>
                         ))}
@@ -267,9 +332,15 @@ export function SimulationDetailsModal({
       </Dialog>
       {selectedVariable && (
         <SimulationVariableChartDialog
-          datasetId={resolvedFile.dataset_id}
+          simulationId={resolvedFile.id}
           variable={selectedVariable}
           onClose={() => setSelectedVariable(null)}
+        />
+      )}
+      {linkedBim && showLinkedBimDialog && (
+        <BIMDetailsDialog
+          file={linkedBim}
+          onClose={() => setShowLinkedBimDialog(false)}
         />
       )}
     </>

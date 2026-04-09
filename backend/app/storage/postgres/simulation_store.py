@@ -26,6 +26,7 @@ class SimulationStore:
         dataset_id: uuid.UUID,
         filename: str,
         format: str,
+        bim_dataset_id: uuid.UUID | None = None,
         metadata: Optional[dict] = None,
         extra: Optional[dict] = None,
     ) -> None:
@@ -33,6 +34,7 @@ class SimulationStore:
             obj = SimulationDataset(
                 id=simulation_id,
                 dataset_id=dataset_id,
+                bim_dataset_id=bim_dataset_id,
                 filename=filename,
                 format=format,
                 simulation_metadata=metadata,
@@ -119,6 +121,7 @@ class SimulationStore:
         return {
             "id": str(obj.id),
             "dataset_id": str(obj.dataset_id),
+            "bim_dataset_id": str(obj.bim_dataset_id) if obj.bim_dataset_id else None,
             "filename": obj.filename,
             "format": obj.format,
             "status": dataset_status,

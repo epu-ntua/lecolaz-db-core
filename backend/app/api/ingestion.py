@@ -1,4 +1,6 @@
-from fastapi import APIRouter, BackgroundTasks, File, HTTPException, UploadFile
+import uuid
+
+from fastapi import APIRouter, BackgroundTasks, File, Form, HTTPException, UploadFile
 
 from app.schemas import FileUploadResponse
 from app.services.bim_processing_service import (
@@ -77,17 +79,23 @@ async def upload_bim(background_tasks: BackgroundTasks, file: UploadFile = File(
 
 
 @router.post("/simulations/upload", response_model=FileUploadResponse)
-async def upload_simulation(background_tasks: BackgroundTasks, file: UploadFile = File(...)):
+async def upload_simulation(
+    background_tasks: BackgroundTasks,
+    file: UploadFile = File(...),
+    bim_dataset_id: str | None = Form(default=None),
+):
     if not is_energyplus_filename(file.filename):
         raise HTTPException(400, "Only simulation files allowed")
 
     data = await file.read()
     try:
+        bim_dataset_uuid = uuid.UUID(bim_dataset_id) if bim_dataset_id else None
         return ingest_upload(
             filename=file.filename,
             content_type=file.content_type,
             data=data,
             type="simulation",
+            bim_dataset_id=bim_dataset_uuid,
             background_tasks=background_tasks,
         )
     except ValueError as exc:

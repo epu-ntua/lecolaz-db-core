@@ -26,6 +26,22 @@ class BimSpaceStore:
             rows = session.execute(stmt).scalars().all()
             return [self._to_dict(row) for row in rows]
 
+    def get_space_id_map_by_bim_dataset_id(
+        self,
+        bim_dataset_id: uuid.UUID,
+    ) -> Dict[str, uuid.UUID]:
+        with self._session_factory() as session:
+            stmt = (
+                select(BimSpace.id, BimSpace.global_id)
+                .where(BimSpace.bim_dataset_id == bim_dataset_id)
+            )
+            rows = session.execute(stmt).all()
+            return {
+                global_id.casefold(): space_id
+                for space_id, global_id in rows
+                if isinstance(global_id, str) and global_id
+            }
+
     @staticmethod
     def _to_dict(obj: BimSpace) -> Dict[str, Any]:
         return {

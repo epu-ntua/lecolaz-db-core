@@ -27,15 +27,19 @@ function getYAxisTitle(variable: SimulationVariableDto) {
 }
 
 export function SimulationVariableChartDialog({
-  datasetId,
+  simulationId,
   variable,
   onClose,
 }: {
-  datasetId: string;
+  simulationId: string;
   variable: SimulationVariableDto;
   onClose: () => void;
 }) {
-  const { points, loading, error } = useSimulationTimeseries(datasetId, variable.id, true);
+  const { points, loading, error } = useSimulationTimeseries(
+    simulationId,
+    variable.id,
+    true,
+  );
   const chartData = points.map((point, index) => ({
     id: point.id,
     value: point.value,

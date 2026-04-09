@@ -4,9 +4,10 @@ import { useNavigate } from 'react-router-dom';
 import { getDatasetDownloadUrl } from '@/api/datasets';
 import {
   fetchBimMetadata,
-  listBimSpacesByDataset,
-  listBimStoreysByDataset,
+  listBimSpaces,
+  listBimStoreys,
 } from '@/api/bim_files';
+import { uploadSimulationFile } from '@/api/simulation_files';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -25,6 +26,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
+import { FileUpload } from '@/pages/DataDiscovery/components/FileUpload';
 import type { BimFileDto, BimMetadataDto, BimSpaceDto, BimStoreyDto } from '@/types/api/bim';
 
 function getStatusVariant(status: string | null) {
@@ -52,6 +54,7 @@ export function BIMDetailsDialog({
   const [spaces, setSpaces] = useState<BimSpaceDto[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [uploadMessage, setUploadMessage] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -60,13 +63,14 @@ export function BIMDetailsDialog({
 
     Promise.all([
       fetchBimMetadata(file.id),
-      listBimStoreysByDataset(file.dataset_id),
-      listBimSpacesByDataset(file.dataset_id),
+      listBimStoreys(file.id),
+      listBimSpaces(file.id),
     ])
       .then(([nextMetadata, nextStoreys, nextSpaces]) => {
         if (cancelled) {
           return;
         }
+        setUploadMessage(null);
         setMetadata(nextMetadata);
         setStoreys(nextStoreys);
         setSpaces(nextSpaces);
@@ -88,7 +92,7 @@ export function BIMDetailsDialog({
     return () => {
       cancelled = true;
     };
-  }, [file.dataset_id, file.id]);
+  }, [file.id]);
 
   const storeyNameById = useMemo(
     () =>
@@ -198,6 +202,31 @@ export function BIMDetailsDialog({
                     : '--'}
                 </div>
               </div>
+            </CardContent>
+          </Card>
+
+          <Card className="shadow-none">
+            <CardHeader className="pb-4">
+              <CardTitle className="text-sm font-medium">Upload Simulation for This BIM</CardTitle>
+              <DialogDescription className="text-left">
+                The uploaded simulation will be scoped to this BIM and its variables will
+                be matched against these spaces by global id when possible.
+              </DialogDescription>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              <FileUpload
+                onUploaded={() => {
+                  setUploadMessage('Simulation uploaded and queued for processing.');
+                }}
+                uploadAction={(uploadedFile) => uploadSimulationFile(uploadedFile, file.id)}
+                accept=".eso"
+                buttonLabel="Upload Simulation for This BIM"
+                uploadingLabel="Uploading simulation..."
+                errorMessage="BIM-scoped simulation upload failed"
+              />
+              {uploadMessage && (
+                <div className="text-sm text-muted-foreground">{uploadMessage}</div>
+              )}
             </CardContent>
           </Card>
 

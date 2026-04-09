@@ -12,6 +12,7 @@ export type SimulationProcessingSummary = {
 export type SimulationFileDto = {
   id: string;
   dataset_id: string;
+  bim_dataset_id: string | null;
   filename: string;
   format: string;
   status: string | null;
@@ -22,6 +23,7 @@ export type SimulationFileDto = {
 export type SimulationVariableDto = {
   id: string;
   simulation_dataset_id: string;
+  bim_space_id: string | null;
   variable_id: string;
   variable_name: string;
   unit: string | null;

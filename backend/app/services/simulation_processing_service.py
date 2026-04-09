@@ -7,6 +7,7 @@ from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, Iterable
 
 from app.storage.object.minio import MinioStore
+from app.storage.postgres.bim_space_store import BimSpaceStore
 from app.storage.postgres.dataset_store import DatasetStore
 from app.storage.postgres.simulation_store import SimulationStore
 from app.storage.postgres.simulation_timeseries_store import SimulationTimeseriesStore
@@ -308,6 +309,26 @@ def _build_variable_rows(summary: Dict[str, Any]) -> list[Dict[str, Any]]:
     return rows
 
 
+def _enrich_variable_rows_with_bim_links(
+    variable_rows: list[Dict[str, Any]],
+    bim_space_id_map: Dict[str, uuid.UUID],
+) -> list[Dict[str, Any]]:
+    for row in variable_rows:
+        key = row.get("key")
+        normalized_key = key.casefold() if isinstance(key, str) else None
+        matched_space_id = None
+        if normalized_key:
+            matched_space_id = bim_space_id_map.get(normalized_key)
+            if matched_space_id is None:
+                for global_id, space_id in bim_space_id_map.items():
+                    if global_id in normalized_key:
+                        matched_space_id = space_id
+                        break
+
+        row["bim_space_id"] = matched_space_id
+    return variable_rows
+
+
 def _build_timeseries_rows(
     summary: Dict[str, Any],
     variable_id_map: Dict[str, str],
@@ -338,6 +359,7 @@ def process_simulation(dataset_id: uuid.UUID, *, allow_reprocess: bool = False) 
     dataset_store = DatasetStore()
     simulation_variable_store = SimulationVariableStore()
     simulation_timeseries_store = SimulationTimeseriesStore()
+    bim_space_store = BimSpaceStore()
     minio_store = MinioStore()
 
     dataset_record = dataset_store.get_dataset_by_id(dataset_id)
@@ -407,6 +429,21 @@ def process_simulation(dataset_id: uuid.UUID, *, allow_reprocess: bool = False) 
         simulation_variable_store.delete_by_simulation_dataset_id(simulation_dataset_id)
 
         variable_rows = _build_variable_rows(summary)
+        bim_dataset_id = simulation.get("bim_dataset_id")
+        if bim_dataset_id:
+            logger.info(
+                "simulation_processing_link_bim_spaces dataset_id=%s simulation_dataset_id=%s bim_dataset_id=%s",
+                dataset_id,
+                simulation_dataset_id,
+                bim_dataset_id,
+            )
+            bim_space_id_map = bim_space_store.get_space_id_map_by_bim_dataset_id(
+                uuid.UUID(bim_dataset_id)
+            )
+            variable_rows = _enrich_variable_rows_with_bim_links(
+                variable_rows,
+                bim_space_id_map,
+            )
         logger.info(
             "simulation_processing_insert_variables dataset_id=%s variable_rows=%s",
             dataset_id,
