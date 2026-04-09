@@ -77,6 +77,25 @@ class SimulationStore:
                 for simulation, dataset_status, dataset_metadata in rows
             ]
 
+    def list_by_bim_dataset_id(
+        self,
+        bim_dataset_id: uuid.UUID,
+        limit: int = 100,
+    ) -> List[Dict[str, Any]]:
+        with self._session_factory() as session:
+            stmt = (
+                select(SimulationDataset, Dataset.status, Dataset.dataset_metadata)
+                .join(Dataset, Dataset.id == SimulationDataset.dataset_id)
+                .where(SimulationDataset.bim_dataset_id == bim_dataset_id)
+                .order_by(SimulationDataset.created_at.desc())
+                .limit(limit)
+            )
+            rows = session.execute(stmt).all()
+            return [
+                self._to_dict(simulation, dataset_status, dataset_metadata)
+                for simulation, dataset_status, dataset_metadata in rows
+            ]
+
     def get_simulation_by_id(
         self,
         simulation_id: uuid.UUID,

@@ -11,10 +11,12 @@ from app.schemas import (
     BimMetadataResponse,
     BimSpaceResponse,
     BimStoreyResponse,
+    SimulationFileResponse,
 )
 from app.storage.postgres.bim_space_store import BimSpaceStore
 from app.storage.postgres.bim_store import BimStore
 from app.storage.postgres.bim_storey_store import BimStoreyStore
+from app.storage.postgres.simulation_store import SimulationStore
 from app.services.bim_view_service import get_bim_view_file, get_bim_metadata
 
 
@@ -93,6 +95,26 @@ def list_bim_spaces(bim_id: str, limit: int = 2000):
         raise HTTPException(404, "BIM not found")
 
     return space_store.list_by_bim_dataset_id(bim_uuid, limit=limit)
+
+
+@router.get(
+    "/{bim_id}/simulations",
+    response_model=list[SimulationFileResponse],
+)
+def list_bim_simulations(bim_id: str, limit: int = 100):
+    simulation_store = SimulationStore()
+
+    try:
+        bim_uuid = uuid.UUID(bim_id)
+    except ValueError:
+        raise HTTPException(400, "Invalid BIM id")
+
+    bs = BimStore()
+    bim = bs.get_bim_by_id(bim_uuid)
+    if not bim:
+        raise HTTPException(404, "BIM not found")
+
+    return simulation_store.list_by_bim_dataset_id(bim_uuid, limit=limit)
 
 
 @router.get("/{bim_id}/metadata", response_model=BimMetadataResponse)

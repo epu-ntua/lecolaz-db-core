@@ -5,6 +5,7 @@ import { getDatasetDownloadUrl } from '@/api/datasets';
 import {
   fetchBimMetadata,
   listBimSpaces,
+  listBimSimulations,
   listBimStoreys,
 } from '@/api/bim_files';
 import { uploadSimulationFile } from '@/api/simulation_files';
@@ -27,7 +28,9 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { FileUpload } from '@/pages/DataDiscovery/components/FileUpload';
+import { SimulationDetailsModal } from '@/pages/Simulations/components/SimulationDetailsModal';
 import type { BimFileDto, BimMetadataDto, BimSpaceDto, BimStoreyDto } from '@/types/api/bim';
+import type { SimulationFileDto } from '@/types/api/simulations';
 
 function getStatusVariant(status: string | null) {
   if (status === 'failed') {
@@ -52,9 +55,11 @@ export function BIMDetailsDialog({
   const [metadata, setMetadata] = useState<BimMetadataDto | null>(null);
   const [storeys, setStoreys] = useState<BimStoreyDto[]>([]);
   const [spaces, setSpaces] = useState<BimSpaceDto[]>([]);
+  const [simulations, setSimulations] = useState<SimulationFileDto[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [uploadMessage, setUploadMessage] = useState<string | null>(null);
+  const [selectedSimulation, setSelectedSimulation] = useState<SimulationFileDto | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -65,8 +70,9 @@ export function BIMDetailsDialog({
       fetchBimMetadata(file.id),
       listBimStoreys(file.id),
       listBimSpaces(file.id),
+      listBimSimulations(file.id),
     ])
-      .then(([nextMetadata, nextStoreys, nextSpaces]) => {
+      .then(([nextMetadata, nextStoreys, nextSpaces, nextSimulations]) => {
         if (cancelled) {
           return;
         }
@@ -74,6 +80,7 @@ export function BIMDetailsDialog({
         setMetadata(nextMetadata);
         setStoreys(nextStoreys);
         setSpaces(nextSpaces);
+        setSimulations(nextSimulations);
       })
       .catch(() => {
         if (!cancelled) {
@@ -81,6 +88,7 @@ export function BIMDetailsDialog({
           setMetadata(null);
           setStoreys([]);
           setSpaces([]);
+          setSimulations([]);
         }
       })
       .finally(() => {
@@ -207,20 +215,74 @@ export function BIMDetailsDialog({
 
           <Card className="shadow-none">
             <CardHeader className="pb-4">
-              <CardTitle className="text-sm font-medium">Upload Simulation for This BIM</CardTitle>
+              <CardTitle className="text-sm font-medium">
+                Simulations for {file.filename}
+              </CardTitle>
               <DialogDescription className="text-left">
-                The uploaded simulation will be scoped to this BIM and its variables will
-                be matched against these spaces by global id when possible.
+                Linked simulations are scoped to this BIM. New uploads from here will be
+                matched against these spaces by global id when possible.
               </DialogDescription>
             </CardHeader>
             <CardContent className="space-y-3">
+              {simulations.length === 0 ? (
+                <div className="text-sm text-muted-foreground">No linked simulations yet.</div>
+              ) : (
+                <div className="rounded-md border border-border bg-card">
+                  <Table className="min-w-[640px] text-sm text-foreground">
+                    <TableHeader className="border-b border-border bg-muted">
+                      <TableRow className="text-left hover:bg-transparent">
+                        <TableHead className="px-3 py-2 font-medium text-muted-foreground">
+                          Filename
+                        </TableHead>
+                        <TableHead className="px-3 py-2 font-medium text-muted-foreground">
+                          Status
+                        </TableHead>
+                        <TableHead className="px-3 py-2 font-medium text-muted-foreground">
+                          Processed
+                        </TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {simulations.map((simulation) => (
+                        <TableRow key={simulation.id} className="align-top">
+                          <TableCell className="px-3 py-2">
+                            <Button
+                              type="button"
+                              variant="link"
+                              className="h-auto p-0"
+                              onClick={() => setSelectedSimulation(simulation)}
+                            >
+                              {simulation.filename}
+                            </Button>
+                          </TableCell>
+                          <TableCell className="px-3 py-2">
+                            <Badge
+                              variant={getStatusVariant(simulation.status)}
+                              className="capitalize"
+                            >
+                              {simulation.status ?? '--'}
+                            </Badge>
+                          </TableCell>
+                          <TableCell className="px-3 py-2 text-muted-foreground">
+                            {typeof simulation.metadata?.processed_at === 'string'
+                              ? new Date(simulation.metadata.processed_at).toLocaleString()
+                              : '--'}
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+              )}
               <FileUpload
-                onUploaded={() => {
+                onUploaded={async () => {
                   setUploadMessage('Simulation uploaded and queued for processing.');
+                  const nextSimulations = await listBimSimulations(file.id);
+                  setSimulations(nextSimulations);
                 }}
                 uploadAction={(uploadedFile) => uploadSimulationFile(uploadedFile, file.id)}
                 accept=".eso"
-                buttonLabel="Upload Simulation for This BIM"
+                buttonLabel="Upload Another Simulation"
                 uploadingLabel="Uploading simulation..."
                 errorMessage="BIM-scoped simulation upload failed"
               />
@@ -335,6 +397,12 @@ export function BIMDetailsDialog({
           </Card>
         </div>
       </DialogContent>
+      {selectedSimulation && (
+        <SimulationDetailsModal
+          file={selectedSimulation}
+          onClose={() => setSelectedSimulation(null)}
+        />
+      )}
     </Dialog>
   );
 }

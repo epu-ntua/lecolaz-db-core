@@ -1,10 +1,10 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { fetchBimMetadata, listBimSpaces, listBimStoreys } from '@/api/bim_files';
 import { Button } from '@/components/ui/button';
 import type { BimMetadataDto, BimSpaceDto, BimStoreyDto } from '@/types/api/bim';
 import { BIMStructureSidebar } from './components/BIMStructureSidebar';
-import BimViewer from './components/BIMViewer';
+import BimViewer, { type BIMViewerHandle } from './components/BIMViewer';
 
 export default function BIMViewerPage() {
   const { id } = useParams();
@@ -14,6 +14,7 @@ export default function BIMViewerPage() {
   const [spaces, setSpaces] = useState<BimSpaceDto[]>([]);
   const [structureLoading, setStructureLoading] = useState(true);
   const [structureError, setStructureError] = useState<string | null>(null);
+  const viewerRef = useRef<BIMViewerHandle | null>(null);
 
   useEffect(() => {
     if (!id) return;
@@ -91,12 +92,26 @@ export default function BIMViewerPage() {
 
       <div className="flex min-h-0 flex-1">
         <div className="min-w-0 flex-1">
-          <BimViewer bimId={id} />
+          <BimViewer ref={viewerRef} bimId={id} />
         </div>
         <BIMStructureSidebar
           storeys={structuredStoreys}
           loading={structureLoading}
           error={structureError}
+          onSpaceClick={(globalId) => {
+            console.log('[BIMViewerPage] forwarding space highlight', {
+              globalId,
+              hasViewerRef: Boolean(viewerRef.current),
+            });
+            void viewerRef.current?.highlightByGlobalIds([globalId]);
+          }}
+          onStoreyClick={(globalIds) => {
+            console.log('[BIMViewerPage] forwarding storey highlight', {
+              globalIds,
+              hasViewerRef: Boolean(viewerRef.current),
+            });
+            void viewerRef.current?.highlightByGlobalIds(globalIds);
+          }}
         />
       </div>
     </div>

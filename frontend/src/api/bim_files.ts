@@ -6,6 +6,7 @@ import type {
   BimSpaceDto,
   BimStoreyDto,
 } from '@/types/api/bim';
+import type { SimulationFileDto } from '@/types/api/simulations';
 
 export async function uploadBimFile(file: File): Promise<DatasetUploadResult> {
   const form = new FormData();
@@ -68,4 +69,12 @@ export async function listBimSpaces(
   const res = await fetch(`${API_BASE}/bim/${bimId}/spaces`);
   if (!res.ok) throw new Error('Failed to fetch BIM spaces');
   return res.json() as Promise<BimSpaceDto[]>;
+}
+
+export async function listBimSimulations(
+  bimId: string,
+): Promise<SimulationFileDto[]> {
+  const res = await fetch(`${API_BASE}/bim/${bimId}/simulations`);
+  if (!res.ok) throw new Error('Failed to fetch BIM simulations');
+  return res.json() as Promise<SimulationFileDto[]>;
 }

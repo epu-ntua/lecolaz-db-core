@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { ChevronDown, ChevronRight } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { cn } from '@/lib/utils';
 
 export type BimStoreyWithSpaces = {
   id: string;
@@ -21,10 +22,14 @@ export function BIMStructureSidebar({
   storeys,
   loading,
   error,
+  onSpaceClick,
+  onStoreyClick,
 }: {
   storeys: BimStoreyWithSpaces[];
   loading: boolean;
   error: string | null;
+  onSpaceClick: (globalId: string) => void;
+  onStoreyClick: (globalIds: string[]) => void;
 }) {
   const [expandedStoreyIds, setExpandedStoreyIds] = useState<Record<string, boolean>>({});
   const [selectedSpaceGlobalId, setSelectedSpaceGlobalId] = useState<string | null>(null);
@@ -66,7 +71,15 @@ export function BIMStructureSidebar({
                 >
                   <button
                     type="button"
-                    onClick={() => toggleStorey(storey.global_id)}
+                    onClick={() => {
+                      toggleStorey(storey.global_id);
+                      const spaceGlobalIds = storey.spaces.map((space) => space.global_id);
+                      console.log('[BIMStructureSidebar] storey click', {
+                        storeyGlobalId: storey.global_id,
+                        spaceGlobalIds,
+                      });
+                      onStoreyClick(spaceGlobalIds);
+                    }}
                     className="flex w-full items-start justify-between gap-3 px-3 py-3 text-left"
                   >
                     <div className="min-w-0">
@@ -102,10 +115,19 @@ export function BIMStructureSidebar({
                                 type="button"
                                 variant="ghost"
                                 data-global-id={space.global_id}
-                                className={`h-auto w-full justify-start px-2 py-2 text-left ${
-                                  isSelected ? 'bg-muted text-foreground' : 'text-muted-foreground'
-                                }`}
-                                onClick={() => setSelectedSpaceGlobalId(space.global_id)}
+                                className={cn(
+                                  'h-auto w-full justify-start px-2 py-2 text-left',
+                                  isSelected
+                                    ? 'bg-muted text-foreground'
+                                    : 'text-muted-foreground',
+                                )}
+                                onClick={() => {
+                                  setSelectedSpaceGlobalId(space.global_id);
+                                  console.log('[BIMStructureSidebar] space click', {
+                                    spaceGlobalId: space.global_id,
+                                  });
+                                  onSpaceClick(space.global_id);
+                                }}
                               >
                                 <div className="min-w-0">
                                   <div className="truncate text-sm font-medium">
