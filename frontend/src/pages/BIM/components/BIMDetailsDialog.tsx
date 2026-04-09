@@ -265,7 +265,7 @@ export function BIMDetailsDialog({
                           Name
                         </TableHead>
                         <TableHead className="sticky top-0 z-10 bg-muted px-3 py-2 font-medium text-muted-foreground">
-                          Raw Name
+                          Global ID
                         </TableHead>
                         <TableHead className="sticky top-0 z-10 bg-muted px-3 py-2 font-medium text-muted-foreground">
                           Storey
@@ -282,8 +282,8 @@ export function BIMDetailsDialog({
                       {spaces.map((space) => (
                         <TableRow key={space.id} className="align-top">
                           <TableCell className="px-3 py-2">{space.name ?? '--'}</TableCell>
-                          <TableCell className="px-3 py-2 text-muted-foreground">
-                            {space.raw_name ?? '--'}
+                          <TableCell className="px-3 py-2 font-mono text-xs text-muted-foreground">
+                            {space.global_id}
                           </TableCell>
                           <TableCell className="px-3 py-2 text-muted-foreground">
                             {space.storey_id
