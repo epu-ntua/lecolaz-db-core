@@ -25,6 +25,11 @@ export default function SimulationsPage() {
       .then((rows) => {
         if (!cancelled) {
           setFiles(rows);
+          rows.forEach((row) => {
+            if (row.status !== 'processed' && row.status !== 'failed') {
+              queueDatasetId(row.dataset_id);
+            }
+          });
         }
       })
       .finally(() => {
@@ -36,7 +41,7 @@ export default function SimulationsPage() {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [queueDatasetId]);
 
   useEffect(() => {
     if (resolvedRows.length === 0) {
