@@ -9,6 +9,7 @@ This repository contains a minimal ingestion backend for WP6.
 - MinIO (S3-compatible object storage)
 - FastAPI backend
 - React frontend
+- Apache NiFi for scheduled sensor ETL
 
 ### Backend features
 - Health check endpoint
@@ -51,6 +52,7 @@ pip install -r backend/requirements.txt
 ```
 
 ### Start the platform
+> Note: For accessing external services/APIs, you will have to enter the credentials in `infra/.env`
 ```bash
 cd infra
 docker compose up -d --build
@@ -91,4 +93,5 @@ npm run dev
 ### Access
 - Backend: FastAPI docs at http://localhost:8000/docs
 - MinIO: UI at http://localhost:9001 (user `lecolaz`, password `lecolaz123`)
+- NiFi: UI at https://localhost:8443/nifi (user `admin`, password `lecolaz-nifi-admin`)
 - PostgreSQL: Connect with any client (e.g. DBeaver) using host `localhost`, port `5432`, database `lecolaz`, user `lecolaz`, password `lecolaz`

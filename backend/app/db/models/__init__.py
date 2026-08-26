@@ -13,3 +13,6 @@ from .bim_dataset import BimDataset  # noqa: F401
 from .simulation_dataset import SimulationDataset  # noqa: F401
 from .simulation_timeseries import SimulationTimeseries  # noqa: F401
 from .simulation_variable import SimulationVariable  # noqa: F401
+from .sensor import Sensor  # noqa: F401
+from .observation_type import ObservationType  # noqa: F401
+from .observation_value import ObservationValue  # noqa: F401

@@ -42,6 +42,34 @@ services:
     volumes:
       - ../backend:/app
 
+  nifi:
+    build: ./nifi
+    container_name: lecolaz-nifi
+    depends_on:
+      - postgres
+    env_file:
+      - ./.env
+    environment:
+      SINGLE_USER_CREDENTIALS_USERNAME: admin
+      SINGLE_USER_CREDENTIALS_PASSWORD: lecolaz-nifi-admin
+      POSTGRES_JDBC_URL: jdbc:postgresql://postgres:5432/lecolaz
+    ports:
+      - "8443:8443"
+    volumes:
+      - ../backend:/opt/lecolaz/backend:ro
+      - nifi_conf:/opt/nifi/nifi-current/conf
+      - nifi_database_repository:/opt/nifi/nifi-current/database_repository
+      - nifi_flowfile_repository:/opt/nifi/nifi-current/flowfile_repository
+      - nifi_content_repository:/opt/nifi/nifi-current/content_repository
+      - nifi_provenance_repository:/opt/nifi/nifi-current/provenance_repository
+      - nifi_state:/opt/nifi/nifi-current/state
+
 volumes:
   postgres_data:
   minio_data:
+  nifi_conf:
+  nifi_database_repository:
+  nifi_flowfile_repository:
+  nifi_content_repository:
+  nifi_provenance_repository:
+  nifi_state:
