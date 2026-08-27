@@ -5,6 +5,7 @@ from sqlalchemy import (
     DateTime,
     String,
     Text,
+    UniqueConstraint,
     func,
     text,
 )
@@ -14,6 +15,14 @@ from app.db.base import Base
 
 class Sensor(Base):
     __tablename__ = "sensors"
+
+    __table_args__ = (
+        UniqueConstraint(
+            "sensor_family",
+            "external_id",
+            name="uq_sensors_sensor_family_external_id",
+        ),
+    )
 
     id = Column(
         UUID(as_uuid=True),
@@ -30,7 +39,6 @@ class Sensor(Base):
     external_id = Column(
         String,
         nullable=True,
-        unique=True,
     )
 
     sensor_family = Column(
