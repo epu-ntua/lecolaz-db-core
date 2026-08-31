@@ -2,7 +2,7 @@ import { createBrowserRouter } from 'react-router-dom';
 import AppLayout from './layout/AppLayout';
 import AdminPage from '@/pages/Admin/AdminPage';
 import AlertsPage from '@/pages/Alerts/AlertsPage';
-import BIMPage from '@/pages/BIM/BIMPage';
+import BIMPage from '@/pages/BIM/BIMpage';
 import BIMViewerPage from '@/pages/BIM/BIMViewerPage';
 import DashboardPage from '@/pages/Dashboard/DashboardPage';
 import DataDiscoveryPage from '@/pages/DataDiscovery/DataDiscoveryPage';
