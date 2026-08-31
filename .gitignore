@@ -28,6 +28,9 @@ venv/
 ENV/
 env/
 .ENV/
+.env
+.env.*
+!.env.example
 
 # Test / coverage
 .pytest_cache/
