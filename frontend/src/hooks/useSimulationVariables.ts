@@ -1,14 +1,14 @@
 import { useEffect, useState } from 'react';
-import { listSimulationVariablesByDataset } from '@/api/simulation_files';
+import { listSimulationVariables } from '@/api/simulation_files';
 import type { SimulationVariableDto } from '@/types/api/simulations';
 
-export function useSimulationVariables(datasetId: string, enabled: boolean = true) {
+export function useSimulationVariables(simulationId: string, enabled: boolean = true) {
   const [variables, setVariables] = useState<SimulationVariableDto[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!enabled || !datasetId) {
+    if (!enabled || !simulationId) {
       setVariables([]);
       setLoading(false);
       setError(null);
@@ -19,7 +19,7 @@ export function useSimulationVariables(datasetId: string, enabled: boolean = tru
     setLoading(true);
     setError(null);
 
-    listSimulationVariablesByDataset(datasetId)
+    listSimulationVariables(simulationId)
       .then((rows) => {
         if (!cancelled) {
           setVariables(rows);
@@ -39,7 +39,7 @@ export function useSimulationVariables(datasetId: string, enabled: boolean = tru
     return () => {
       cancelled = true;
     };
-  }, [datasetId, enabled]);
+  }, [enabled, simulationId]);
 
   return {
     variables,

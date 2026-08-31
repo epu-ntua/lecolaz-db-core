@@ -87,6 +87,8 @@ class DatasetStore:
         dataset_id: uuid.UUID,
         status: str,
         metadata_patch: Optional[dict] = None,
+        *,
+        replace_metadata: bool = False,
     ) -> Optional[Dict[str, Any]]:
         with self._session_factory() as session:
             stmt = select(Dataset).where(Dataset.id == dataset_id)
@@ -95,7 +97,9 @@ class DatasetStore:
                 return None
 
             obj.status = status
-            if metadata_patch:
+            if replace_metadata:
+                obj.dataset_metadata = metadata_patch
+            elif metadata_patch:
                 merged_metadata = dict(obj.dataset_metadata or {})
                 merged_metadata.update(metadata_patch)
                 obj.dataset_metadata = merged_metadata
@@ -103,6 +107,18 @@ class DatasetStore:
             session.commit()
             session.refresh(obj)
             return self._to_dict(obj)
+
+    @staticmethod
+    def _normalize_metadata(value: Any) -> Optional[dict]:
+        if isinstance(value, dict):
+            return value
+        if isinstance(value, list):
+            merged: dict[str, Any] = {}
+            for item in value:
+                if isinstance(item, dict):
+                    merged.update(item)
+            return merged or None
+        return None
 
     @staticmethod
     def _to_dict(obj: Dataset) -> Dict[str, Any]:
@@ -118,5 +134,5 @@ class DatasetStore:
             "source": obj.source,
             "created_at": obj.created_at.isoformat() if obj.created_at else None,
             "updated_at": obj.updated_at.isoformat() if obj.updated_at else None,
-            "metadata": obj.dataset_metadata,
+            "metadata": DatasetStore._normalize_metadata(obj.dataset_metadata),
         }

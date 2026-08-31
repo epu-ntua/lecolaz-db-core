@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { getBimFileByDataset, listBimFiles, uploadBimFile } from '@/api/bim_files';
+import { usePendingDatasetPolling } from '@/hooks/usePendingDatasetPolling';
 import type { BimFileDto } from '@/types/api/bim';
 import { BIMFilesTable } from '@/pages/BIM/components/BIMFilesTable';
 import { FileUpload } from '@/pages/DataDiscovery/components/FileUpload';
@@ -7,6 +8,11 @@ import { FileUpload } from '@/pages/DataDiscovery/components/FileUpload';
 export default function BIMPage() {
   const [files, setFiles] = useState<BimFileDto[]>([]);
   const [loading, setLoading] = useState(true);
+  const { resolvedRows, clearResolvedRows, queueDatasetId } = usePendingDatasetPolling({
+    fetchByDatasetId: getBimFileByDataset,
+    getStatus: (row) => row.status,
+    getDatasetId: (row) => row.dataset_id,
+  });
 
   useEffect(() => {
     let cancelled = false;
@@ -28,6 +34,24 @@ export default function BIMPage() {
     };
   }, []);
 
+  useEffect(() => {
+    if (resolvedRows.length === 0) {
+      return;
+    }
+
+    setFiles((current) => {
+      const next = [...current];
+      resolvedRows.forEach((bim) => {
+        const index = next.findIndex((row) => row.dataset_id === bim.dataset_id);
+        if (index >= 0) {
+          next[index] = bim;
+        }
+      });
+      return next;
+    });
+    clearResolvedRows();
+  }, [clearResolvedRows, resolvedRows]);
+
   return (
     <div className="space-y-6">
       <header className="border-b border-border pb-4">
@@ -45,6 +69,7 @@ export default function BIMPage() {
               const next = current.filter((row) => row.id !== bim.id);
               return [bim, ...next];
             });
+            queueDatasetId(result.dataset_id);
           }}
           uploadAction={uploadBimFile}
           accept=".ifc,.ifczip,.ifcxml"

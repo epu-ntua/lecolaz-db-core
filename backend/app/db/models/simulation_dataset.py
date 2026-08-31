@@ -19,10 +19,17 @@ class SimulationDataset(Base):
         index=True,
         unique=True,
     )
+    bim_dataset_id = Column(
+        UUID(as_uuid=True),
+        ForeignKey("bim_datasets.id", ondelete="SET NULL"),
+        nullable=True,
+        index=True,
+    )
     filename = Column(String, nullable=False)  # Store original filename for reference
 
     format = Column(String, nullable=False)  # e.g. "eso"
 
+    simulation_metadata = Column("metadata", JSONB, nullable=True)
     extra = Column(JSONB, nullable=True)
 
     created_at = Column(

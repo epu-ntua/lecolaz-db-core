@@ -1,15 +1,18 @@
 import { useEffect, useState } from 'react';
 import { getDataset, listDatasets } from '@/api/datasets';
+import { usePendingDatasetPolling } from '@/hooks/usePendingDatasetPolling';
 import type { DatasetDto } from '@/types/api/datasets';
 import { FileUpload } from '@/pages/DataDiscovery/components/FileUpload';
 import { FilesTable } from '@/pages/DataDiscovery/components/FilesTable';
 
-const TERMINAL_STATUSES = new Set(['processed', 'failed']);
-
 export default function DataDiscoveryPage() {
   const [files, setFiles] = useState<DatasetDto[]>([]);
   const [loading, setLoading] = useState(true);
-  const [pendingDatasetIds, setPendingDatasetIds] = useState<string[]>([]);
+  const { resolvedRows, clearResolvedRows, queueDatasetId } = usePendingDatasetPolling({
+    fetchByDatasetId: getDataset,
+    getStatus: (row) => row.status,
+    getDatasetId: (row) => row.id,
+  });
 
   useEffect(() => {
     let cancelled = false;
@@ -32,45 +35,22 @@ export default function DataDiscoveryPage() {
   }, []);
 
   useEffect(() => {
-    if (pendingDatasetIds.length === 0) {
+    if (resolvedRows.length === 0) {
       return;
     }
 
-    const timeoutId = window.setTimeout(async () => {
-      const results = await Promise.allSettled(
-        pendingDatasetIds.map(async (datasetId) => ({
-          datasetId,
-          dataset: await getDataset(datasetId),
-        })),
-      );
-
-      const nextPendingDatasetIds: string[] = [];
-
-      results.forEach((result, index) => {
-        if (result.status === 'rejected') {
-          nextPendingDatasetIds.push(pendingDatasetIds[index]);
-          return;
+    setFiles((current) => {
+      const next = [...current];
+      resolvedRows.forEach((dataset) => {
+        const index = next.findIndex((row) => row.id === dataset.id);
+        if (index >= 0) {
+          next[index] = dataset;
         }
-
-        const { datasetId, dataset } = result.value;
-        if (TERMINAL_STATUSES.has(dataset.status)) {
-          setFiles((current) =>
-            current.map((row) => (row.id === datasetId ? dataset : row)),
-          );
-          return;
-        }
-
-        setFiles((current) =>
-          current.map((row) => (row.id === datasetId ? dataset : row)),
-        );
-        nextPendingDatasetIds.push(datasetId);
       });
-
-      setPendingDatasetIds(nextPendingDatasetIds);
-    }, 1500);
-
-    return () => window.clearTimeout(timeoutId);
-  }, [pendingDatasetIds]);
+      return next;
+    });
+    clearResolvedRows();
+  }, [clearResolvedRows, resolvedRows]);
 
   return (
     <div className="space-y-6">
@@ -90,11 +70,7 @@ export default function DataDiscoveryPage() {
               return [dataset, ...next];
             });
             if (result.type === 'bim' || result.type === 'simulation') {
-              setPendingDatasetIds((current) =>
-                current.includes(result.dataset_id)
-                  ? current
-                  : [...current, result.dataset_id],
-              );
+              queueDatasetId(result.dataset_id);
             }
           }}
         />

@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import type {
   SimulationFileDto,
@@ -38,6 +39,18 @@ function getProcessingError(metadata: Record<string, unknown> | null) {
   return typeof metadata?.processing_error === 'string'
     ? metadata.processing_error
     : null;
+}
+
+function getStatusVariant(status: string | null) {
+  if (status === 'failed') {
+    return 'destructive' as const;
+  }
+
+  if (status === 'processed') {
+    return 'default' as const;
+  }
+
+  return 'secondary' as const;
 }
 
 function renderMetadataSummary(metadata: Record<string, unknown> | null) {
@@ -161,9 +174,9 @@ export function SimulationsFilesTable({
                   </TableCell>
 
                   <TableCell className="px-3 py-2">
-                    <span className="inline-flex rounded-full bg-muted px-2 py-1 text-xs font-medium capitalize text-foreground">
+                    <Badge variant={getStatusVariant(f.status)} className="capitalize">
                       {f.status ?? '--'}
-                    </span>
+                    </Badge>
                   </TableCell>
 
                   <TableCell className="px-3 py-2">

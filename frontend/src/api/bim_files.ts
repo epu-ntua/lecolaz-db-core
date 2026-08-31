@@ -1,6 +1,12 @@
 import { API_BASE } from './client';
 import type { DatasetUploadResult } from '@/types/api/datasets';
-import type { BimFileDto, BimMetadataDto } from '@/types/api/bim';
+import type {
+  BimFileDto,
+  BimMetadataDto,
+  BimSpaceDto,
+  BimStoreyDto,
+} from '@/types/api/bim';
+import type { SimulationFileDto } from '@/types/api/simulations';
 
 export async function uploadBimFile(file: File): Promise<DatasetUploadResult> {
   const form = new FormData();
@@ -27,6 +33,12 @@ export async function getBimFileByDataset(datasetId: string): Promise<BimFileDto
   return res.json() as Promise<BimFileDto>;
 }
 
+export async function getBimFile(bimId: string): Promise<BimFileDto> {
+  const res = await fetch(`${API_BASE}/bim/${bimId}`);
+  if (!res.ok) throw new Error('Get BIM file failed');
+  return res.json() as Promise<BimFileDto>;
+}
+
 export async function fetchBimStream(bimId: string): Promise<ArrayBuffer> {
   const res = await fetch(`${API_BASE}/bim/${bimId}/stream`);
 
@@ -41,4 +53,28 @@ export async function fetchBimMetadata(bimId: string): Promise<BimMetadataDto> {
   const res = await fetch(`${API_BASE}/bim/${bimId}/metadata`);
   if (!res.ok) throw new Error('Failed to fetch BIM metadata');
   return res.json() as Promise<BimMetadataDto>;
+}
+
+export async function listBimStoreys(
+  bimId: string,
+): Promise<BimStoreyDto[]> {
+  const res = await fetch(`${API_BASE}/bim/${bimId}/storeys`);
+  if (!res.ok) throw new Error('Failed to fetch BIM storeys');
+  return res.json() as Promise<BimStoreyDto[]>;
+}
+
+export async function listBimSpaces(
+  bimId: string,
+): Promise<BimSpaceDto[]> {
+  const res = await fetch(`${API_BASE}/bim/${bimId}/spaces`);
+  if (!res.ok) throw new Error('Failed to fetch BIM spaces');
+  return res.json() as Promise<BimSpaceDto[]>;
+}
+
+export async function listBimSimulations(
+  bimId: string,
+): Promise<SimulationFileDto[]> {
+  const res = await fetch(`${API_BASE}/bim/${bimId}/simulations`);
+  if (!res.ok) throw new Error('Failed to fetch BIM simulations');
+  return res.json() as Promise<SimulationFileDto[]>;
 }

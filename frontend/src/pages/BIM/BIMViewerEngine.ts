@@ -18,6 +18,18 @@
  */
 
 import * as OBC from '@thatopen/components';
+import * as FRAGS from '@thatopen/fragments';
+import * as THREE from 'three';
+
+const HIGHLIGHT_STYLE: FRAGS.MaterialDefinition = {
+  color: new THREE.Color('#ff4d00'),
+  renderedFaces: FRAGS.RenderedFaces.TWO,
+  opacity: 0.85,
+  transparent: true,
+  preserveOriginalMaterial: true,
+  depthTest: false,
+  depthWrite: false,
+};
 
 export class BIMViewerEngine {
   private components: OBC.Components;
@@ -60,6 +72,7 @@ export class BIMViewerEngine {
   async initIfcPipeline() {
     this.fragments = this.components.get(OBC.FragmentsManager);
     this.ifcLoader = this.components.get(OBC.IfcLoader);
+    console.log('[BIMViewerEngine] initIfcPipeline start');
 
     // Ensure camera controls exist
     const controls = this.camera.controls;
@@ -75,6 +88,7 @@ export class BIMViewerEngine {
     this.workerUrl = URL.createObjectURL(workerFile);
 
     this.fragments.init(this.workerUrl);
+    console.log('[BIMViewerEngine] fragments worker initialized');
 
     // Fragments update hooks
     controls.addEventListener('update', () => {
@@ -92,6 +106,7 @@ export class BIMViewerEngine {
       autoSetWasm: false,
       wasm: { path: '/wasm/', absolute: false },
     });
+    console.log('[BIMViewerEngine] ifc loader setup complete');
   }
 
   async loadIFCFromArrayBuffer(arrayBuffer: ArrayBuffer, name = 'model.ifc') {
@@ -100,6 +115,59 @@ export class BIMViewerEngine {
     }
     const buffer = new Uint8Array(arrayBuffer);
     await this.ifcLoader.load(buffer, false, name);
+    console.log('[BIMViewerEngine] loadIFCFromArrayBuffer complete', {
+      name,
+      bytes: arrayBuffer.byteLength,
+    });
+  }
+
+  async highlightByGlobalIds(globalIds: string[]) {
+    console.log('[BIMViewerEngine] highlight request', { globalIds });
+    if (!this.fragments) {
+      console.warn('[BIMViewerEngine] highlight skipped: fragments not initialized');
+      return;
+    }
+
+    await this.fragments.resetHighlight();
+    this.fragments.core.update(true);
+
+    if (globalIds.length === 0) {
+      return;
+    }
+
+    const modelIdMap = await this.fragments.guidsToModelIdMap(globalIds);
+    const rawModelIdMap = OBC.ModelIdMapUtils.toRaw(modelIdMap);
+    console.log('[BIMViewerEngine] guid lookup result', globalIds, rawModelIdMap);
+    if (OBC.ModelIdMapUtils.isEmpty(modelIdMap)) {
+      console.warn('No IFC items found for global ids', globalIds);
+      return;
+    }
+
+    try {
+      const [itemData, boxes, positions] = await Promise.all([
+        this.fragments.getData(modelIdMap),
+        this.fragments.getBBoxes(modelIdMap),
+        this.fragments.getPositions(modelIdMap),
+      ]);
+      console.log(
+        '[BIMViewerEngine] matched item diagnostics',
+        globalIds,
+        'boxes=',
+        boxes.length,
+        'positions=',
+        positions.length,
+        'itemData=',
+        itemData,
+      );
+    } catch (error) {
+      console.error('[BIMViewerEngine] diagnostics failed', error);
+    }
+
+    await this.fragments.highlight(HIGHLIGHT_STYLE, modelIdMap);
+    this.fragments.core.update(true);
+    await this.camera.fitToItems(modelIdMap);
+    await this.camera.setOrbitToItems(modelIdMap);
+    console.log('[BIMViewerEngine] highlight applied', globalIds, rawModelIdMap);
   }
 
   dispose() {

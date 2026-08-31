@@ -18,12 +18,30 @@
  * - React is only responsible for lifecycle management and data fetching.
  */
 
-import { useEffect, useRef } from 'react';
+import { forwardRef, useEffect, useImperativeHandle, useRef } from 'react';
 import { fetchBimStream } from '@/api/bim_files'; // your function
 import { BIMViewerEngine } from '../BIMViewerEngine';
 
-export default function BIMViewer({ bimId }: { bimId: string }) {
+export type BIMViewerHandle = {
+  highlightByGlobalIds: (globalIds: string[]) => Promise<void>;
+};
+
+const BIMViewer = forwardRef<BIMViewerHandle, { bimId: string }>(function BIMViewer(
+  { bimId },
+  ref,
+) {
   const containerRef = useRef<HTMLDivElement>(null);
+  const engineRef = useRef<BIMViewerEngine | null>(null);
+
+  useImperativeHandle(ref, () => ({
+    async highlightByGlobalIds(globalIds: string[]) {
+      console.log('[BIMViewer] highlightByGlobalIds called', {
+        globalIds,
+        hasEngine: Boolean(engineRef.current),
+      });
+      await engineRef.current?.highlightByGlobalIds(globalIds);
+    },
+  }));
 
   useEffect(() => {
     let engine: BIMViewerEngine | null = null;
@@ -36,17 +54,24 @@ export default function BIMViewer({ bimId }: { bimId: string }) {
       if (cancelled) return;
 
       engine = new BIMViewerEngine(containerRef.current);
+      engineRef.current = engine;
+      console.log('[BIMViewer] engine created');
       await engine.initIfcPipeline();
       if (cancelled) return;
+      console.log('[BIMViewer] IFC pipeline initialized');
 
       await engine.loadIFCFromArrayBuffer(data, `${bimId}.ifc`);
+      console.log('[BIMViewer] IFC model loaded', { bimId });
     })().catch((e) => console.error(e));
 
     return () => {
       cancelled = true;
+      engineRef.current = null;
       engine?.dispose();
     };
   }, [bimId]);
 
   return <div ref={containerRef} className="w-full h-full" />;
-}
+});
+
+export default BIMViewer;

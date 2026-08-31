@@ -1,4 +1,5 @@
 import uuid
+import ifcopenshell
 
 from app.storage.postgres.bim_store import BimStore
 from app.storage.postgres.dataset_store import DatasetStore

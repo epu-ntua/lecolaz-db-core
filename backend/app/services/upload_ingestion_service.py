@@ -78,6 +78,7 @@ def ingest_upload(
     content_type: Optional[str],
     data: bytes,
     type: str | None = None,
+    bim_dataset_id: uuid.UUID | None = None,
     metadata: Optional[dict] = None,
     background_tasks: Optional[BackgroundTasks] = None,
     object_store: Optional[MinioStore] = None,
@@ -97,6 +98,8 @@ def ingest_upload(
     simulation_store = SimulationStore()
 
     dataset_type, subtype = resolve_dataset_classification(filename, type)
+    if bim_dataset_id is not None and dataset_type != "simulation":
+        raise ValueError("bim_dataset_id is only supported for simulation uploads")
     dataset_id = uuid.uuid4()
     object_key = f"{dataset_type}/{dataset_id}/{normalized_filename}"
 
@@ -110,6 +113,8 @@ def ingest_upload(
         raise UploadIngestionError("Failed to store uploaded file") from exc
 
     try:
+        if bim_dataset_id is not None and not bim_store.get_bim_by_id(bim_dataset_id):
+            raise ValueError("Referenced BIM dataset not found")
         dataset_store.create_dataset(
             dataset_id=dataset_id,
             dataset_type=dataset_type,
@@ -137,6 +142,7 @@ def ingest_upload(
                 dataset_id=dataset_id,
                 filename=normalized_filename,
                 format=subtype or "eso",
+                bim_dataset_id=bim_dataset_id,
                 extra=None,
             )
     except Exception as exc:

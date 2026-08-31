@@ -9,20 +9,18 @@ class BimDataset(Base):
     __tablename__ = "bim_datasets"
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-
-    # Link to the generic dataset row
     dataset_id = Column(
         UUID(as_uuid=True),
         ForeignKey("datasets.id", ondelete="CASCADE"),
         nullable=False,
         index=True,
-        unique=True,  # 1 BIM record per file (remove if multiple needed)
+        unique=True,
     )
-    filename = Column(String, nullable=False)  # Store original filename for reference
-    
-    # Minimal BIM-specific fields (extend later)
-    format = Column(String, nullable=False)          # e.g. "ifc"
-    schema = Column(String, nullable=True)           # e.g. "IFC4", "IFC2X3" (optional)
+    filename = Column(String, nullable=False)
+    format = Column(String, nullable=False)
+    schema = Column(String, nullable=True)
+    stats = Column(JSONB, nullable=True)
+    units = Column(JSONB, nullable=True)
 
     extra = Column(JSONB, nullable=True)
 

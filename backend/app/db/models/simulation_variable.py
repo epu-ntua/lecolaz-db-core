@@ -17,6 +17,12 @@ class SimulationVariable(Base):
         nullable=False,
         index=True,
     )
+    bim_space_id = Column(
+        UUID(as_uuid=True),
+        ForeignKey("bim_spaces.id", ondelete="SET NULL"),
+        nullable=True,
+        index=True,
+    )
 
     variable_id = Column(String, nullable=False)
     variable_name = Column(String, nullable=False)
