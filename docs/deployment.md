@@ -91,7 +91,7 @@ sudo mkdir -p /var/www/lecolaz
 sudo rsync -av --delete dist/ /var/www/lecolaz/
 ```
 
-The Nginx site configuration currently lives under approximately:
+The Nginx site configuration currently lives under :
 
 ```text
 /etc/nginx/sites-available/lecolaz
