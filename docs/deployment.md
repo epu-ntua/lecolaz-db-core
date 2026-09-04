@@ -22,13 +22,13 @@ The production backend port should be bound to localhost rather than publicly ex
 BACKEND_PORT=127.0.0.1:8080
 ```
 
-The intended hostname currently discussed is:
+The production hostname now resolves to the production server:
 
 ```text
-lecolaz.epu.ntua.gr
+https://lecolaz.epu.ntua.gr
 ```
 
-Treat this as intended/planned until DNS and server configuration are confirmed. Do not assume DNS, HTTPS, Certbot, authentication, or public deployment are complete unless the server configuration proves it.
+UFW allows public traffic on ports `80` and `443`. PostgreSQL, MinIO, and FastAPI internal ports remain non-public.
 
 ## Server Location
 
@@ -97,11 +97,19 @@ The Nginx site configuration currently lives under :
 /etc/nginx/sites-available/lecolaz
 ```
 
-It should serve `/var/www/lecolaz` for the frontend and proxy API requests under `/api/` to:
+It serves `/var/www/lecolaz` for the frontend and proxies API requests under `/api/` to:
 
 ```text
 http://127.0.0.1:8080/
 ```
+
+HTTPS has been configured successfully with Certbot. HTTP should redirect to HTTPS, and the deployed platform is available at:
+
+```text
+https://lecolaz.epu.ntua.gr
+```
+
+Production uploads through the deployed frontend use the server-side production stack: files go to MinIO, and metadata/records go to PostgreSQL.
 
 Do not put server-specific secrets, passwords, tokens, private IP addresses, or certificates into this repository.
 
@@ -118,6 +126,8 @@ The production file runs PostgreSQL/TimescaleDB, MinIO, and the backend with `re
 
 Because these files are maintained separately, architectural or service changes required in both environments must be reflected in both files.
 
+SSH port forwarding is no longer needed for normal frontend access. It can still be used for debugging internal services.
+
 ## Practical Commands
 
 ```bash
@@ -125,6 +135,8 @@ docker compose -f infra/compose.prod.yaml ps
 docker compose -f infra/compose.prod.yaml logs
 curl http://127.0.0.1:8080/health
 curl http://localhost/api/health
+curl -I http://lecolaz.epu.ntua.gr
+curl -I https://lecolaz.epu.ntua.gr
 sudo nginx -t
 sudo systemctl status nginx
 ```
