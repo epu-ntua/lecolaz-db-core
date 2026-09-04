@@ -54,7 +54,7 @@ The real `.env` files are ignored by Git. Keep `.env.example` files committed as
 
 ## Notes
 
-- This repository currently maintains separate Compose files: `infra/compose.dev.yaml` and `infra/compose.prod.yaml`.
+- This repository currently maintains separate Compose files: `infra/compose.yaml` for local development and `infra/compose.prod.yaml` for production.
 - Architectural or service changes required in both environments must be reflected in both Compose files.
 - Linux filenames and paths are case-sensitive. Imports that work accidentally on Windows can fail during a Linux production build if the casing does not exactly match the file on disk.
 - Do not commit generated build output such as `frontend/dist/`.

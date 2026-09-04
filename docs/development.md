@@ -27,10 +27,11 @@ Never commit real .env files or production credentials.
 
 ## Start Docker Services
 
-From the repository root:
+Local Docker Compose commands are run from the `infra` directory. `compose.yaml` is the default development configuration, so no `-f` argument is required.
 
 ```bash
-docker compose -f infra/compose.dev.yaml up -d --build
+cd infra
+docker compose up -d --build
 ```
 
 The development Compose file runs:
@@ -52,7 +53,7 @@ Useful local URLs:
 
 ## Frontend
 
-Run the frontend locally in a separate terminal:
+Run the frontend locally in a separate terminal. From the repository root:
 
 ```bash
 cd frontend
@@ -76,7 +77,7 @@ Note: `frontend/.env.example` defines `VITE_API_BASE_URL`, but the current front
 Apply Alembic migrations to the local development database:
 
 ```bash
-docker compose -f infra/compose.dev.yaml exec backend alembic upgrade head
+docker compose exec backend alembic upgrade head
 ```
 
 This applies the database schema migrations in `backend/alembic/versions/`.
@@ -86,13 +87,13 @@ This applies the database schema migrations in `backend/alembic/versions/`.
 Stop local services without deleting persisted data:
 
 ```bash
-docker compose -f infra/compose.dev.yaml down
+docker compose down
 ```
 
 Be careful with volumes:
 
 ```bash
-docker compose -f infra/compose.dev.yaml down -v
+docker compose down -v
 ```
 
 `down -v` removes Docker volumes and therefore deletes locally persisted PostgreSQL/TimescaleDB and MinIO data.
@@ -100,7 +101,7 @@ docker compose -f infra/compose.dev.yaml down -v
 ## Practical Commands
 
 ```bash
-docker compose -f infra/compose.dev.yaml ps
-docker compose -f infra/compose.dev.yaml logs backend
+docker compose ps
+docker compose logs backend
 curl http://localhost:8000/health
 ```

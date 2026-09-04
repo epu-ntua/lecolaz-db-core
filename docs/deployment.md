@@ -117,7 +117,7 @@ Do not put server-specific secrets, passwords, tokens, private IP addresses, or 
 
 This repository currently maintains separate Compose files:
 
-- `infra/compose.dev.yaml`
+- `infra/compose.yaml`
 - `infra/compose.prod.yaml`
 
 The development file exposes PostgreSQL, MinIO, the MinIO console, and the backend for local work. It also runs the backend with reload and a source bind mount.

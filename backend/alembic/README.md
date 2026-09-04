@@ -19,9 +19,11 @@ Use Alembic after you:
 
 This avoids local env/setup issues and uses the same configuration as the backend container.
 
+All Docker-based Alembic commands below should be run from the `infra` directory. Local development uses `infra/compose.yaml`, which Docker Compose detects automatically.
+
 ### Creating A Migration
 
-From infra folder run: 
+From the `infra` folder:
 
 ```sh
 docker compose exec backend alembic revision --autogenerate -m "short description"
@@ -43,21 +45,13 @@ Before applying:
 
 ## Applying Migrations
 
-From the infra folder (where docker compose file is)
+From the `infra` folder:
 
 ```sh
 docker compose exec backend alembic upgrade head
 ```
 
-This updates the actual database schema.
-
-## New Environment / New Machine
-
-To bring a database up to date:
-
-```sh
-docker compose exec backend alembic upgrade head
-```
+This applies all pending migrations and brings the local database schema to the latest revision.
 
 ## Golden Rules
 
