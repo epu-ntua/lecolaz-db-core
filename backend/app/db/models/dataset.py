@@ -1,6 +1,6 @@
 import uuid
 
-from sqlalchemy import Column, String, Integer, DateTime, func
+from sqlalchemy import Boolean, Column, String, Integer, DateTime, Text, func
 from sqlalchemy.dialects.postgresql import UUID, JSONB
 
 from app.db.base import Base
@@ -36,3 +36,8 @@ class Dataset(Base):
         server_default=func.now(),
         onupdate=func.now(),
     )
+
+    # Ontology / knowledge-graph sync tracking
+    kg_synced = Column(Boolean, nullable=False, default=False, server_default="false")
+    kg_synced_at = Column(DateTime(timezone=True), nullable=True)
+    kg_error = Column(Text, nullable=True)

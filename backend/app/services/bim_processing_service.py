@@ -1,12 +1,18 @@
+import asyncio
+import logging
+import sys
 import uuid
 from datetime import datetime, timezone
 from tempfile import NamedTemporaryFile
 from typing import Any, Dict
 import ifcopenshell
 
+from app.ontology.service import ontology_service
 from app.storage.postgres.bim_store import BimStore
 from app.storage.postgres.dataset_store import DatasetStore
 from app.storage.object.minio import MinioStore
+
+logger = logging.getLogger("uvicorn.error")
 
 
 class BimProcessingError(Exception):
@@ -140,6 +146,29 @@ def _parse_ifc_bytes(data: bytes) -> dict[str, Any]:
     }
 
 
+def _trigger_ontology_sync(bim_dataset_id: uuid.UUID) -> None:
+    """
+    Fires the ontology sync for a just-processed BIM dataset.
+
+    process_bim runs as a plain sync background task, so this opens its own
+    asyncio event loop for the (async) ontology service. A plain
+    asyncio.new_event_loop() is used instead of asyncio.run() because on
+    Windows the default event loop is a ProactorEventLoop, which psycopg3's
+    async mode cannot use - it requires a SelectorEventLoop. Any failure is
+    logged and swallowed here - sync_bim_dataset already records failures on
+    the dataset row (kg_error) rather than raising for expected failure
+    modes (e.g. Fuseki unreachable); this catch is a last-resort guard so an
+    unexpected error can never make process_bim itself report as failed.
+    """
+    loop = asyncio.SelectorEventLoop() if sys.platform == "win32" else asyncio.new_event_loop()
+    try:
+        loop.run_until_complete(ontology_service.sync_bim_dataset(bim_dataset_id=bim_dataset_id))
+    except Exception:
+        logger.exception("Ontology sync failed to run for bim_dataset_id=%s", bim_dataset_id)
+    finally:
+        loop.close()
+
+
 def process_bim(dataset_id: uuid.UUID) -> Dict[str, Any]:
     dataset_store = DatasetStore()
     bim_store = BimStore()
@@ -186,6 +215,11 @@ def process_bim(dataset_id: uuid.UUID) -> Dict[str, Any]:
         )
         if not updated_dataset:
             raise BimNotFoundError("Dataset not found during BIM status update")
+
+        # BIM parsing succeeded and is already committed above; ontology sync
+        # runs as an independent step so a Fuseki failure here never rolls
+        # back or fails the BIM processing that already happened.
+        _trigger_ontology_sync(uuid.UUID(bim_dataset["id"]))
 
         return {
             "dataset_id": str(dataset_id),

@@ -3,8 +3,11 @@ uvicorn[standard]==0.32.1
 python-dotenv==1.0.1
 python-multipart==0.0.9
 
-sqlalchemy==2.0.36
+sqlalchemy[asyncio]==2.0.36
 psycopg[binary]==3.2.13
 alembic==1.11.1
 minio==7.2.8
 ifcopenshell
+
+rdflib==7.1.1
+httpx==0.27.2
