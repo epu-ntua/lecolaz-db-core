@@ -1,0 +1,32 @@
+# Apply after infra/compose.yaml, with --env-file infra/.env.example and
+# a separate --project-name. Never use the application's normal project name.
+services:
+  postgres:
+    environment:
+      POSTGRES_DB: dagster_fixture
+      POSTGRES_USER: fixture
+      POSTGRES_PASSWORD: fixture
+    ports: !reset []
+  minio:
+    ports: !reset []
+  backend:
+    env_file: !reset []
+    environment:
+      POSTGRES_DSN: postgresql+psycopg://fixture:fixture@postgres:5432/dagster_fixture
+      MINIO_INTERNAL_ENDPOINT: http://minio:9000
+      MINIO_ACCESS_KEY: lecolaz
+      MINIO_SECRET_KEY: lecolaz123
+      MINIO_BUCKET: fixture-data
+      PYTHONDONTWRITEBYTECODE: "1"
+    ports: !reset []
+    volumes: !override
+      - ../backend:/app:ro
+  dagster-code:
+    command: dagster code-server start -h 0.0.0.0 -p 4000 -m infra.dagster.tests.fixture_definitions
+    environment:
+      LECOLAZ_POSTGRES_DB: dagster_fixture
+      LECOLAZ_POSTGRES_USER: fixture
+      LECOLAZ_POSTGRES_PASSWORD: fixture
+      HAMAPI_API_KEY: ""
+  dagster-webserver:
+    ports: !reset []

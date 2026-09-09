@@ -1,0 +1,14 @@
+**
+!backend/
+!backend/app/
+!backend/app/__init__.py
+!backend/app/db/
+!backend/app/db/**
+!infra/
+!infra/dagster/
+!infra/dagster/**
+**/__pycache__/
+**/*.pyc
+**/.env
+
+infra/dagster/backups/
