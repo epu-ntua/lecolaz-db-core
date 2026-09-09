@@ -8,6 +8,7 @@ The current implemented stack includes:
 - FastAPI backend
 - PostgreSQL / TimescaleDB
 - MinIO object storage
+- Self-hosted Dagster for development workflow orchestration
 - Docker / Docker Compose
 - Nginx for production frontend serving and reverse proxying
 
@@ -21,12 +22,13 @@ infra/
 
 - `backend/`: FastAPI application, API routers, services, database models, storage adapters, and Alembic migrations.
 - `frontend/`: React/Vite application, TypeScript source, UI components, frontend routes, and static assets.
-- `infra/`: Docker Compose files and infrastructure support files for PostgreSQL/TimescaleDB, MinIO, and the backend container.
+- `infra/`: Docker Compose files and infrastructure support files for PostgreSQL/TimescaleDB, MinIO, Dagster, and the backend container.
 
 ## Documentation
 
 - [Development](development.md): local environment setup, Docker services, frontend workflow, migrations, and useful local commands.
 - [Deployment](deployment.md): current production model, manual deployment workflow, Nginx notes, and operational checks.
+- [Dagster](../infra/dagster/README.md): HAM assets, daily ingestion, backfills, storage, and tests.
 
 ## Environment Files
 
@@ -42,7 +44,7 @@ Responsibilities:
 
 - `backend/.env`: FastAPI, database, and object-storage configuration. It contains values such as `POSTGRES_DSN`, MinIO endpoint, MinIO credentials, and bucket name.
 - `frontend/.env`: Vite frontend variables. The committed template currently defines `VITE_API_BASE_URL`.
-- `infra/.env`: Docker Compose infrastructure settings and local credentials, including Compose project name, database settings, MinIO settings, and published ports.
+- `infra/.env`: Docker Compose infrastructure settings and local credentials, including Compose project name, database settings, MinIO settings, published ports, and development Dagster/HAM API configuration.
 
 Production uses the same filenames with production-specific values.
 
@@ -55,6 +57,7 @@ The real `.env` files are ignored by Git. Keep `.env.example` files committed as
 ## Notes
 
 - This repository currently maintains separate Compose files: `infra/compose.yaml` for local development and `infra/compose.prod.yaml` for production.
+- Dagster is included only in the development stack. Its UI is available at `http://localhost:3000` by default.
 - Architectural or service changes required in both environments must be reflected in both Compose files.
 - Linux filenames and paths are case-sensitive. Imports that work accidentally on Windows can fail during a Linux production build if the casing does not exactly match the file on disk.
 - Do not commit generated build output such as `frontend/dist/`.

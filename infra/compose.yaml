@@ -1,5 +1,25 @@
 name: ${COMPOSE_PROJECT_NAME:-lecolaz}
 
+x-dagster-common: &dagster-common
+  image: ${DAGSTER_IMAGE_NAME:-lecolaz-dagster:1.13.21}
+  build:
+    context: ..
+    dockerfile: infra/dagster/Dockerfile
+  environment:
+    DAGSTER_POSTGRES_USER: ${DAGSTER_POSTGRES_USER:-dagster}
+    DAGSTER_POSTGRES_PASSWORD: ${DAGSTER_POSTGRES_PASSWORD:-dagster}
+    DAGSTER_POSTGRES_DB: ${DAGSTER_POSTGRES_DB:-dagster}
+    LECOLAZ_POSTGRES_HOST: postgres
+    LECOLAZ_POSTGRES_PORT: "5432"
+    LECOLAZ_POSTGRES_DB: ${POSTGRES_DB:-lecolaz}
+    LECOLAZ_POSTGRES_USER: ${POSTGRES_USER:-lecolaz}
+    LECOLAZ_POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-lecolaz}
+    HAMAPI_API_KEY: ${HAMAPI_API_KEY:-}
+    HAMAPI_INGESTION_DELAY_HOURS: ${HAMAPI_INGESTION_DELAY_HOURS:-4}
+  volumes:
+    - dagster_storage:/opt/dagster/storage
+  restart: unless-stopped
+
 services:
   postgres:
     image: timescale/timescaledb:latest-pg16
@@ -7,11 +27,20 @@ services:
       POSTGRES_DB: ${POSTGRES_DB:-lecolaz}
       POSTGRES_USER: ${POSTGRES_USER:-lecolaz}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-lecolaz}
+      DAGSTER_POSTGRES_USER: ${DAGSTER_POSTGRES_USER:-dagster}
+      DAGSTER_POSTGRES_PASSWORD: ${DAGSTER_POSTGRES_PASSWORD:-dagster}
+      DAGSTER_POSTGRES_DB: ${DAGSTER_POSTGRES_DB:-dagster}
     ports:
       - "${POSTGRES_PORT:-5432}:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
-      - ./postgres/init.sql:/docker-entrypoint-initdb.d/init.sql
+      - ./postgres/init.sql:/docker-entrypoint-initdb.d/010-init.sql:ro
+      - ./postgres/init-dagster.sh:/docker-entrypoint-initdb.d/020-init-dagster.sh:ro
+    healthcheck:
+      test: ["CMD-SHELL", 'pg_isready -h 127.0.0.1 -U "$${POSTGRES_USER}" -d "$${POSTGRES_DB}"']
+      interval: 10s
+      timeout: 5s
+      retries: 10
 
   minio:
     image: minio/minio:latest
@@ -38,6 +67,47 @@ services:
     volumes:
       - ../backend:/app
 
+  dagster-code:
+    <<: *dagster-common
+    healthcheck:
+      test: ["CMD", "dagster", "api", "grpc-health-check", "-p", "4000"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 20s
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  dagster-webserver:
+    <<: *dagster-common
+    command: dagster-webserver -h 0.0.0.0 -p 3000 -w /opt/dagster/home/workspace.yaml
+    ports:
+      - "127.0.0.1:${DAGSTER_WEB_PORT:-3000}:3000"
+    healthcheck:
+      test: ["CMD", "python", "-c", "from urllib.request import urlopen; urlopen('http://localhost:3000/server_info', timeout=3)"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 20s
+    depends_on:
+      dagster-code:
+        condition: service_healthy
+
+  dagster-daemon:
+    <<: *dagster-common
+    command: dagster-daemon run -w /opt/dagster/home/workspace.yaml
+    healthcheck:
+      test: ["CMD", "dagster-daemon", "liveness-check"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+    depends_on:
+      dagster-code:
+        condition: service_healthy
+
 volumes:
   postgres_data:
   minio_data:
+  dagster_storage:
