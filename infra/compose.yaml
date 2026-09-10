@@ -25,6 +25,18 @@ services:
     volumes:
       - minio_data:/data
 
+  fuseki:
+    # TODO: compose.prod.yaml has no fuseki service yet.
+    image: stain/jena-fuseki:latest
+    environment:
+      ADMIN_PASSWORD: ${FUSEKI_ADMIN_PASSWORD:-lecolaz}
+      FUSEKI_DATASET_1: ${FUSEKI_DATASET:-lecolaz}
+      TDB: "2"
+    ports:
+      - "${FUSEKI_PORT:-3030}:3030"
+    volumes:
+      - fuseki_data:/fuseki
+
   backend:
     build: ../backend
     env_file:
@@ -32,6 +44,7 @@ services:
     depends_on:
       - postgres
       - minio
+      - fuseki
     ports:
       - "${BACKEND_PORT:-8000}:8000"
     command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
@@ -41,3 +54,4 @@ services:
 volumes:
   postgres_data:
   minio_data:
+  fuseki_data:

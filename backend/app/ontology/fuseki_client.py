@@ -18,10 +18,15 @@ class FusekiClient:
         base_url: str | None = None,
         dataset: str | None = None,
         timeout: float | None = None,
+        auth: tuple[str, str] | None = None,
     ) -> None:
         self._base_url = (base_url or ontology_settings.FUSEKI_BASE_URL).rstrip("/")
         self._dataset = dataset or ontology_settings.FUSEKI_DATASET
         self._timeout = timeout or ontology_settings.FUSEKI_TIMEOUT_SECONDS
+        self._auth = auth or (
+            ontology_settings.FUSEKI_ADMIN_USER,
+            ontology_settings.FUSEKI_ADMIN_PASSWORD,
+        )
 
     async def put_graph(self, *, graph_uri: str, turtle: str) -> None:
         url = f"{self._base_url}/{self._dataset}/data"
@@ -32,6 +37,7 @@ class FusekiClient:
                     params={"graph": graph_uri},
                     content=turtle.encode("utf-8"),
                     headers={"Content-Type": "text/turtle; charset=utf-8"},
+                    auth=self._auth,
                 )
             response.raise_for_status()
         except httpx.HTTPStatusError as exc:

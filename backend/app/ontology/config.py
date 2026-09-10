@@ -15,6 +15,10 @@ class OntologySettings:
     FUSEKI_BASE_URL: str = os.getenv("FUSEKI_BASE_URL", "http://localhost:3030")
     FUSEKI_DATASET: str = os.getenv("FUSEKI_DATASET", "lecolaz")
     FUSEKI_TIMEOUT_SECONDS: float = float(os.getenv("FUSEKI_TIMEOUT_SECONDS", "30"))
+    # The dataset's update/data endpoints require Basic Auth (see
+    # infra/compose.yaml's fuseki service).
+    FUSEKI_ADMIN_USER: str = os.getenv("FUSEKI_ADMIN_USER", "admin")
+    FUSEKI_ADMIN_PASSWORD: str = os.getenv("FUSEKI_ADMIN_PASSWORD", "")
 
 
 ontology_settings = OntologySettings()
