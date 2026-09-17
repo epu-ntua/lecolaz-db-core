@@ -17,7 +17,7 @@ class ReadingTests(unittest.TestCase):
         self.types = {"T": str(uuid4())}
 
     def rows(self, response):
-        return pipeline.prepare_observation_rows(response, self.sensor, self.types, self.start, self.end)
+        return pipeline.prepare_observation_rows(response, self.sensor, self.types, self.start, self.end).rows
 
     def test_mapping_and_half_open_interval(self):
         t = self.start.timestamp()
@@ -48,6 +48,35 @@ class ReadingTests(unittest.TestCase):
             self.rows({"timestamp": [t, t], "T": [1, 2]})
         self.assertEqual(pipeline.persist_observation_rows(None, []),
                          {"selected": 0, "inserted_or_updated": 0})
+
+    def test_diagnostics_and_reading_summary(self):
+        t = self.start.timestamp()
+        types = {**self.types, "H": str(uuid4())}
+        prepared = pipeline.prepare_observation_rows(
+            {"timestamp": [t + 60, t, t, t - 1, self.end.timestamp()],
+             "T": [22, 21, 21, None, 999], "H": [None] * 5, "OUT": [0] * 5},
+            self.sensor, types, self.start, self.end,
+        )
+        self.assertEqual(len(prepared.rows), 2)
+        diagnostics = prepared.diagnostics
+        self.assertEqual(diagnostics["returned_timestamp_count"], 5)
+        self.assertEqual(diagnostics["returned_series_count"], 3)
+        self.assertEqual(diagnostics["selected_series_count"], 2)
+        self.assertEqual(diagnostics["ignored_series_keys"], ["OUT"])
+        self.assertEqual(diagnostics["out_of_interval_timestamp_count"], 2)
+        self.assertEqual(diagnostics["null_value_count"], 3)
+        self.assertEqual(diagnostics["identical_duplicate_count"], 1)
+        self.assertEqual(diagnostics["distinct_timestamp_count"], 2)
+        self.assertEqual(diagnostics["first_observation_at"], self.start)
+        self.assertEqual(diagnostics["last_observation_at"], self.start + timedelta(seconds=60))
+        self.assertNotIn("empty_reason", diagnostics)
+        humidity, temperature = prepared.reading_summary
+        self.assertEqual(humidity["selected_rows"], 0)
+        self.assertEqual(humidity["null_values"], 3)
+        self.assertIsNone(humidity["minimum"])
+        self.assertIsNone(humidity["first_timestamp"])
+        self.assertEqual(temperature["selected_rows"], 2)
+        self.assertEqual((temperature["minimum"], temperature["maximum"]), (21, 22))
 
     def test_invalid_interval(self):
         for start, end in ((None, None), (self.start, self.start), (self.end, self.start),

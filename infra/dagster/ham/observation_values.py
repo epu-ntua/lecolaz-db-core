@@ -2,6 +2,7 @@
 
 import logging
 import math
+from dataclasses import dataclass
 from datetime import datetime, timezone
 from uuid import UUID
 
@@ -72,8 +73,17 @@ def fetch_readings(api_key: str, external_id: str, start: datetime, end: datetim
         client.cache_conn.close()
 
 
+@dataclass
+class PreparedObservations:
+    """Validated rows and diagnostics about the transformed HAM response, before writes."""
+
+    rows: list[dict]
+    diagnostics: dict
+    reading_summary: list[dict]
+
+
 def prepare_observation_rows(response: dict, sensor: dict, types: dict,
-                             start: datetime, end: datetime) -> list[dict]:
+                             start: datetime, end: datetime) -> PreparedObservations:
     """Zip series with timestamps and resolve both foreign keys; never transform twice."""
     validate_interval(start, end)
     if not isinstance(response, dict) or response.get("error"):
@@ -84,13 +94,28 @@ def prepare_observation_rows(response: dict, sensor: dict, types: dict,
     for key, values in response.items():
         if not isinstance(values, list) or len(values) != len(timestamps):
             raise ValueError(f"Datalog series {key!r} does not align with timestamps")
-    selected_keys = (response.keys() & types.keys()) - {"timestamp"}
+    selected_keys = sorted((response.keys() & types.keys()) - {"timestamp"})
     ignored = response.keys() - types.keys() - {"timestamp"}
     if ignored:
         LOGGER.info("Ignoring series without registered observation types: %s", sorted(ignored))
     if timestamps and not selected_keys:
         raise ValueError("No datalog series match registered observation types")
 
+    diagnostics = {
+        "returned_timestamp_count": len(timestamps),
+        "returned_series_count": len(response) - 1,
+        "selected_series_count": len(selected_keys),
+        "ignored_series_keys": sorted(ignored),
+        "out_of_interval_timestamp_count": 0,
+        "null_value_count": 0,
+        "identical_duplicate_count": 0,
+    }
+    reading_summary = {
+        key: {"reading_key": key, "selected_rows": 0, "null_values": 0,
+              "first_timestamp": None, "last_timestamp": None,
+              "minimum": None, "maximum": None}
+        for key in selected_keys
+    }
     rows = {}
     sensor_id = UUID(sensor["id"])
     for index, seconds in enumerate(timestamps):
@@ -98,20 +123,48 @@ def prepare_observation_rows(response: dict, sensor: dict, types: dict,
             raise ValueError(f"Invalid timestamp at index {index}")
         timestamp = datetime.fromtimestamp(seconds, tz=timezone.utc)
         if not start <= timestamp < end:
+            diagnostics["out_of_interval_timestamp_count"] += 1
             continue
-        for key in sorted(selected_keys):
+        for key in selected_keys:
             value = response[key][index]
             if value is None:
+                diagnostics["null_value_count"] += 1
+                reading_summary[key]["null_values"] += 1
                 continue
             if isinstance(value, bool) or not isinstance(value, (int, float)) or not math.isfinite(value):
                 raise ValueError(f"Invalid numeric value for {key!r} at index {index}")
             identity = (UUID(types[key]), timestamp)
             row = {"sensor_id": sensor_id, "observation_type_id": identity[0],
                    "timestamp": timestamp, "value": float(value)}
-            if identity in rows and rows[identity]["value"] != row["value"]:
-                raise ValueError(f"Conflicting duplicate value for {key!r} at {timestamp}")
+            if identity in rows:
+                if rows[identity]["value"] != row["value"]:
+                    raise ValueError(f"Conflicting duplicate value for {key!r} at {timestamp}")
+                diagnostics["identical_duplicate_count"] += 1
+                continue
             rows[identity] = row
-    return list(rows.values())
+            reading = reading_summary[key]
+            reading["selected_rows"] += 1
+            if reading["first_timestamp"] is None:
+                reading.update(first_timestamp=timestamp, last_timestamp=timestamp,
+                               minimum=row["value"], maximum=row["value"])
+            else:
+                reading["first_timestamp"] = min(reading["first_timestamp"], timestamp)
+                reading["last_timestamp"] = max(reading["last_timestamp"], timestamp)
+                reading["minimum"] = min(reading["minimum"], row["value"])
+                reading["maximum"] = max(reading["maximum"], row["value"])
+
+    valid_timestamps = {row["timestamp"] for row in rows.values()}
+    diagnostics["distinct_timestamp_count"] = len(valid_timestamps)
+    if rows:
+        diagnostics["first_observation_at"] = min(valid_timestamps)
+        diagnostics["last_observation_at"] = max(valid_timestamps)
+    elif not timestamps:
+        diagnostics["empty_reason"] = "no_timestamps"
+    elif diagnostics["out_of_interval_timestamp_count"] == len(timestamps):
+        diagnostics["empty_reason"] = "all_timestamps_outside_interval"
+    else:
+        diagnostics["empty_reason"] = "all_selected_values_null"
+    return PreparedObservations(list(rows.values()), diagnostics, list(reading_summary.values()))
 
 
 def persist_observation_rows(engine, rows: list[dict]) -> dict:

@@ -150,6 +150,32 @@ source lines; its device/reading requests lack reliable HTTP status/timeout hand
 A materialization therefore does not prove completeness. Terminate stuck runs in
 the UI. Public catalog fetches and service probes have explicit timeouts.
 
+### Observability metadata
+
+Empty imports also emit a partition `AssetObservation` with `outcome=empty` and
+`empty_reason` (`no_timestamps`, `all_timestamps_outside_interval`, or
+`all_selected_values_null`). Observations retain attempt details in asset activity
+without marking a partition materialized or advertising a data freshness update.
+
+Both empty observations and nonempty materializations include response timestamp
+and series counts, ignored reading keys, out-of-interval timestamp counts,
+in-interval null counts, identical duplicate counts, and distinct valid timestamps.
+A `reading_summary` table shows each selected channel's deduplicated count, skipped
+nulls, temporal extent, and minimum/maximum, including channels with no valid rows.
+Nonempty results also expose typed first/last observation timestamps. These metrics
+describe the HAM library's transformed response, not raw source completeness or
+the total rows already stored in PostgreSQL.
+
+Phase durations report reference lookup, fetch, preparation, and (when performed)
+persistence including commit. Effective interval duration accounts for first-day
+clipping. Reference imports expose unchanged counts; reading-type imports also
+report model/catalog counts, excluded keys, extra-reading configuration and source
+links. Device imports report fetch/preparation/persistence durations.
+
+All assets carry Python/PostgreSQL kinds and model-derived table schema metadata,
+row scope and write semantics. The schema describes the SQLAlchemy model, not a
+live database inspection. No additional database queries are used for metadata.
+
 ## Storage and maintenance
 
 The existing `postgres` service hosts the application database and a dedicated

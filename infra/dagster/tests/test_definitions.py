@@ -88,7 +88,7 @@ class DefinitionTests(unittest.TestCase):
         for enabled, expected in ((False, ["T"]), (True, ["PMV", "T"])):
             with self.subTest(enabled=enabled), \
                  patch.object(HamApi, "catalog", side_effect=[catalog, models]), \
-                 patch.object(pipeline.observation_types, "persist_rows", return_value={"selected": len(expected)}) as persist:
+                 patch.object(pipeline.observation_types, "persist_rows", return_value={"selected": len(expected), "inserted_or_updated": len(expected)}) as persist:
                 result = materialize(
                     [pipeline.hamapi_observation_types],
                     resources={"ham_api": HamApi(), "database": FakeDatabase()},
@@ -96,6 +96,32 @@ class DefinitionTests(unittest.TestCase):
                 )
                 self.assertTrue(result.success)
                 self.assertEqual([row["key"] for row in persist.call_args.args[1]], expected)
+                metadata = result.get_asset_materialization_events()[0].event_specific_data.materialization.metadata
+                self.assertEqual(metadata["include_extra_readings"].value, enabled)
+                self.assertEqual(metadata["model_count"].value, 1)
+                self.assertEqual(metadata["catalog_reading_count"].value, 2)
+                self.assertEqual(metadata["excluded_reading_keys"].value, [] if enabled else ["PMV"])
+                self.assertEqual(metadata["excluded_reading_count"].value, 0 if enabled else 1)
+                self.assertEqual(metadata["unchanged"].value, 0)
+                self.assertTrue(metadata["models_catalog_url"].value.endswith("/models.json"))
+
+    def test_sensor_import_metadata_including_empty_catalog(self):
+        for devices in ([], [{"name": "Example", "serialno": "device:0"}]):
+            with self.subTest(devices=devices), \
+                 patch.object(HamApi, "devices", return_value={"devices": devices}), \
+                 patch.object(pipeline.sensors, "persist_sensor_rows", return_value={
+                     "selected": len(devices), "inserted_or_updated": 0, "verified": len(devices),
+                 }):
+                result = materialize(
+                    [pipeline.hamapi_sensors],
+                    resources={"ham_api": HamApi(), "database": FakeDatabase()},
+                )
+                self.assertTrue(result.success)
+                metadata = result.get_asset_materialization_events()[0].event_specific_data.materialization.metadata
+                self.assertEqual(metadata["unchanged"].value, len(devices))
+                for field in ("fetch_seconds", "prepare_seconds", "persist_seconds"):
+                    self.assertGreaterEqual(metadata[field].value, 0)
+                self.assertIn("Reload", metadata["next_step"].value)
 
     def test_missing_key_fails_without_retry_or_client_creation(self):
         with patch("hamapi.hamapi") as factory:
@@ -231,6 +257,55 @@ class ObservationExecutionTests(unittest.TestCase):
                 warnings = [entry for entry in instance.all_logs(result.run_id) if entry.level == 30]
                 self.assertTrue(any("No valid observations" in entry.user_message
                                     and self.sensor_ids[0] in entry.user_message for entry in warnings))
+
+    def test_empty_observation_metadata_and_reasons(self):
+        t = CATALOG[0]["starting_date"].timestamp()
+        cases = [
+            ({"timestamp": []}, "no_timestamps"),
+            ({"timestamp": [t - 1], "T": [None]}, "all_timestamps_outside_interval"),
+            ({"timestamp": [t], "T": [None]}, "all_selected_values_null"),
+        ]
+        for response, reason in cases:
+            with self.subTest(reason=reason):
+                result, persist = self.execute(lambda *args: response)
+                self.assertTrue(result.success)
+                persist.assert_not_called()
+                events = result.get_asset_observation_events()
+                self.assertEqual(len(events), 1)
+                event = events[0].event_specific_data.asset_observation
+                self.assertEqual(event.asset_key, pipeline.observation_asset_key(self.sensor_ids[0]))
+                self.assertEqual(event.partition, "2026-01-01")
+                metadata = event.metadata
+                self.assertEqual(metadata["outcome"].value, "empty")
+                self.assertEqual(metadata["empty_reason"].value, reason)
+                self.assertEqual(metadata["selected"].value, 0)
+                self.assertEqual(metadata["interval_duration_seconds"].value, 36000)
+                for field in ("first_observation_at", "last_observation_at", "persist_seconds",
+                              "dagster/last_updated_timestamp", "dagster/partition_row_count"):
+                    self.assertNotIn(field, metadata)
+                for field in ("fetch_seconds", "prepare_seconds", "reference_lookup_seconds"):
+                    self.assertGreaterEqual(metadata[field].value, 0)
+                self.assertFalse(result.get_asset_materialization_events())
+
+    def test_materialization_has_typed_diagnostics(self):
+        from dagster import TimestampMetadataValue, TableMetadataValue
+        result, _ = self.execute(lambda external_id, start, end: {
+            "timestamp": [start.timestamp(), start.timestamp()], "T": [21, 21], "OUT": [0, 0],
+        })
+        self.assertTrue(result.success)
+        self.assertFalse(result.get_asset_observation_events())
+        metadata = result.get_asset_materialization_events()[0].event_specific_data.materialization.metadata
+        self.assertEqual(metadata["identical_duplicate_count"].value, 1)
+        self.assertEqual(metadata["ignored_series_keys"].value, ["OUT"])
+        self.assertIsInstance(metadata["first_observation_at"], TimestampMetadataValue)
+        self.assertIsInstance(metadata["reading_summary"], TableMetadataValue)
+        row = metadata["reading_summary"].records[0].data
+        self.assertEqual(row["selected_rows"], 1)
+        self.assertEqual(row["first_timestamp"], CATALOG[0]["starting_date"].isoformat())
+        self.assertEqual(row["minimum"], 21)
+        for field in ("fetch_seconds", "prepare_seconds", "persist_seconds", "reference_lookup_seconds"):
+            self.assertGreaterEqual(metadata[field].value, 0)
+        self.assertNotIn("dagster/partition_row_count", metadata)
 
     def test_empty_rerun_preserves_previous_materialization(self):
         with DagsterInstance.ephemeral() as instance:
