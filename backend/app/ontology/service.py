@@ -6,12 +6,11 @@ OntologyService orchestrates the BIM -> RDF -> Fuseki sync flow:
     2. Build an rdflib Graph from them (RdfModelBuilder).
     3. Serialize to Turtle and validate it parses (TurtleSerializer).
     4. PUT it to Fuseki as the dataset's named graph (FusekiClient).
-    5. Record success/failure on datasets.kg_synced* in its own transaction,
-       separate from whatever transaction persisted the BIM data.
+    5. Record success/failure on datasets.kg_synced* in its own transaction.
 
-A Fuseki failure never raises past this service in a way that could roll
-back the caller's transaction - it is recorded on the dataset row and
-returned as a failed SyncResult.
+RDF build/serialization and Fuseki failures are recorded on the dataset row
+and returned as a failed SyncResult; DB errors and a missing BIM dataset
+(BimDatasetNotFoundError) raise.
 """
 
 import logging
@@ -19,9 +18,9 @@ import uuid
 from datetime import datetime, timezone
 
 from sqlalchemy import select, update
-from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
+from sqlalchemy.orm import Session
 
-from app.db.async_session import AsyncSessionLocal
+from app.db.session import SessionLocal
 from app.db.models.bim_dataset import BimDataset
 from app.db.models.bim_space import BimSpace
 from app.db.models.bim_storey import BimStorey
@@ -43,34 +42,28 @@ class OntologyService:
         rdf_model_builder: RdfModelBuilder | None = None,
         turtle_serializer: TurtleSerializer | None = None,
         fuseki_client: FusekiClient | None = None,
-        session_factory: async_sessionmaker[AsyncSession] = AsyncSessionLocal,
+        session_factory=SessionLocal,
     ) -> None:
         self._rdf_model_builder = rdf_model_builder or RdfModelBuilder()
         self._turtle_serializer = turtle_serializer or TurtleSerializer()
         self._fuseki_client = fuseki_client or FusekiClient()
         self._session_factory = session_factory
 
-    async def sync_bim_dataset(
-        self,
-        *,
-        bim_dataset_id: uuid.UUID,
-        db: AsyncSession | None = None,
-    ) -> SyncResult:
-        if db is not None:
-            bim_data = await self._load_bim_dataset(db, bim_dataset_id)
-        else:
-            async with self._session_factory() as session:
-                bim_data = await self._load_bim_dataset(session, bim_dataset_id)
+    def sync_bim_dataset(self, *, bim_dataset_id: uuid.UUID) -> SyncResult:
+        with self._session_factory() as session:
+            bim_data = self._load_bim_dataset(session, bim_dataset_id)
 
-        return await self._sync(bim_data)
+        return self._sync(bim_data)
 
-    async def resync_unsynced_datasets(self, db: AsyncSession) -> dict:
+    def resync_unsynced_datasets(self) -> dict:
         stmt = (
             select(Dataset.id, BimDataset.id)
             .join(BimDataset, BimDataset.dataset_id == Dataset.id)
             .where(Dataset.kg_synced.is_(False))
+            .where(Dataset.status == "processed")
         )
-        rows = (await db.execute(stmt)).all()
+        with self._session_factory() as session:
+            rows = session.execute(stmt).all()
 
         total = len(rows)
         succeeded = 0
@@ -78,7 +71,7 @@ class OntologyService:
         errors: list[dict] = []
 
         for dataset_id, bim_dataset_id in rows:
-            result = await self.sync_bim_dataset(bim_dataset_id=bim_dataset_id)
+            result = self.sync_bim_dataset(bim_dataset_id=bim_dataset_id)
             if result.success:
                 succeeded += 1
             else:
@@ -92,13 +85,13 @@ class OntologyService:
             "errors": errors,
         }
 
-    async def _sync(self, bim_data: BimDatasetDTO) -> SyncResult:
+    def _sync(self, bim_data: BimDatasetDTO) -> SyncResult:
         graph_uri = build_graph_uri(bim_data.bim_dataset_id)
 
         try:
             graph = self._rdf_model_builder.build(bim_data)
             turtle = self._turtle_serializer.serialize(graph)
-            await self._fuseki_client.put_graph(graph_uri=graph_uri, turtle=turtle)
+            self._fuseki_client.put_graph(graph_uri=graph_uri, turtle=turtle)
         except Exception as exc:
             error_message = str(exc)
             logger.error(
@@ -108,7 +101,7 @@ class OntologyService:
                 graph_uri,
                 error_message,
             )
-            await self._mark_sync_failed(bim_data.dataset_id, error_message)
+            self._mark_sync_failed(bim_data.dataset_id, error_message)
             return SyncResult(
                 bim_dataset_id=bim_data.bim_dataset_id,
                 dataset_id=bim_data.dataset_id,
@@ -120,7 +113,7 @@ class OntologyService:
             )
 
         synced_at = datetime.now(timezone.utc)
-        await self._mark_sync_succeeded(bim_data.dataset_id, synced_at)
+        self._mark_sync_succeeded(bim_data.dataset_id, synced_at)
         logger.info(
             "Ontology sync succeeded for bim_dataset_id=%s dataset_id=%s graph=%s triples=%d",
             bim_data.bim_dataset_id,
@@ -138,22 +131,22 @@ class OntologyService:
             error=None,
         )
 
-    async def _load_bim_dataset(self, session: AsyncSession, bim_dataset_id: uuid.UUID) -> BimDatasetDTO:
+    def _load_bim_dataset(self, session: Session, bim_dataset_id: uuid.UUID) -> BimDatasetDTO:
         stmt = (
             select(BimDataset, Dataset)
             .join(Dataset, Dataset.id == BimDataset.dataset_id)
             .where(BimDataset.id == bim_dataset_id)
         )
-        row = (await session.execute(stmt)).first()
+        row = session.execute(stmt).first()
         if row is None:
             raise BimDatasetNotFoundError(f"BIM dataset {bim_dataset_id} not found")
         bim_dataset, dataset = row
 
         storeys_stmt = select(BimStorey).where(BimStorey.bim_dataset_id == bim_dataset.id)
-        storeys = (await session.execute(storeys_stmt)).scalars().all()
+        storeys = session.execute(storeys_stmt).scalars().all()
 
         spaces_stmt = select(BimSpace).where(BimSpace.bim_dataset_id == bim_dataset.id)
-        spaces = (await session.execute(spaces_stmt)).scalars().all()
+        spaces = session.execute(spaces_stmt).scalars().all()
 
         return BimDatasetDTO(
             bim_dataset_id=bim_dataset.id,
@@ -185,23 +178,23 @@ class OntologyService:
             ],
         )
 
-    async def _mark_sync_succeeded(self, dataset_id: uuid.UUID, synced_at: datetime) -> None:
-        async with self._session_factory() as session:
-            await session.execute(
+    def _mark_sync_succeeded(self, dataset_id: uuid.UUID, synced_at: datetime) -> None:
+        with self._session_factory() as session:
+            session.execute(
                 update(Dataset)
                 .where(Dataset.id == dataset_id)
                 .values(kg_synced=True, kg_synced_at=synced_at, kg_error=None)
             )
-            await session.commit()
+            session.commit()
 
-    async def _mark_sync_failed(self, dataset_id: uuid.UUID, error_message: str) -> None:
-        async with self._session_factory() as session:
-            await session.execute(
+    def _mark_sync_failed(self, dataset_id: uuid.UUID, error_message: str) -> None:
+        with self._session_factory() as session:
+            session.execute(
                 update(Dataset)
                 .where(Dataset.id == dataset_id)
                 .values(kg_synced=False, kg_synced_at=None, kg_error=error_message)
             )
-            await session.commit()
+            session.commit()
 
 
 # Default singleton for simple call sites (background tasks, other services).
@@ -211,8 +204,3 @@ ontology_service = OntologyService()
 
 def get_ontology_service() -> OntologyService:
     return ontology_service
-
-
-async def resync_unsynced_datasets(db: AsyncSession) -> dict:
-    """Module-level convenience wrapper around OntologyService.resync_unsynced_datasets."""
-    return await ontology_service.resync_unsynced_datasets(db)

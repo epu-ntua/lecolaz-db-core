@@ -1,6 +1,4 @@
-import asyncio
 import logging
-import sys
 import uuid
 from datetime import datetime, timezone
 from tempfile import NamedTemporaryFile
@@ -150,23 +148,15 @@ def _trigger_ontology_sync(bim_dataset_id: uuid.UUID) -> None:
     """
     Fires the ontology sync for a just-processed BIM dataset.
 
-    process_bim runs as a plain sync background task, so this opens its own
-    asyncio event loop for the (async) ontology service. A plain
-    asyncio.new_event_loop() is used instead of asyncio.run() because on
-    Windows the default event loop is a ProactorEventLoop, which psycopg3's
-    async mode cannot use - it requires a SelectorEventLoop. Any failure is
-    logged and swallowed here - sync_bim_dataset already records failures on
-    the dataset row (kg_error) rather than raising for expected failure
-    modes (e.g. Fuseki unreachable); this catch is a last-resort guard so an
-    unexpected error can never make process_bim itself report as failed.
+    Expected failures (e.g. Fuseki unreachable) are already recorded on
+    datasets.kg_error by the ontology service and do not raise. This catch
+    only guards against unexpected errors, which are logged and swallowed so
+    they never mark the already-processed BIM dataset as failed.
     """
-    loop = asyncio.SelectorEventLoop() if sys.platform == "win32" else asyncio.new_event_loop()
     try:
-        loop.run_until_complete(ontology_service.sync_bim_dataset(bim_dataset_id=bim_dataset_id))
+        ontology_service.sync_bim_dataset(bim_dataset_id=bim_dataset_id)
     except Exception:
         logger.exception("Ontology sync failed to run for bim_dataset_id=%s", bim_dataset_id)
-    finally:
-        loop.close()
 
 
 def process_bim(dataset_id: uuid.UUID) -> Dict[str, Any]:

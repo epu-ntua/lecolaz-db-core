@@ -28,11 +28,11 @@ class FusekiClient:
             ontology_settings.FUSEKI_ADMIN_PASSWORD,
         )
 
-    async def put_graph(self, *, graph_uri: str, turtle: str) -> None:
+    def put_graph(self, *, graph_uri: str, turtle: str) -> None:
         url = f"{self._base_url}/{self._dataset}/data"
         try:
-            async with httpx.AsyncClient(timeout=self._timeout) as client:
-                response = await client.put(
+            with httpx.Client(timeout=self._timeout) as client:
+                response = client.put(
                     url,
                     params={"graph": graph_uri},
                     content=turtle.encode("utf-8"),
