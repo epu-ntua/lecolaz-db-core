@@ -17,20 +17,16 @@ import logging
 import uuid
 from datetime import datetime, timezone
 
-from sqlalchemy import select, update
-from sqlalchemy.orm import Session
-
-from app.db.session import SessionLocal
-from app.db.models.bim_dataset import BimDataset
-from app.db.models.bim_space import BimSpace
-from app.db.models.bim_storey import BimStorey
-from app.db.models.dataset import Dataset
 from app.ontology.config import build_graph_uri
 from app.ontology.dto import BimDatasetDTO, SpaceDTO, StoreyDTO, SyncResult
 from app.ontology.exceptions import BimDatasetNotFoundError
 from app.ontology.fuseki_client import FusekiClient
 from app.ontology.rdf_model_builder import RdfModelBuilder
 from app.ontology.turtle_serializer import TurtleSerializer
+from app.storage.postgres.bim_space_store import BimSpaceStore
+from app.storage.postgres.bim_store import BimStore
+from app.storage.postgres.bim_storey_store import BimStoreyStore
+from app.storage.postgres.dataset_store import DatasetStore
 
 logger = logging.getLogger("uvicorn.error")
 
@@ -42,41 +38,38 @@ class OntologyService:
         rdf_model_builder: RdfModelBuilder | None = None,
         turtle_serializer: TurtleSerializer | None = None,
         fuseki_client: FusekiClient | None = None,
-        session_factory=SessionLocal,
+        bim_store: BimStore | None = None,
+        bim_storey_store: BimStoreyStore | None = None,
+        bim_space_store: BimSpaceStore | None = None,
+        dataset_store: DatasetStore | None = None,
     ) -> None:
         self._rdf_model_builder = rdf_model_builder or RdfModelBuilder()
         self._turtle_serializer = turtle_serializer or TurtleSerializer()
         self._fuseki_client = fuseki_client or FusekiClient()
-        self._session_factory = session_factory
+        self._bim_store = bim_store or BimStore()
+        self._bim_storey_store = bim_storey_store or BimStoreyStore()
+        self._bim_space_store = bim_space_store or BimSpaceStore()
+        self._dataset_store = dataset_store or DatasetStore()
 
     def sync_bim_dataset(self, *, bim_dataset_id: uuid.UUID) -> SyncResult:
-        with self._session_factory() as session:
-            bim_data = self._load_bim_dataset(session, bim_dataset_id)
-
+        bim_data = self._load_bim_dataset(bim_dataset_id)
         return self._sync(bim_data)
 
     def resync_unsynced_datasets(self) -> dict:
-        stmt = (
-            select(Dataset.id, BimDataset.id)
-            .join(BimDataset, BimDataset.dataset_id == Dataset.id)
-            .where(Dataset.kg_synced.is_(False))
-            .where(Dataset.status == "processed")
-        )
-        with self._session_factory() as session:
-            rows = session.execute(stmt).all()
+        rows = self._bim_store.list_processed_kg_unsynced()
 
         total = len(rows)
         succeeded = 0
         failed = 0
         errors: list[dict] = []
 
-        for dataset_id, bim_dataset_id in rows:
-            result = self.sync_bim_dataset(bim_dataset_id=bim_dataset_id)
+        for row in rows:
+            result = self.sync_bim_dataset(bim_dataset_id=uuid.UUID(row["id"]))
             if result.success:
                 succeeded += 1
             else:
                 failed += 1
-                errors.append({"dataset_id": str(dataset_id), "error": result.error})
+                errors.append({"dataset_id": row["dataset_id"], "error": result.error})
 
         return {
             "total": total,
@@ -131,70 +124,54 @@ class OntologyService:
             error=None,
         )
 
-    def _load_bim_dataset(self, session: Session, bim_dataset_id: uuid.UUID) -> BimDatasetDTO:
-        stmt = (
-            select(BimDataset, Dataset)
-            .join(Dataset, Dataset.id == BimDataset.dataset_id)
-            .where(BimDataset.id == bim_dataset_id)
-        )
-        row = session.execute(stmt).first()
-        if row is None:
+    def _load_bim_dataset(self, bim_dataset_id: uuid.UUID) -> BimDatasetDTO:
+        bim_dataset = self._bim_store.get_bim_by_id(bim_dataset_id)
+        if bim_dataset is None:
             raise BimDatasetNotFoundError(f"BIM dataset {bim_dataset_id} not found")
-        bim_dataset, dataset = row
 
-        storeys_stmt = select(BimStorey).where(BimStorey.bim_dataset_id == bim_dataset.id)
-        storeys = session.execute(storeys_stmt).scalars().all()
+        dataset_id = uuid.UUID(bim_dataset["dataset_id"])
+        dataset = self._dataset_store.get_dataset_by_id(dataset_id)
+        if dataset is None:
+            raise BimDatasetNotFoundError(f"Dataset {dataset_id} for BIM dataset {bim_dataset_id} not found")
 
-        spaces_stmt = select(BimSpace).where(BimSpace.bim_dataset_id == bim_dataset.id)
-        spaces = session.execute(spaces_stmt).scalars().all()
+        storeys = self._bim_storey_store.list_by_bim_dataset_id(bim_dataset_id)
+        spaces = self._bim_space_store.list_by_bim_dataset_id(bim_dataset_id)
 
         return BimDatasetDTO(
-            bim_dataset_id=bim_dataset.id,
-            dataset_id=dataset.id,
-            filename=dataset.filename,
-            format=bim_dataset.format,
-            status=dataset.status,
-            created_at=dataset.created_at,
-            size_bytes=dataset.size_bytes,
+            bim_dataset_id=bim_dataset_id,
+            dataset_id=dataset_id,
+            filename=dataset["filename"],
+            format=bim_dataset["format"],
+            status=dataset["status"],
+            created_at=datetime.fromisoformat(dataset["created_at"]) if dataset["created_at"] else None,
+            size_bytes=dataset["size_bytes"],
             storeys=[
                 StoreyDTO(
-                    id=s.id,
-                    global_id=s.global_id,
-                    name=s.name,
-                    elevation=s.elevation,
+                    id=uuid.UUID(s["id"]),
+                    global_id=s["global_id"],
+                    name=s["name"],
+                    elevation=s["elevation"],
                 )
                 for s in storeys
             ],
             spaces=[
                 SpaceDTO(
-                    id=sp.id,
-                    global_id=sp.global_id,
-                    name=sp.name,
-                    area=sp.area,
-                    volume=sp.volume,
-                    storey_id=sp.storey_id,
+                    id=uuid.UUID(sp["id"]),
+                    global_id=sp["global_id"],
+                    name=sp["name"],
+                    area=sp["area"],
+                    volume=sp["volume"],
+                    storey_id=uuid.UUID(sp["storey_id"]) if sp["storey_id"] else None,
                 )
                 for sp in spaces
             ],
         )
 
     def _mark_sync_succeeded(self, dataset_id: uuid.UUID, synced_at: datetime) -> None:
-        with self._session_factory() as session:
-            session.execute(
-                update(Dataset)
-                .where(Dataset.id == dataset_id)
-                .values(kg_synced=True, kg_synced_at=synced_at, kg_error=None)
-            )
-            session.commit()
+        self._dataset_store.mark_kg_synced(dataset_id, synced_at)
 
     def _mark_sync_failed(self, dataset_id: uuid.UUID, error_message: str) -> None:
-        with self._session_factory() as session:
-            session.execute(
-                update(Dataset)
-                .where(Dataset.id == dataset_id)
-                .values(kg_synced=False, kg_synced_at=None, kg_error=error_message)
-            )
-            session.commit()
+        self._dataset_store.mark_kg_sync_failed(dataset_id, error_message)
 
 
 # Default singleton for simple call sites (background tasks, other services).
