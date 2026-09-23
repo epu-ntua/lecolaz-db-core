@@ -23,7 +23,7 @@ external identifier, so its URI is minted from the bim_dataset surrogate id.
 from rdflib import Graph, Literal, Namespace, RDF, RDFS, URIRef
 from rdflib.namespace import DCTERMS, XSD
 
-from app.ontology.config import ontology_settings
+from app.core.config import settings
 from app.ontology.dto import BimDatasetDTO
 
 BOT = Namespace("https://w3id.org/bot#")
@@ -31,7 +31,7 @@ BOT = Namespace("https://w3id.org/bot#")
 
 class RdfModelBuilder:
     def __init__(self, namespace: str | None = None) -> None:
-        self._leco = Namespace(namespace or ontology_settings.LECO_NAMESPACE)
+        self._leco = Namespace(namespace or settings.LECO_NAMESPACE)
 
     def build(self, bim: BimDatasetDTO) -> Graph:
         graph = Graph()

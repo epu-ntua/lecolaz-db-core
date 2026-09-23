@@ -8,7 +8,7 @@ named graph replaces its triples wholesale instead of appending duplicates.
 
 import httpx
 
-from app.ontology.config import ontology_settings
+from app.core.config import settings
 from app.ontology.exceptions import FusekiPublishError
 
 
@@ -20,12 +20,12 @@ class FusekiClient:
         timeout: float | None = None,
         auth: tuple[str, str] | None = None,
     ) -> None:
-        self._base_url = (base_url or ontology_settings.FUSEKI_BASE_URL).rstrip("/")
-        self._dataset = dataset or ontology_settings.FUSEKI_DATASET
-        self._timeout = timeout or ontology_settings.FUSEKI_TIMEOUT_SECONDS
+        self._base_url = (base_url or settings.FUSEKI_BASE_URL).rstrip("/")
+        self._dataset = dataset or settings.FUSEKI_DATASET
+        self._timeout = timeout or settings.FUSEKI_TIMEOUT_SECONDS
         self._auth = auth or (
-            ontology_settings.FUSEKI_ADMIN_USER,
-            ontology_settings.FUSEKI_ADMIN_PASSWORD,
+            settings.FUSEKI_ADMIN_USER,
+            settings.FUSEKI_ADMIN_PASSWORD,
         )
 
     def put_graph(self, *, graph_uri: str, turtle: str) -> None:
