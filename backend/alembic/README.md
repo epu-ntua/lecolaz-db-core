@@ -53,6 +53,55 @@ docker compose exec backend alembic upgrade head
 
 This applies all pending migrations and brings the local database schema to the latest revision.
 
+## Production Migrations
+
+The development command above uses `infra/compose.yaml`, so it only updates the
+development database. It does not update production.
+
+After the application code and its new migration file have been deployed to the
+production checkout/image, run this from the `infra` directory on the production
+environment:
+
+```sh
+docker compose -f compose.prod.yaml exec backend alembic upgrade head
+```
+
+This connects using `POSTGRES_DSN` from the production backend container and
+updates the PostgreSQL database in the production Compose project. Migrations
+are not run automatically when the backend starts, so this command (or an
+equivalent deployment step) must be run once per release containing migrations.
+
+### Dev-to-Production Workflow
+
+1. Change the ORM models locally.
+2. Generate a migration and review it:
+
+   ```sh
+   docker compose exec backend alembic revision --autogenerate -m "short description"
+   ```
+
+3. Apply it to development and test it:
+
+   ```sh
+   docker compose exec backend alembic upgrade head
+   ```
+
+4. Commit the model changes and the generated `alembic/versions/*.py` file
+   together, then deploy that commit/image to production.
+5. Run the production command above once, then verify the revision if needed:
+
+   ```sh
+   docker compose -f compose.prod.yaml exec backend alembic current
+   ```
+
+### Environment Isolation
+
+Production must have production-specific values for the Compose environment and
+for `backend/.env`, especially `POSTGRES_DSN`. Do not point it at the development
+database. If development and production run on the same host, give them distinct
+Compose project names and separate environment files/volumes; otherwise they can
+share service and volume names accidentally.
+
 ## Golden Rules
 
 - Never edit old migrations that were already applied
