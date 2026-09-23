@@ -64,7 +64,14 @@ class OntologyService:
         errors: list[dict] = []
 
         for row in rows:
-            result = self.sync_bim_dataset(bim_dataset_id=uuid.UUID(row["id"]))
+            try:
+                result = self.sync_bim_dataset(bim_dataset_id=uuid.UUID(row["id"]))
+            except Exception as exc:
+                logger.exception("Ontology resync failed to run for bim_dataset_id=%s", row["id"])
+                failed += 1
+                errors.append({"dataset_id": row["dataset_id"], "error": str(exc)})
+                continue
+
             if result.success:
                 succeeded += 1
             else:
