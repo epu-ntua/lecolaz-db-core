@@ -1,7 +1,7 @@
 name: ${COMPOSE_PROJECT_NAME:-lecolaz}
 
 x-dagster-common: &dagster-common
-  image: ${DAGSTER_IMAGE_NAME:-lecolaz-dagster:1.13.21}
+  image: ${DAGSTER_IMAGE_NAME:-lecolaz-dagster:1.13.23}
   build:
     context: ..
     dockerfile: infra/dagster/Dockerfile

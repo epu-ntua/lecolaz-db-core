@@ -1,6 +1,6 @@
 # LeColaz Dagster
 
-Self-hosted Dagster 1.13.21 runs in the development Compose stack. Backend models
+Self-hosted Dagster 1.13.23 runs in the development Compose stack. Backend models
 and Alembic migrations own the application schema; production Compose is unchanged.
 
 ## Setup
@@ -112,7 +112,7 @@ documentation for the built-in conditions.
 
 To backfill one device, select days in **that asset's partition view**. Each day
 gets one run. Devices can have different partition definitions, so use individual
-asset views for targeted backfills. The instance allows one active queued run at a
+asset views for targeted backfills. The instance allows four active queued runs at a
 time and up to four concurrent steps within a run. HAM assets retry failures up to
 three times with exponential delays starting at 60 seconds, except explicit
 non-retryable failures such as a missing API key or sensor/start-date drift.
@@ -140,7 +140,7 @@ keys are ignored, but a nonempty response with no registered series fails.
   interval; write nothing and emit no materialization. A never-materialized
   partition stays **Missing**. An empty rerun preserves earlier data and history.
 
-In Dagster 1.13.21, a native asset backfill whose runs succeed but leave targets
+In Dagster 1.13.23, a native asset backfill whose runs succeed but leave targets
 unmaterialized finishes as **`COMPLETED_FAILED`**. The empty run itself succeeds;
 there is no partial-success backfill option. Inspect partition state and warning
 logs, then retry explicitly when data is available.
@@ -151,6 +151,10 @@ A materialization therefore does not prove completeness. Terminate stuck runs in
 the UI. Public catalog fetches and service probes have explicit timeouts.
 
 ### Observability metadata
+
+Sensor identity (`sensor_id`, `sensor_name`, `sensor_external_id`) lives on the asset
+definition and refreshes on code-location reload. Materialization and observation
+metadata describe each import attempt without repeating those fields.
 
 Empty imports also emit a partition `AssetObservation` with `outcome=empty` and
 `empty_reason` (`no_timestamps`, `all_timestamps_outside_interval`, or
@@ -228,13 +232,42 @@ Keep dumps outside the repository and restrict access to sensitive metadata. Use
 `docker compose down` before switching prototype branches, without `-v`: removing
 volumes deletes both databases, logs/artifacts, and MinIO data.
 
+## Code layout
+
+The code is organized around four responsibilities:
+
+- `definitions.py` assembles resources, jobs, automation, and the database-derived
+  asset catalog. Plain module imports do not access the network or database.
+- `assets.py` defines HAM assets and coordinates each import. Its observation
+  factory describes the asset; the execution function handles one sensor/day.
+- `resources.py` owns database engines and HAM network clients, including cleanup.
+- `ham/` validates responses and persists rows with SQLAlchemy. These modules do
+  not depend on Dagster. `metadata.py` converts their diagnostics to Dagster metadata.
+
+Keep source mapping and SQL explicit in the corresponding HAM module. A new
+reading channel normally needs catalog data, not another asset or importer class.
+The observation reference lookup takes one sensor UUID and returns that sensor
+and its family's reading-type IDs.
+
 ## Tests
+
+Tests are grouped by behavior: definitions, automation, reference assets,
+observation assets, resources, metadata, and HAM mapping/persistence. Asset tests
+run through Dagster using supplied API responses and replace only database I/O;
+SQL behavior is covered separately against PostgreSQL. Shared fixtures live in
+`tests/support.py`, and `tests/postgres.py` owns temporary-table isolation.
 
 From the repository root, run unit tests without real HAM requests:
 
 ```bash
-docker build -t lecolaz-dagster:1.13.21 -f infra/dagster/Dockerfile .
-docker run --rm lecolaz-dagster:1.13.21 python -m unittest discover -s infra/dagster/tests -v
+docker build -t lecolaz-dagster:1.13.23 -f infra/dagster/Dockerfile .
+docker run --rm lecolaz-dagster:1.13.23 python -m unittest discover -s infra/dagster/tests -v
+```
+
+With the pinned requirements already installed locally, the equivalent command is:
+
+```bash
+PYTHONPATH=backend:. python -m unittest discover -s infra/dagster/tests -v
 ```
 
 PostgreSQL tests skip unless `HAMAPI_TEST_POSTGRES_DSN` identifies a migrated test

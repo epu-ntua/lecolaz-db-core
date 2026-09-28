@@ -6,13 +6,14 @@ from unittest.mock import patch
 from sqlalchemy import Column, Integer, MetaData, String, Table
 
 from infra.dagster.metadata import measure_duration, table_metadata
-from infra.dagster.tests.test_definitions import build
+from infra.dagster.tests.support import build_definitions
 
 
 class MetadataTests(unittest.TestCase):
     def test_schema_is_derived_from_model_columns(self):
         table = Table(
-            "example", MetaData(),
+            "example",
+            MetaData(),
             Column("id", Integer, primary_key=True),
             Column("label", String, nullable=True, comment="Human-readable label"),
             schema="custom",
@@ -27,7 +28,7 @@ class MetadataTests(unittest.TestCase):
         self.assertEqual(columns[1].description, "Human-readable label")
 
     def test_all_assets_describe_table_scope_and_kinds(self):
-        for asset in build().assets:
+        for asset in build_definitions().assets:
             with self.subTest(asset=asset.key):
                 spec = asset.get_asset_spec(asset.key)
                 self.assertEqual(spec.kinds, {"python", "postgres"})

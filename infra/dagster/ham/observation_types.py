@@ -1,24 +1,14 @@
 """One-time HAMAPI reading-catalog import into LeColaz observation_types."""
 
-import json
 import logging
 
-from urllib.request import urlopen
+from sqlalchemy import Engine, or_, select
+from sqlalchemy.dialects.postgresql import insert
+
+from app.db.models.observation_type import ObservationType
+from infra.dagster.ham import SENSOR_FAMILY
 
 LOGGER = logging.getLogger(__name__)
-
-BASE_URL = "https://api.hamsystems.eu/res/doc"
-
-SENSOR_FAMILY = "ham"
-
-
-def fetch_catalog(name: str) -> dict:
-    """Fetch only at task execution time; HTTP/JSON failures remain retryable."""
-    with urlopen(f"{BASE_URL}/{name}.json", timeout=30) as response:
-        catalog = json.load(response)
-    if not isinstance(catalog, dict) or not catalog:
-        raise ValueError(f"{name}.json must be a nonempty object")
-    return catalog
 
 
 def collect_reading_keys(models: dict, include_extra_readings: bool = False) -> list[str]:
@@ -68,48 +58,53 @@ def prepare_rows(catalog: dict, reading_keys: list[str]) -> list[dict]:
             raise ValueError(f"Label for {key!r} must be a string or null")
         if unit is not None and not isinstance(unit, str):
             raise ValueError(f"Unit for {key!r} must be a string or null")
-        rows.append({
-            "key": key,
-            "label": label if label and label.strip() else key,
-            "unit": unit if unit is not None else "",
-            "type_metadata": metadata,
-        })
+        rows.append(
+            {
+                "key": key,
+                "label": label if label and label.strip() else key,
+                "unit": unit if unit is not None else "",
+                "type_metadata": metadata,
+            }
+        )
 
     excluded = sorted(catalog.keys() - set(reading_keys))
-    LOGGER.info("Selected %d types; excluded %d catalog keys: %s", len(rows), len(excluded), excluded)
+    LOGGER.info(
+        "Selected %d types; excluded %d catalog keys: %s", len(rows), len(excluded), excluded
+    )
     return rows
 
 
-def persist_rows(engine, rows: list[dict]) -> dict:
+def persist_rows(engine: Engine, rows: list[dict]) -> dict:
     """Upsert and verify in one transaction; failures roll back the entire batch."""
-    from sqlalchemy import or_, select
-    from sqlalchemy.dialects.postgresql import insert
-
-    from app.db.models.observation_type import ObservationType
-
     if not rows:
         raise ValueError("Refusing to load an empty observation-type batch")
     keys = [row["key"] for row in rows]
-    statement = insert(ObservationType).values([
-        {**row, "sensor_family": SENSOR_FAMILY} for row in rows
-    ])
-    updated_fields = ("label", "unit", "type_metadata")
+    statement = insert(ObservationType).values(
+        [{**row, "sensor_family": SENSOR_FAMILY} for row in rows]
+    )
     statement = statement.on_conflict_do_update(
         index_elements=[ObservationType.sensor_family, ObservationType.key],
-        set_={name: statement.excluded[name] for name in updated_fields},
-        where=or_(*(
-            getattr(ObservationType, name).is_distinct_from(statement.excluded[name])
-            for name in updated_fields
-        )),
+        set_={
+            "label": statement.excluded.label,
+            "unit": statement.excluded.unit,
+            "type_metadata": statement.excluded.type_metadata,
+        },
+        where=or_(
+            ObservationType.label.is_distinct_from(statement.excluded.label),
+            ObservationType.unit.is_distinct_from(statement.excluded.unit),
+            ObservationType.type_metadata.is_distinct_from(statement.excluded.type_metadata),
+        ),
     ).returning(ObservationType.key)
     with engine.begin() as connection:
         changed = len(connection.execute(statement).scalars().all())
-        stored_keys = set(connection.execute(
-            select(ObservationType.key).where(
-                ObservationType.sensor_family == SENSOR_FAMILY,
-                ObservationType.key.in_(keys),
-            )
-        ).scalars())
+        stored_keys = set(
+            connection.execute(
+                select(ObservationType.key).where(
+                    ObservationType.sensor_family == SENSOR_FAMILY,
+                    ObservationType.key.in_(keys),
+                )
+            ).scalars()
+        )
         if stored_keys != set(keys):
             raise ValueError("Observation-type verification failed; rolling back")
     summary = {"selected": len(keys), "inserted_or_updated": changed, "verified": len(stored_keys)}

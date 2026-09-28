@@ -1,6 +1,7 @@
 """Offline HAM responses for disposable deployment tests; never loaded by normal Compose."""
 
 from dagster import definitions
+
 from infra.dagster.definitions import build_definitions, configured_database
 from infra.dagster.resources import HamApi
 

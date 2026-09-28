@@ -1,6 +1,6 @@
-dagster==1.13.21
-dagster-webserver==1.13.21
-dagster-postgres==0.29.21
+dagster==1.13.23
+dagster-webserver==1.13.23
+dagster-postgres==0.29.23
 hamapi==0.1.15
 sqlalchemy==2.0.36
 psycopg[binary]==3.2.13

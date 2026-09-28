@@ -1,21 +1,15 @@
 """Synchronize the HAM devices accessible to the configured API key."""
 
 import logging
+from datetime import datetime, timezone
+
+from sqlalchemy import Engine, or_, select
+from sqlalchemy.dialects.postgresql import insert
+
+from app.db.models.sensor import Sensor
+from infra.dagster.ham import SENSOR_FAMILY
 
 LOGGER = logging.getLogger(__name__)
-
-SENSOR_FAMILY = "ham"
-
-
-def fetch_devices(api_key: str) -> dict:
-    """Fetch devices for the supplied key without a shared on-disk cache."""
-    import hamapi
-
-    client = hamapi.hamapi(api_key=api_key, cache_db_file=":memory:")
-    try:
-        return client.get_user_devices(force_refresh=True)
-    finally:
-        client.cache_conn.close()
 
 
 def prepare_sensor_rows(response: dict) -> list[dict]:
@@ -41,23 +35,20 @@ def prepare_sensor_rows(response: dict) -> list[dict]:
         if serialno in seen_serials:
             raise ValueError(f"Duplicate serialno at device index {index}")
         seen_serials.add(serialno)
-        rows.append({
-            "sensor_family": SENSOR_FAMILY,
-            "name": name,
-            "external_id": serialno,
-            "sensor_metadata": metadata,
-        })
+        rows.append(
+            {
+                "sensor_family": SENSOR_FAMILY,
+                "name": name,
+                "external_id": serialno,
+                "sensor_metadata": metadata,
+            }
+        )
     LOGGER.info("Validated %d HAM sensors", len(rows))
     return rows
 
 
-def persist_sensor_rows(engine, rows: list[dict]) -> dict:
+def persist_sensor_rows(engine: Engine, rows: list[dict]) -> dict:
     """Atomically upsert source-owned fields, preserving locally managed fields."""
-    from sqlalchemy import or_, select
-    from sqlalchemy.dialects.postgresql import insert
-
-    from app.db.models.sensor import Sensor
-
     if not rows:
         return {"selected": 0, "inserted_or_updated": 0, "verified": 0}
 
@@ -76,10 +67,14 @@ def persist_sensor_rows(engine, rows: list[dict]) -> dict:
     serials = {row["external_id"] for row in rows}
     with engine.begin() as connection:
         changed = len(connection.execute(statement).scalars().all())
-        stored = set(connection.execute(select(Sensor.external_id).where(
-            Sensor.sensor_family == SENSOR_FAMILY,
-            Sensor.external_id.in_(serials),
-        )).scalars())
+        stored = set(
+            connection.execute(
+                select(Sensor.external_id).where(
+                    Sensor.sensor_family == SENSOR_FAMILY,
+                    Sensor.external_id.in_(serials),
+                )
+            ).scalars()
+        )
         if stored != serials:
             raise ValueError("Sensor verification failed; rolling back")
     summary = {"selected": len(rows), "inserted_or_updated": changed, "verified": len(stored)}
@@ -91,24 +86,23 @@ class SensorUnavailable(ValueError):
     """A requested physical sensor was deleted or moved out of the HAM family."""
 
 
-def utc_starting_date(value):
-    from datetime import datetime, timezone
-
+def utc_starting_date(value: datetime) -> datetime:
     if not isinstance(value, datetime) or value.utcoffset() is None:
         raise ValueError("Physical sensor starting_date must be a timezone-aware timestamp")
     return value.astimezone(timezone.utc)
 
 
-def load_sensor_catalog(engine) -> list[dict]:
+def load_sensor_catalog(engine: Engine) -> list[dict]:
     """Read definition inputs directly from PostgreSQL in stable UUID order."""
-    from sqlalchemy import select
-    from app.db.models.sensor import Sensor
-
     with engine.connect() as connection:
-        rows = [dict(row) for row in connection.execute(
-            select(Sensor.id, Sensor.name, Sensor.starting_date)
-            .where(Sensor.sensor_family == SENSOR_FAMILY).order_by(Sensor.id)
-        ).mappings()]
+        rows = [
+            dict(row)
+            for row in connection.execute(
+                select(Sensor.id, Sensor.name, Sensor.external_id, Sensor.starting_date)
+                .where(Sensor.sensor_family == SENSOR_FAMILY)
+                .order_by(Sensor.id)
+            ).mappings()
+        ]
     for row in rows:
         row["id"] = str(row["id"])
         row["starting_date"] = utc_starting_date(row["starting_date"])
