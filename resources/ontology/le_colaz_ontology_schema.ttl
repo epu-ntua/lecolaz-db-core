@@ -159,6 +159,12 @@ leco:containsSpace a owl:ObjectProperty ;
     rdfs:domain leco:BIMDataset ;
     rdfs:range leco:Space .
 
+leco:containsStorey a owl:ObjectProperty ;
+    rdfs:label "contains storey" ;
+    rdfs:comment "Links a BIM dataset to storeys extracted from it." ;
+    rdfs:domain leco:BIMDataset ;
+    rdfs:range leco:Storey .
+
 leco:simulatesBuilding a owl:ObjectProperty ;
     rdfs:label "simulates building" ;
     rdfs:comment "Links a simulation dataset to the building it simulates." ;
