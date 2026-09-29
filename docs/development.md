@@ -66,19 +66,21 @@ The backend writes to Fuseki with the same credentials, so `FUSEKI_ADMIN_PASSWOR
 
 ### Ontology schema
 
-The ontology schema lives in `resources/ontology/` and is versioned in git. On every full `docker compose up` (not `docker compose up <service>`), the one-shot `fuseki-init` service loads it into the named graph `https://w3id.org/lecolaz/graph/schema` and then exits (`Exited (0)` in `docker compose ps -a` is expected).
+The ontology schema lives in `resources/ontology/` and is versioned in git. A `post_start` hook of the `fuseki` service (`infra/fuseki/load-schema.sh`) loads it into the named graph `https://w3id.org/lecolaz/graph/schema` each time Compose starts the `fuseki` container. This needs Docker Compose 2.30 or newer.
 
-The load is an HTTP PUT, so it replaces the schema graph wholesale and does not touch the BIM graphs written by the backend. Changes made to the schema graph through the Fuseki UI are overwritten on the next `up`: edit the file in git instead.
+The hook may fire before Fuseki is ready, so the script first waits until the `lecolaz` dataset answers on `/$/datasets/lecolaz` (server up and dataset created), then uploads.
 
-To publish a new schema version, edit `resources/ontology/le_colaz_ontology_schema.ttl` (keep the same filename; the version lives in `owl:versionInfo` and git history), commit it, and run `docker compose up` again.
+The load is an HTTP PUT, so it replaces the schema graph wholesale and does not touch the BIM graphs written by the backend. Changes made to the schema graph through the Fuseki UI are overwritten on the next load: edit the file in git instead.
 
-To reload the schema without restarting the whole stack, run `docker compose up fuseki-init`.
-
-If the load fails, check:
+The hook does not run again on `docker compose up` while `fuseki` is already running. To load a changed schema without restarting Fuseki:
 
 ```bash
-docker compose logs fuseki-init
+docker compose exec fuseki bash /init/load-schema.sh
 ```
+
+To publish a new schema version, edit `resources/ontology/le_colaz_ontology_schema.ttl` (keep the same filename; the version lives in `owl:versionInfo` and git history), commit it, and load it with the command above.
+
+A failed load does not stop the stack: the hook always reports success, so Fuseki and the backend start normally, possibly with an old or missing schema. The script's messages are printed only when `up` runs in the foreground (without `-d`); they do not appear in `docker compose logs`. After `up -d`, check that the schema loaded by running the load command above: it prints `Schema loaded.` or the reason it failed. Requests Fuseki rejected (e.g. a Turtle syntax error with its line number) also show in `docker compose logs fuseki`.
 
 ### Logging in to the UI
 

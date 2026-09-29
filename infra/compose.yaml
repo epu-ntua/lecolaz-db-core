@@ -31,29 +31,25 @@ services:
       ADMIN_PASSWORD: ${FUSEKI_ADMIN_PASSWORD:-lecolaz}
       FUSEKI_DATASET_1: ${FUSEKI_DATASET:-lecolaz}
       TDB: "2"
-    ports:
-      - "${FUSEKI_PORT:-3030}:3030"
-    volumes:
-      - fuseki_data:/fuseki
-
-  fuseki-init:
-    # Same image as fuseki: it already ships bash + curl, so no new image.
-    image: stain/jena-fuseki:latest
-    depends_on:
-      - fuseki
-    # Override the image's entrypoint: run our script once and exit,
-    # instead of starting a second Fuseki server.
-    entrypoint: ["bash", "/init/load-schema.sh"]
-    environment:
-      FUSEKI_URL: http://fuseki:3030
+      FUSEKI_URL: http://localhost:3030
       FUSEKI_DATASET: ${FUSEKI_DATASET:-lecolaz}
       FUSEKI_ADMIN_PASSWORD: ${FUSEKI_ADMIN_PASSWORD:-lecolaz}
       SCHEMA_GRAPH: https://w3id.org/lecolaz/graph/schema
       SCHEMA_FILE: le_colaz_ontology_schema.ttl
+    ports:
+      - "${FUSEKI_PORT:-3030}:3030"
     volumes:
+      - fuseki_data:/fuseki
       - ./fuseki/load-schema.sh:/init/load-schema.sh:ro
       - ../resources/ontology:/init/schema:ro
-    restart: "no"
+    # Loads the ontology schema each time Compose starts this container.
+    # `|| echo` keeps a failed load from marking fuseki as failed, which would
+    # stop Compose from starting the backend (depends_on: fuseki).
+    post_start:
+      - command:
+          - bash
+          - -c
+          - 'bash /init/load-schema.sh || echo "Schema load failed, continuing without it"'
 
   backend:
     build: ../backend

@@ -14,7 +14,7 @@ Docker:
   FastAPI
   PostgreSQL / TimescaleDB
   MinIO
-  Fuseki (+ one-shot fuseki-init that loads the ontology schema)
+  Fuseki (post_start hook loads the ontology schema)
 ```
 
 The production backend port should be bound to localhost rather than publicly exposed. The production Compose file publishes the backend container port using `BACKEND_PORT`, with a default of `8080`. In production `infra/.env`, use a localhost binding such as:
@@ -123,7 +123,7 @@ This repository currently maintains separate Compose files:
 
 The development file exposes PostgreSQL, MinIO, the MinIO console, and the backend for local work. It also runs the backend with reload and a source bind mount.
 
-The production file runs PostgreSQL/TimescaleDB, MinIO, Fuseki, and the backend with `restart: unless-stopped`. Fuseki is not exposed on a host port. The one-shot `fuseki-init` service loads the ontology schema from `resources/ontology/` on every `up` and then exits, so `Exited (0)` for it is expected. Production `infra/.env` must set `FUSEKI_ADMIN_PASSWORD`, with the same value as in `backend/.env`. Compose refuses to start if it is missing. The Fuseki image writes the password into `shiro.ini` inside the `fuseki_data` volume on first start; changing `FUSEKI_ADMIN_PASSWORD` afterwards has no effect until the `admin=` line in `/fuseki/shiro.ini` is updated and Fuseki is restarted. It does not run the React frontend; production frontend serving is handled by system Nginx.
+The production file runs PostgreSQL/TimescaleDB, MinIO, Fuseki, and the backend with `restart: unless-stopped`. Fuseki is not exposed on a host port. A `post_start` hook of the `fuseki` service loads the ontology schema from `resources/ontology/` each time Compose starts the container; this needs Docker Compose 2.30 or newer on the server. A failed load does not stop the deploy and `up -d` does not report it, so after each deploy run `docker compose -f infra/compose.prod.yaml exec fuseki bash /init/load-schema.sh`: it prints `Schema loaded.` or the reason it failed. Production `infra/.env` must set `FUSEKI_ADMIN_PASSWORD`, with the same value as in `backend/.env`. Compose refuses to start if it is missing. The Fuseki image writes the password into `shiro.ini` inside the `fuseki_data` volume on first start; changing `FUSEKI_ADMIN_PASSWORD` afterwards has no effect until the `admin=` line in `/fuseki/shiro.ini` is updated and Fuseki is restarted. It does not run the React frontend; production frontend serving is handled by system Nginx.
 
 Because these files are maintained separately, architectural or service changes required in both environments must be reflected in both files.
 

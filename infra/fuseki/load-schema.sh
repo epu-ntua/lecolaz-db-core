@@ -1,5 +1,6 @@
 #!/bin/bash
-# Loads the ontology schema into Fuseki on every `docker compose up`.
+# Loads the ontology schema into Fuseki. Runs as the post_start hook of the
+# fuseki service (see infra/compose.yaml), i.e. each time Compose starts it.
 # Uses HTTP PUT (Graph Store Protocol) so the schema graph is replaced
 # wholesale: re-running is safe and Fuseki always matches the file in git.
 set -euo pipefail
