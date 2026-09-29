@@ -1,0 +1,622 @@
+@prefix leco:  <https://w3id.org/lecolaz/> .
+@prefix owl:   <http://www.w3.org/2002/07/owl#> .
+@prefix rdf:   <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
+@prefix rdfs:  <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix xsd:   <http://www.w3.org/2001/XMLSchema#> .
+@prefix bot:   <https://w3id.org/bot#> .
+@prefix sosa:  <http://www.w3.org/ns/sosa/> .
+@prefix skos:  <http://www.w3.org/2004/02/skos/core#> .
+@prefix dct:   <http://purl.org/dc/terms/> .
+@prefix prov:  <http://www.w3.org/ns/prov#> .
+@prefix dcat:  <http://www.w3.org/ns/dcat#> .
+@prefix qudt:  <http://qudt.org/schema/qudt/> .
+@prefix adms:  <http://www.w3.org/ns/adms#> .
+@prefix schema: <https://schema.org/> .
+@prefix geo:    <http://www.w3.org/2003/01/geo/wgs84_pos#> .
+@prefix ifc:    <https://standards.buildingsmart.org/IFC/DEV/IFC4/ADD2/OWL#> .
+@prefix epcis:  <https://ref.gs1.org/cbv/> .
+
+### Ontology Header
+<https://w3id.org/lecolaz/> a owl:Ontology ;
+    rdfs:label "Le'Colaz Ontology" ;
+    rdfs:comment "Ontology for the Le'Colaz platform, supporting BIM, sensor, simulation and lifecycle data for modular construction components." ;
+    owl:versionInfo "0.5" ;
+    owl:imports <https://w3id.org/bot> ;
+    owl:imports <http://www.w3.org/ns/sosa/> .
+
+### Classes
+
+leco:PilotSite a owl:Class ;
+    rdfs:label "Pilot Site" ;
+    rdfs:subClassOf bot:Site .
+
+leco:Building a owl:Class ;
+    rdfs:label "Building" ;
+    rdfs:comment "A building represented in the Le’ Colaz platform and linked to BIM, simulation, sensor and lifecycle data." ;
+    rdfs:subClassOf bot:Building .
+
+leco:Storey a owl:Class ;
+    rdfs:label "Storey" ;
+    rdfs:comment "A vertical level or floor of a building." ;
+    rdfs:subClassOf bot:Storey .
+
+leco:Space a owl:Class ;
+    rdfs:label "Space" ;
+    rdfs:comment "A logical or physical space/room/zone within a building, typically linked to IFC spaces and possibly simulation zones." ;
+    rdfs:subClassOf bot:Space ;
+    rdfs:subClassOf sosa:FeatureOfInterest .
+
+leco:ModularComponent a owl:Class ;
+    rdfs:label "Modular Component" ;
+    rdfs:comment "A reusable Le’ Colaz modular construction component." ;
+    rdfs:subClassOf bot:Element ;
+    rdfs:subClassOf sosa:FeatureOfInterest .
+
+leco:FacadeElement a owl:Class ;
+    rdfs:label "Facade Element" ;
+    rdfs:comment "A modular facade component or facade-related element." ;
+    rdfs:subClassOf leco:ModularComponent .
+
+leco:InteriorWall a owl:Class ;
+    rdfs:label "Interior Wall" ;
+    rdfs:comment "A modular interior wall or partition component." ;
+    rdfs:subClassOf leco:ModularComponent .
+
+leco:FloorCovering a owl:Class ;
+    rdfs:label "Floor Covering" ;
+    rdfs:comment "A modular floor covering or floor tile component." ;
+    rdfs:subClassOf leco:ModularComponent .
+
+leco:Adhesive a owl:Class ;
+    rdfs:label "Adhesive" ;
+    rdfs:comment "A bonding substance used to join layers or elements within a modular component" .
+
+leco:SnapFitJoint a owl:Class ;
+    rdfs:label "Snap Fit Joint" ;
+    rdfs:comment "A mechanical interlocking connection mechanism used to join modular components" .
+
+leco:Material a owl:Class ;
+    rdfs:label "Material" ;
+    rdfs:comment "A material or material composition used in a modular component." .
+
+leco:Sensor a owl:Class ;
+    rdfs:label "Sensor" ;
+    rdfs:comment "A sensing device or data point that observes a property relevant to spaces or components." ;
+    rdfs:subClassOf sosa:Sensor .
+
+leco:Observation a owl:Class ;
+    rdfs:label "Observation" ;
+    rdfs:comment "An Observation estimates or calculates a value of a property of a FeatureOfInterest. Links to a Sensor to describe what made the Observation and how; links to an ObservableProperty to describe what the result is an estimate of, and to a FeatureOfInterest to detail what that property was associated with." ;
+    rdfs:subClassOf sosa:Observation .
+
+leco:ObservableProperty a owl:Class ;
+    rdfs:label "Observable Property" ;
+    rdfs:comment "A property measured by sensors or simulation variables, such as indoor air temperature or relative humidity." ;
+    rdfs:subClassOf sosa:ObservableProperty .
+
+leco:Dataset a owl:Class ;
+    rdfs:label "Dataset" ;
+    rdfs:comment "A data asset managed by the platform." .
+
+leco:BIMDataset a owl:Class ;
+    rdfs:label "BIM Dataset" ;
+    rdfs:comment "A dataset containing BIM/IFC or digital building model information." ;
+    rdfs:subClassOf leco:Dataset .
+
+leco:EnergyModelDataset a owl:Class ;
+    rdfs:label "Energy Model Dataset" ;
+    rdfs:comment "A dataset containing simulation outputs or simulation metadata." ;
+    rdfs:subClassOf leco:Dataset .
+
+leco:WeatherDataset a owl:Class ;
+    rdfs:label "Weather Dataset" ;
+    rdfs:comment "A dataset containing meteorological data." ;
+    rdfs:subClassOf leco:Dataset .
+
+leco:SensorDataset a owl:Class ;
+    rdfs:label "Sensor Dataset" ;
+    rdfs:comment "A dataset containing sensor data or sensor metadata." ;
+    rdfs:subClassOf leco:Dataset .
+
+leco:DPPDataset a owl:Class ;
+    rdfs:label "DPP Dataset" ;
+    rdfs:comment "A dataset containing Digital Product Passport data or documents." ;
+    rdfs:subClassOf leco:Dataset .
+
+leco:SimulationRun a owl:Class ;
+    rdfs:label "Simulation Run" ;
+    rdfs:comment "A simulation run that uses EnergyModel model and weatherDataset data for simulating an observable property" .
+
+leco:DigitalProductPassport a owl:Class ;
+    rdfs:label "Digital Product Passport" ;
+    rdfs:comment "A digital passport describing a modular component across its lifecycle." .
+
+leco:LifecycleEvent a owl:Class ;
+    rdfs:label "Lifecycle Event" ;
+    rdfs:comment "An event in the lifecycle of a component, such as manufacturing, installation, maintenance, disassembly, reuse or recycling." ;
+    skos:closeMatch prov:Activity .
+
+leco:PerformanceIndicator a owl:Class ;
+    rdfs:label "Performance Indicator" ;
+    rdfs:comment "A higher-level indicator or KPI supported by observed properties, datasets, or lifecycle records." .
+
+leco:UseCase a owl:Class ;
+    rdfs:label "Use Case" ;
+    rdfs:comment "A project use case, such as facade element, interior wall, or floor covering validation." .
+
+### Object Properties
+
+leco:describesBuilding a owl:ObjectProperty ;
+    rdfs:label "describes building" ;
+    rdfs:comment "Links a BIM dataset to the building it describes." ;
+    rdfs:domain leco:BIMDataset ;
+    rdfs:range leco:Building .
+
+leco:containsSpace a owl:ObjectProperty ;
+    rdfs:label "contains space" ;
+    rdfs:comment "Links a BIM dataset to spaces extracted from it." ;
+    rdfs:domain leco:BIMDataset ;
+    rdfs:range leco:Space .
+
+leco:simulatesBuilding a owl:ObjectProperty ;
+    rdfs:label "simulates building" ;
+    rdfs:comment "Links a simulation dataset to the building it simulates." ;
+    rdfs:domain leco:EnergyModelDataset ;
+    rdfs:range leco:Building .
+
+leco:containsComponent a owl:ObjectProperty ;
+    rdfs:label "contains component" ;
+    rdfs:comment "Links a space to modular components installed or located within it." ;
+    rdfs:domain leco:Space ;
+    rdfs:range leco:ModularComponent ;
+    rdfs:subPropertyOf bot:containsElement .
+
+leco:extractedComponent a owl:ObjectProperty ;
+    rdfs:label "extracted component" ;
+    rdfs:comment "Links a BIM dataset to the modular components extracted from it." ;
+    rdfs:domain leco:BIMDataset ;
+    rdfs:range leco:ModularComponent .
+
+leco:hasMaterial a owl:ObjectProperty ;
+    rdfs:label "has material" ;
+    rdfs:comment "Links a component to its material or material composition." ;
+    rdfs:domain leco:ModularComponent ;
+    rdfs:range leco:Material .
+
+leco:hasJoint a owl:ObjectProperty ;
+    rdfs:label "has joint" ;
+    rdfs:comment "Links a component to its snap-fit joint connection mechanism." ;
+    rdfs:domain leco:ModularComponent ;
+    rdfs:range leco:SnapFitJoint .
+
+leco:hasAdhesive a owl:ObjectProperty ;
+    rdfs:label "has adhesive" ;
+    rdfs:comment "Links a component to its adhesive bonding element." ;
+    rdfs:domain leco:ModularComponent ;
+    rdfs:range leco:Adhesive .
+
+leco:relatedToPilot a owl:ObjectProperty ;
+    rdfs:label "related to pilot" ;
+    rdfs:comment "Links a dataset to a pilot site." ;
+    rdfs:domain leco:Dataset ;
+    rdfs:range leco:PilotSite .
+
+leco:relatedToUseCase a owl:ObjectProperty ;
+    rdfs:label "related to use case" ;
+    rdfs:comment "Links a dataset to a project use case." ;
+    rdfs:domain leco:Dataset ;
+    rdfs:range leco:UseCase .
+
+leco:hasObservation a owl:ObjectProperty ;
+    rdfs:label "has observation" ;
+    rdfs:comment "Links a sensor dataset to the observations it contains." ;
+    rdfs:domain leco:SensorDataset ;
+    rdfs:range leco:Observation .
+
+leco:usesEnergyModelDataset a owl:ObjectProperty ;
+    rdfs:label "uses energy model dataset" ;
+    rdfs:comment "Links a simulation run to the energy model dataset it uses." ;
+    rdfs:domain leco:SimulationRun ;
+    rdfs:range leco:EnergyModelDataset ;
+    skos:closeMatch prov:used .
+
+leco:simulates a owl:ObjectProperty ;
+    rdfs:label "simulates" ;
+    rdfs:comment "Links a simulation run to the observable property it simulates." ;
+    rdfs:domain leco:SimulationRun ;
+    rdfs:range leco:ObservableProperty .
+
+leco:usesWeatherDataset a owl:ObjectProperty ;
+    rdfs:label "uses weather dataset" ;
+    rdfs:comment "Links a simulation run to the weather dataset it uses." ;
+    rdfs:domain leco:SimulationRun ;
+    rdfs:range leco:WeatherDataset .
+
+leco:containsPassport a owl:ObjectProperty ;
+    rdfs:label "contains Passport" ;
+    rdfs:comment "Links an uploaded or managed DPP dataset to the individual Digital Product Passport records it contains." ;
+    rdfs:domain leco:DPPDataset ;
+    rdfs:range leco:DigitalProductPassport .
+
+leco:hasDPP a owl:ObjectProperty ;
+    rdfs:label "has DPP" ;
+    rdfs:comment "Links a modular component to its Digital Product Passport." ;
+    rdfs:domain leco:ModularComponent ;
+    rdfs:range leco:DigitalProductPassport .
+
+leco:describesComponent a owl:ObjectProperty ;
+    rdfs:label "describes component" ;
+    rdfs:comment "Links a DPP to the component it describes." ;
+    rdfs:domain leco:DigitalProductPassport ;
+    rdfs:range leco:ModularComponent .
+
+leco:hasLifecycleEvent a owl:ObjectProperty ;
+    rdfs:label "has lifecycle event" ;
+    rdfs:comment "Links a component to lifecycle events." ;
+    rdfs:domain leco:ModularComponent ;
+    rdfs:range leco:LifecycleEvent .
+
+leco:supportsIndicator a owl:ObjectProperty ;
+    rdfs:label "supports indicator" ;
+    rdfs:comment "Links an observed property to a higher-level performance indicator or KPI." ;
+    rdfs:domain leco:ObservableProperty ;
+    rdfs:range leco:PerformanceIndicator .
+
+leco:relevantFor a owl:ObjectProperty ;
+    rdfs:label "relevant for" ;
+    rdfs:comment "Links an indicator to the use case where it is relevant." ;
+    rdfs:domain leco:PerformanceIndicator ;
+    rdfs:range leco:UseCase .
+
+leco:recordsLifecycleEvent a owl:ObjectProperty ;
+    rdfs:label "records LifeCycle event" ;
+    rdfs:comment "Links a Digital Product Passport to lifecycle events recorded for the described component." ;
+    rdfs:domain leco:DigitalProductPassport ;
+    rdfs:range leco:LifecycleEvent .
+
+leco:usesMaterial a owl:ObjectProperty ;
+    rdfs:label "uses Material" ;
+    rdfs:comment "Links a simulation run to the material it uses." ;
+    rdfs:domain leco:SimulationRun ;
+    rdfs:range leco:Material ;
+    skos:closeMatch prov:used .
+
+### Data Properties
+
+leco:hasIdentifier a owl:DatatypeProperty ;
+    rdfs:label "has identifier" ;
+    rdfs:comment "Platform/internal identifier used by Le’ Colaz for managed entities." ;
+    rdfs:range xsd:string ;
+    skos:closeMatch dct:identifier .
+
+leco:hasCoordinates a owl:DatatypeProperty ;
+    rdfs:label "has coordinates" ;
+    rdfs:comment "Geographic coordinates of the pilot site." ;
+    rdfs:domain leco:PilotSite ;
+    rdfs:range xsd:string ;
+    skos:closeMatch geo:lat .
+
+leco:hasLocation a owl:DatatypeProperty ;
+    rdfs:label "has Location" ;
+    rdfs:comment "Geographical location of a building" ;
+    rdfs:range xsd:string ;
+    skos:closeMatch dct:spatial .
+
+leco:hasGlobalId a owl:DatatypeProperty ;
+    rdfs:label "has GlobalId" ;
+    rdfs:comment "IFC GlobalId where available for BIM-derived entities." ;
+    rdfs:range xsd:string ;
+    skos:closeMatch dct:identifier ;
+    rdfs:seeAlso ifc:globalId .
+
+leco:hasLevel a owl:DatatypeProperty ;
+    rdfs:label "has level" ;
+    rdfs:comment "Floor level number (e.g. 0=ground, 1=first)." ;
+    rdfs:domain leco:Storey ;
+    rdfs:range xsd:integer .
+
+leco:hasFloorHeight a owl:DatatypeProperty ;
+    rdfs:label "has floor height" ;
+    rdfs:comment "Floor-to-ceiling height of the storey." ;
+    rdfs:domain leco:Storey ;
+    rdfs:range xsd:decimal .
+
+leco:hasSourceId a owl:DatatypeProperty ;
+    rdfs:label "has source ID" ;
+    rdfs:comment "Identifier used by the original source system." ;
+    rdfs:range xsd:string ;
+    skos:closeMatch dct:source .
+
+leco:hasFileFormat a owl:DatatypeProperty ;
+    rdfs:label "has file format" ;
+    rdfs:comment "File or data format, e.g. IFC, ESO, CSV, JSON, TTL." ;
+    rdfs:domain leco:Dataset ;
+    rdfs:range xsd:string ;
+    skos:closeMatch dcat:mediaType .
+
+leco:hasUploadDate a owl:DatatypeProperty ;
+    rdfs:label "has upload date" ;
+    rdfs:comment "Upload or registration timestamp." ;
+    rdfs:domain leco:Dataset ;
+    rdfs:range xsd:dateTime ;
+    skos:closeMatch dct:issued .
+
+leco:hasSize a owl:DatatypeProperty ;
+    rdfs:label "has size" ;
+    rdfs:comment "Size of the dataset in bytes." ;
+    rdfs:domain leco:Dataset ;
+    rdfs:range xsd:decimal ;
+    skos:closeMatch dcat:byteSize .
+
+leco:hasUnit a owl:DatatypeProperty ;
+    rdfs:label "has unit" ;
+    rdfs:comment "Measurement or variable unit." ;
+    rdfs:domain leco:ObservableProperty ;
+    rdfs:range xsd:string ;
+    skos:closeMatch qudt:unit .
+
+leco:hasArea a owl:DatatypeProperty ;
+    rdfs:label "has area" ;
+    rdfs:comment "Space area value." ;
+    rdfs:range xsd:decimal .
+
+leco:hasVolume a owl:DatatypeProperty ;
+    rdfs:label "has volume" ;
+    rdfs:comment "Space volume value." ;
+    rdfs:domain leco:Space ;
+    rdfs:range xsd:decimal .
+
+leco:hasComponentType a owl:DatatypeProperty ;
+    rdfs:label "has component type" ;
+    rdfs:comment "Component type label/code when subclassing is not enough." ;
+    rdfs:domain leco:ModularComponent ;
+    rdfs:range xsd:string ;
+    skos:closeMatch dct:type .
+
+leco:hasCurrentLifecycleStage a owl:DatatypeProperty ;
+    rdfs:label "has current lifecycle stage" ;
+    rdfs:comment "Current lifecycle stage, e.g. manufactured, installed, reused, recycled aligned with EN 15804 standard" ;
+    rdfs:domain leco:ModularComponent ;
+    rdfs:range xsd:string .
+
+leco:hasMaterialComposition a owl:DatatypeProperty ;
+    rdfs:label "has material composition" ;
+    rdfs:comment "Material composition description." ;
+    rdfs:domain leco:Material ;
+    rdfs:range xsd:string .
+
+leco:hasVersion a owl:DatatypeProperty ;
+    rdfs:label "has version" ;
+    rdfs:comment "Version of a dataset or Digital Product Passport." ;
+    rdfs:range xsd:string ;
+    skos:closeMatch dcat:version .
+
+leco:hasStatus a owl:DatatypeProperty ;
+    rdfs:label "has status" ;
+    rdfs:comment "Operational status value, e.g. draft, active, validated, completed." ;
+    rdfs:range xsd:string ;
+    skos:closeMatch adms:status .
+
+leco:hasEventDate a owl:DatatypeProperty ;
+    rdfs:label "has event date" ;
+    rdfs:comment "Date/time when the lifecycle event occurred." ;
+    rdfs:domain leco:LifecycleEvent ;
+    rdfs:range xsd:dateTime ;
+    skos:closeMatch prov:startedAtTime .
+
+leco:hasEventLocation a owl:DatatypeProperty ;
+    rdfs:label "has event location" ;
+    rdfs:comment "Textual location where the event occurred, if not already linked through a Space, Building, or Pilot Site." ;
+    rdfs:domain leco:LifecycleEvent ;
+    rdfs:range xsd:string ;
+    skos:closeMatch prov:atLocation .
+
+leco:hasEventActor a owl:DatatypeProperty ;
+    rdfs:label "has event actor" ;
+    rdfs:comment "Person, organization, partner, or system responsible for or reporting the lifecycle event." ;
+    rdfs:domain leco:LifecycleEvent ;
+    rdfs:range xsd:string ;
+    skos:closeMatch prov:wasAssociatedWith .
+
+leco:hasLifecycleStage a owl:DatatypeProperty ;
+    rdfs:label "has lifecycle stage" ;
+    rdfs:comment "The EN 15804 lifecycle stage/module (A1–A5, B1–B7, C1–C4, D) this event belongs to" ;
+    rdfs:domain leco:LifecycleEvent ;
+    rdfs:range xsd:string .
+
+leco:hasBizStep a owl:DatatypeProperty ;
+    rdfs:label "has Biz Step" ;
+    rdfs:comment "The business step (bizStep) of the lifecycle event, following the GS1 EPCIS / Core Business Vocabulary (CBV), expressed as a URI." ;
+    rdfs:domain leco:LifecycleEvent ;
+    rdfs:range xsd:anyURI ;
+    skos:closeMatch epcis:bizStep .
+
+leco:hasCertificate a owl:DatatypeProperty ;
+    rdfs:label "has certificate" ;
+    rdfs:comment "Reference (URI) to a certificate or conformity document associated with the Digital Product Passport." ;
+    rdfs:domain leco:DigitalProductPassport ;
+    rdfs:range xsd:anyURI ;
+    skos:closeMatch dct:conformsTo .
+
+leco:hasWidth a owl:DatatypeProperty ;
+    rdfs:label "has width" ;
+    rdfs:comment "Width of the modular component." ;
+    rdfs:domain leco:ModularComponent ;
+    rdfs:range xsd:decimal ;
+    skos:closeMatch schema:width .
+
+leco:hasHeight a owl:DatatypeProperty ;
+    rdfs:label "has height" ;
+    rdfs:comment "Height of the modular component." ;
+    rdfs:domain leco:ModularComponent ;
+    rdfs:range xsd:decimal ;
+    skos:closeMatch schema:height .
+
+leco:hasThickness a owl:DatatypeProperty ;
+    rdfs:label "has thickness" ;
+    rdfs:comment "Thickness of the modular component." ;
+    rdfs:domain leco:ModularComponent ;
+    rdfs:range xsd:decimal .
+
+leco:hasDensity a owl:DatatypeProperty ;
+    rdfs:label "has density" ;
+    rdfs:comment "Density of the material." ;
+    rdfs:domain leco:Material ;
+    rdfs:range xsd:decimal .
+
+leco:hasThermalConductivity a owl:DatatypeProperty ;
+    rdfs:label "has thermal conductivity" ;
+    rdfs:comment "Thermal conductivity (λ) of the material." ;
+    rdfs:domain leco:Material ;
+    rdfs:range xsd:decimal .
+
+leco:hasRecycledContent a owl:DatatypeProperty ;
+    rdfs:label "has recycled content" ;
+    rdfs:comment "Percentage of recycled content in the material." ;
+    rdfs:domain leco:Material ;
+    rdfs:range xsd:decimal .
+
+leco:hasEmbodiedCarbon a owl:DatatypeProperty ;
+    rdfs:label "has embodied carbon" ;
+    rdfs:comment "Embodied carbon (kgCO2e) associated with the material." ;
+    rdfs:domain leco:Material ;
+    rdfs:range xsd:decimal .
+
+leco:hasAdhesiveType a owl:DatatypeProperty ;
+    rdfs:label "has adhesive type" ;
+    rdfs:comment "Type/category of adhesive." ;
+    rdfs:domain leco:Adhesive ;
+    rdfs:range xsd:string ;
+    skos:closeMatch dct:type .
+
+leco:hasAdhesiveStrength a owl:DatatypeProperty ;
+    rdfs:label "has adhesive strength" ;
+    rdfs:comment "Bond strength of the adhesive." ;
+    rdfs:domain leco:Adhesive ;
+    rdfs:range xsd:decimal .
+
+leco:hasMaxDisassemblyCycles a owl:DatatypeProperty ;
+    rdfs:label "has max disassembly cycles" ;
+    rdfs:comment "Maximum number of assembly/disassembly cycles before performance degradation." ;
+    rdfs:range xsd:integer .
+
+leco:hasJointType a owl:DatatypeProperty ;
+    rdfs:label "has joint type" ;
+    rdfs:comment "Type of snap-fit joint mechanism." ;
+    rdfs:domain leco:SnapFitJoint ;
+    rdfs:range xsd:string ;
+    skos:closeMatch dct:type .
+
+leco:hasJointStrength a owl:DatatypeProperty ;
+    rdfs:label "has joint strength" ;
+    rdfs:comment "Structural strength of the snap-fit joint." ;
+    rdfs:domain leco:SnapFitJoint ;
+    rdfs:range xsd:decimal .
+
+leco:hasSensorId a owl:DatatypeProperty ;
+    rdfs:label "has sensor ID" ;
+    rdfs:comment "Unique sensor identifier." ;
+    rdfs:domain leco:Sensor ;
+    rdfs:range xsd:string .
+
+leco:hasSensorType a owl:DatatypeProperty ;
+    rdfs:label "has sensor type" ;
+    rdfs:comment "Type/category of sensor (e.g. temperature, strain)." ;
+    rdfs:domain leco:Sensor ;
+    rdfs:range xsd:string ;
+    skos:closeMatch dct:type .
+
+leco:hasAccuracy a owl:DatatypeProperty ;
+    rdfs:label "has accuracy" ;
+    rdfs:comment "Measurement accuracy of the sensor." ;
+    rdfs:domain leco:Sensor ;
+    rdfs:range xsd:decimal .
+
+leco:timeSeriesRef a owl:DatatypeProperty ;
+    rdfs:label "time series reference" ;
+    rdfs:comment "Pointer to the TimescaleDB timeseries stream for this observation. The Observation instance in Fuseki stores metadata only; raw sensor readings are stored externally in TimescaleDB." ;
+    rdfs:domain leco:Observation ;
+    rdfs:range xsd:anyURI .
+
+leco:hasRunId a owl:DatatypeProperty ;
+    rdfs:label "has run ID" ;
+    rdfs:comment "Unique identifier for a simulation run." ;
+    rdfs:domain leco:SimulationRun ;
+    rdfs:range xsd:string .
+
+leco:hasCarbonFootprint a owl:DatatypeProperty ;
+    rdfs:label "has carbon footprint" ;
+    rdfs:comment "Total carbon footprint of the component across its lifecycle (kgCO2e)." ;
+    rdfs:domain leco:DigitalProductPassport ;
+    rdfs:range xsd:decimal .
+
+leco:hasInstallationCycles a owl:DatatypeProperty ;
+    rdfs:label "has installation cycles" ;
+    rdfs:comment "Number of installation/disassembly cycles the component has undergone." ;
+    rdfs:domain leco:DigitalProductPassport ;
+    rdfs:range xsd:integer .
+
+leco:hasYear a owl:DatatypeProperty ;
+    rdfs:label "has year" ;
+    rdfs:comment "Reference year of the weather data." ;
+    rdfs:domain leco:WeatherDataset ;
+    rdfs:range xsd:integer ;
+    skos:closeMatch dct:temporal .
+
+### Controlled Concepts (Individuals)
+
+leco:IndoorAirTemperature a leco:ObservableProperty ;
+    rdfs:label "Indoor Air Temperature" ;
+    rdfs:comment "Air temperature inside a space or simulation zone." .
+
+leco:RelativeHumidity a leco:ObservableProperty ;
+    rdfs:label "Relative Humidity" ;
+    rdfs:comment "Relative humidity of air." .
+
+leco:SurfaceTemperature a leco:ObservableProperty ;
+    rdfs:label "Surface Temperature" ;
+    rdfs:comment "Temperature measured on a component or surface." .
+
+leco:HeatFlux a leco:ObservableProperty ;
+    rdfs:label "Heat Flux" ;
+    rdfs:comment "Heat transfer rate through an area or surface." .
+
+leco:EnergyConsumption a leco:ObservableProperty ;
+    rdfs:label "Energy Consumption" ;
+    rdfs:comment "Energy use associated with a building, space, system, or simulation." .
+
+leco:StructuralStrain a leco:ObservableProperty ;
+    rdfs:label "Structural Strain" ;
+    rdfs:comment "Strain or deformation-related structural measurement." .
+
+leco:MoistureContent a leco:ObservableProperty ;
+    rdfs:label "Moisture Content" ;
+    rdfs:comment "Moisture content in a material or component." .
+
+leco:AcousticPerformance a leco:ObservableProperty ;
+    rdfs:label "Acoustic Performance" ;
+    rdfs:comment "Acoustic or sound insulation-related property." .
+
+leco:ThermalPerformance a leco:PerformanceIndicator ;
+    rdfs:label "Thermal Performance" ;
+    rdfs:comment "Performance indicator related to thermal behaviour." .
+
+leco:CircularityPerformance a leco:PerformanceIndicator ;
+    rdfs:label "Circularity Performance" ;
+    rdfs:comment "Performance indicator related to reuse, recycling and circularity." .
+
+leco:StructuralPerformance a leco:PerformanceIndicator ;
+    rdfs:label "Structural Performance" ;
+    rdfs:comment "Performance indicator related to structural condition or durability." .
+
+leco:FacadeUseCase a leco:UseCase ;
+    rdfs:label "Facade Use Case" ;
+    rdfs:comment "Le’ Colaz facade element use case." .
+
+leco:InteriorWallUseCase a leco:UseCase ;
+    rdfs:label "Interior Wall Use Case" ;
+    rdfs:comment "Le’ Colaz interior modular wall use case." .
+
+leco:FloorCoveringUseCase a leco:UseCase ;
+    rdfs:label "Floor Covering Use Case" ;
+    rdfs:comment "Le’ Colaz floor covering use case." .
