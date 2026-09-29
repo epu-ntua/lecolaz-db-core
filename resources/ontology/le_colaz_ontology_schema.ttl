@@ -20,7 +20,7 @@
 <https://w3id.org/lecolaz/> a owl:Ontology ;
     rdfs:label "Le'Colaz Ontology" ;
     rdfs:comment "Ontology for the Le'Colaz platform, supporting BIM, sensor, simulation and lifecycle data for modular construction components." ;
-    owl:versionInfo "0.5" ;
+    owl:versionInfo "0.6" ;
     owl:imports <https://w3id.org/bot> ;
     owl:imports <http://www.w3.org/ns/sosa/> .
 
@@ -28,6 +28,7 @@
 
 leco:PilotSite a owl:Class ;
     rdfs:label "Pilot Site" ;
+    rdfs:comment "A physical location or area that contains one or more buildings" ;
     rdfs:subClassOf bot:Site .
 
 leco:Building a owl:Class ;
@@ -294,7 +295,8 @@ leco:hasCoordinates a owl:DatatypeProperty ;
     rdfs:comment "Geographic coordinates of the pilot site." ;
     rdfs:domain leco:PilotSite ;
     rdfs:range xsd:string ;
-    skos:closeMatch geo:lat .
+    skos:closeMatch geo:lat ;
+    skos:closeMatch geo:long .
 
 leco:hasLocation a owl:DatatypeProperty ;
     rdfs:label "has Location" ;
@@ -318,6 +320,12 @@ leco:hasLevel a owl:DatatypeProperty ;
 leco:hasFloorHeight a owl:DatatypeProperty ;
     rdfs:label "has floor height" ;
     rdfs:comment "Floor-to-ceiling height of the storey." ;
+    rdfs:domain leco:Storey ;
+    rdfs:range xsd:decimal .
+
+leco:hasElevation a owl:DatatypeProperty ;
+    rdfs:label "has elevation" ;
+    rdfs:comment "Elevation of the base of the storey relative to the project reference datum, in metres." ;
     rdfs:domain leco:Storey ;
     rdfs:range xsd:decimal .
 
