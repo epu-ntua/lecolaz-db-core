@@ -11,6 +11,7 @@ from sqlalchemy.exc import IntegrityError
 from app.db.models.observation_type import ObservationType
 from app.db.models.observation_value import ObservationValue
 from app.db.models.sensor import Sensor
+from app.storage.postgres.observation_value_store import ObservationValueStore
 from infra.dagster.ham import observation_values as pipeline
 from infra.dagster.ham.sensors import load_sensor_catalog
 from infra.dagster.tests.postgres import PostgresTestCase
@@ -228,7 +229,7 @@ class ReadingPostgresTests(PostgresTestCase):
     def test_later_batch_fk_failure_rolls_back_every_batch(self):
         rows = [
             {**self.row, "timestamp": self.row["timestamp"] + timedelta(seconds=offset)}
-            for offset in range(pipeline.BATCH_SIZE)
+            for offset in range(ObservationValueStore._BATCH_SIZE)
         ]
         rows.append({**self.row, "observation_type_id": uuid4()})
         with self.assertRaises(IntegrityError):

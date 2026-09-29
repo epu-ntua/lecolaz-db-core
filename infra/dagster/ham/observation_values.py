@@ -6,45 +6,29 @@ from dataclasses import dataclass
 from datetime import datetime, timezone
 from uuid import UUID
 
-from sqlalchemy import Engine, select
-from sqlalchemy.dialects.postgresql import insert
+from sqlalchemy import Engine
 
-from app.db.models.observation_type import ObservationType
-from app.db.models.observation_value import ObservationValue
-from app.db.models.sensor import Sensor
+from app.storage.postgres.observation_type_store import ObservationTypeStore
+from app.storage.postgres.observation_value_store import ObservationValueStore
+from app.storage.postgres.sensor_store import SensorStore
 from infra.dagster.ham import SENSOR_FAMILY
 from infra.dagster.ham.sensors import SensorUnavailable
 
 LOGGER = logging.getLogger(__name__)
 
 
-BATCH_SIZE = 1000
-
-
 def load_references(engine: Engine, sensor_id: str) -> tuple[dict, dict[str, str]]:
     """Load one HAM sensor and its family's reading-type UUIDs for an import."""
     with engine.connect() as connection:
-        sensor = (
-            connection.execute(
-                select(Sensor.id, Sensor.external_id, Sensor.starting_date).where(
-                    Sensor.sensor_family == SENSOR_FAMILY, Sensor.id == UUID(sensor_id)
-                )
-            )
-            .mappings()
-            .one_or_none()
+        sensor = SensorStore(connection).get_by_id_and_sensor_family(
+            UUID(sensor_id), SENSOR_FAMILY
         )
         if sensor is None:
             raise SensorUnavailable(
                 f"HAM sensor {sensor_id} not found or no longer HAM; reload the code location"
             )
-        types = {
-            key: str(type_id)
-            for key, type_id in connection.execute(
-                select(ObservationType.key, ObservationType.id).where(
-                    ObservationType.sensor_family == SENSOR_FAMILY
-                )
-            )
-        }
+        type_ids = ObservationTypeStore(connection).get_id_map_by_sensor_family(SENSOR_FAMILY)
+        types = {key: str(type_id) for key, type_id in type_ids.items()}
     if not types:
         raise ValueError("No HAM observation types found; run their initialization first")
     if not isinstance(sensor["external_id"], str) or not sensor["external_id"].strip():
@@ -180,19 +164,8 @@ def _summarize_reading(key: str, rows: list[dict], null_count: int) -> dict:
 
 def persist_observation_rows(engine: Engine, rows: list[dict]) -> dict:
     """Upsert bounded batches in one sensor transaction; reruns preserve row IDs."""
-    changed = 0
-    if rows:
-        with engine.begin() as connection:
-            for offset in range(0, len(rows), BATCH_SIZE):
-                statement = insert(ObservationValue).values(rows[offset : offset + BATCH_SIZE])
-                statement = statement.on_conflict_do_update(
-                    index_elements=[
-                        ObservationValue.sensor_id,
-                        ObservationValue.observation_type_id,
-                        ObservationValue.timestamp,
-                    ],
-                    set_={"value": statement.excluded.value},
-                    where=ObservationValue.value.is_distinct_from(statement.excluded.value),
-                ).returning(ObservationValue.id)
-                changed += len(connection.execute(statement).scalars().all())
-    return {"selected": len(rows), "inserted_or_updated": changed}
+    if not rows:
+        return {"selected": 0, "inserted_or_updated": 0}
+    with engine.begin() as connection:
+        summary = ObservationValueStore(connection).upsert_rows(rows)
+    return summary

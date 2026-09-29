@@ -4,6 +4,10 @@
 !backend/app/__init__.py
 !backend/app/db/
 !backend/app/db/**
+!backend/app/storage/
+!backend/app/storage/__init__.py
+!backend/app/storage/postgres/
+!backend/app/storage/postgres/**
 !infra/
 !infra/dagster/
 !infra/dagster/**

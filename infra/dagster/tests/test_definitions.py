@@ -28,6 +28,9 @@ with patch('sqlalchemy.create_engine', side_effect=AssertionError('DB at import'
      patch('urllib.request.urlopen', side_effect=AssertionError('HTTP at import')), \
      patch('hamapi.hamapi', side_effect=AssertionError('HAM at import')):
     import infra.dagster.definitions
+    import sys
+    assert 'app.db.session' not in sys.modules
+    assert 'app.core.config' not in sys.modules
 """
         result = subprocess.run([sys.executable, "-c", script], capture_output=True, text=True)
         self.assertEqual(result.returncode, 0, result.stderr)

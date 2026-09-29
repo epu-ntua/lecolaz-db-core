@@ -2,10 +2,9 @@
 
 import logging
 
-from sqlalchemy import Engine, or_, select
-from sqlalchemy.dialects.postgresql import insert
+from sqlalchemy import Engine
 
-from app.db.models.observation_type import ObservationType
+from app.storage.postgres.observation_type_store import ObservationTypeStore
 from infra.dagster.ham import SENSOR_FAMILY
 
 LOGGER = logging.getLogger(__name__)
@@ -78,35 +77,7 @@ def persist_rows(engine: Engine, rows: list[dict]) -> dict:
     """Upsert and verify in one transaction; failures roll back the entire batch."""
     if not rows:
         raise ValueError("Refusing to load an empty observation-type batch")
-    keys = [row["key"] for row in rows]
-    statement = insert(ObservationType).values(
-        [{**row, "sensor_family": SENSOR_FAMILY} for row in rows]
-    )
-    statement = statement.on_conflict_do_update(
-        index_elements=[ObservationType.sensor_family, ObservationType.key],
-        set_={
-            "label": statement.excluded.label,
-            "unit": statement.excluded.unit,
-            "type_metadata": statement.excluded.type_metadata,
-        },
-        where=or_(
-            ObservationType.label.is_distinct_from(statement.excluded.label),
-            ObservationType.unit.is_distinct_from(statement.excluded.unit),
-            ObservationType.type_metadata.is_distinct_from(statement.excluded.type_metadata),
-        ),
-    ).returning(ObservationType.key)
     with engine.begin() as connection:
-        changed = len(connection.execute(statement).scalars().all())
-        stored_keys = set(
-            connection.execute(
-                select(ObservationType.key).where(
-                    ObservationType.sensor_family == SENSOR_FAMILY,
-                    ObservationType.key.in_(keys),
-                )
-            ).scalars()
-        )
-        if stored_keys != set(keys):
-            raise ValueError("Observation-type verification failed; rolling back")
-    summary = {"selected": len(keys), "inserted_or_updated": changed, "verified": len(stored_keys)}
+        summary = ObservationTypeStore(connection).upsert_source_fields(SENSOR_FAMILY, rows)
     LOGGER.info("HAMAPI observation-type import committed: %s", summary)
     return summary

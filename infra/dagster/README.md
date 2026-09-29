@@ -234,20 +234,18 @@ volumes deletes both databases, logs/artifacts, and MinIO data.
 
 ## Code layout
 
-The code is organized around four responsibilities:
+The code is organized around five responsibilities:
 
 - `definitions.py` assembles resources, jobs, automation, and the database-derived
   asset catalog. Plain module imports do not access the network or database.
 - `assets.py` defines HAM assets and coordinates each import. Its observation
   factory describes the asset; the execution function handles one sensor/day.
 - `resources.py` owns database engines and HAM network clients, including cleanup.
-- `ham/` validates responses and persists rows with SQLAlchemy. These modules do
-  not depend on Dagster. `metadata.py` converts their diagnostics to Dagster metadata.
-
-Keep source mapping and SQL explicit in the corresponding HAM module. A new
-reading channel normally needs catalog data, not another asset or importer class.
-The observation reference lookup takes one sensor UUID and returns that sensor
-and its family's reading-type IDs.
+- `ham/` validates HAM responses and coordinates store calls and transactions.
+  These modules do not depend on Dagster. `metadata.py` converts their diagnostics
+  to Dagster metadata.
+- Sensor and observation stores in `backend/app/storage/postgres/` handle database
+  reads and bulk upserts using caller-owned connections and transactions.
 
 ## Tests
 
