@@ -63,6 +63,7 @@ class ObservationValue(Base):
 
     timestamp = Column(
         DateTime(timezone=True),
+        primary_key=True,
         nullable=False,
     )
 
