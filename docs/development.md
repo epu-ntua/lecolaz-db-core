@@ -64,6 +64,22 @@ Credentials: user `admin`, password `FUSEKI_ADMIN_PASSWORD` from `infra/.env` (`
 
 The backend writes to Fuseki with the same credentials, so `FUSEKI_ADMIN_PASSWORD` must be identical in `infra/.env` and `backend/.env`.
 
+### Ontology schema
+
+The ontology schema lives in `resources/ontology/` and is versioned in git. On every full `docker compose up` (not `docker compose up <service>`), the one-shot `fuseki-init` service loads it into the named graph `https://w3id.org/lecolaz/graph/schema` and then exits (`Exited (0)` in `docker compose ps -a` is expected).
+
+The load is an HTTP PUT, so it replaces the schema graph wholesale and does not touch the BIM graphs written by the backend. Changes made to the schema graph through the Fuseki UI are overwritten on the next `up`: edit the file in git instead.
+
+To publish a new schema version, edit `resources/ontology/le_colaz_ontology_schema.ttl` (keep the same filename; the version lives in `owl:versionInfo` and git history), commit it, and run `docker compose up` again.
+
+To reload the schema without restarting the whole stack, run `docker compose up fuseki-init`.
+
+If the load fails, check:
+
+```bash
+docker compose logs fuseki-init
+```
+
 ### Logging in to the UI
 
 The UI page itself loads without a password, but the dataset list is fetched from the protected `/$/` endpoints. If the browser does not show a login prompt, the UI spins forever.
