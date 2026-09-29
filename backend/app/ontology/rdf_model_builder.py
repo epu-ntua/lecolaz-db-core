@@ -6,18 +6,20 @@ bim_datasets -> leco:BIMDataset
 bim_storeys  -> leco:Storey
 bim_spaces   -> leco:Space
 
-leco:Storey and leco:Space are declared (in the ontology) as
-rdfs:subClassOf bot:Storey / bot:Space (Building Topology Ontology), so
-storey/space instances carry both types - a SPARQL query for either
-leco:Storey or bot:Storey finds the same instance. leco:BIMDataset has no
-BOT equivalent and stays leco-only. Likewise, storey->space containment
-gets both leco:hasSpace and bot:hasSpace; dataset->storey stays
-leco:hasStorey only (BOT has no direct dataset->storey property).
+Storey/Space instances are typed as both leco: and bot: classes
+(leco:Storey/Space are rdfs:subClassOf bot:Storey/Space).
 
-URIs for storeys/spaces are minted from their IFC GlobalId (stable across
-re-parses of the same file), matching how IFC-derived entities are keyed
-elsewhere in the ontology population design. The dataset itself has no
-external identifier, so its URI is minted from the bim_dataset surrogate id.
+Relations:
+    Storey bot:hasSpace Space               (spatial containment)
+    BIMDataset leco:containsSpace Space     (file membership, not spatial)
+Storeys are not linked to a Building: buildings are not stored in Postgres.
+
+leco:hasElevation = bim_storeys.elevation, in IFC project length units
+(no conversion). leco:hasLevel / leco:hasFloorHeight are not emitted:
+IFC provides no reliable source for them.
+
+URIs: storeys/spaces from IFC GlobalId (stable across re-parses);
+dataset from its bim_dataset id.
 """
 
 from rdflib import Graph, Literal, Namespace, RDF, RDFS, URIRef
@@ -49,18 +51,15 @@ class RdfModelBuilder:
             storey_uri = self._storey_uri(storey.global_id)
             storey_uri_by_id[storey.id] = storey_uri
             self._add_storey_triples(graph, storey_uri, storey)
-            graph.add((dataset_uri, self._leco.hasStorey, storey_uri))
 
         for space in bim.spaces:
             space_uri = self._space_uri(space.global_id)
             self._add_space_triples(graph, space_uri, space)
+            graph.add((dataset_uri, self._leco.containsSpace, space_uri))
 
             parent_storey_uri = storey_uri_by_id.get(space.storey_id)
             if parent_storey_uri is not None:
-                graph.add((parent_storey_uri, self._leco.hasSpace, space_uri))
                 graph.add((parent_storey_uri, BOT.hasSpace, space_uri))
-            else:
-                graph.add((dataset_uri, self._leco.hasSpace, space_uri))
 
         return graph
 
@@ -91,7 +90,7 @@ class RdfModelBuilder:
             graph.add((storey_uri, RDFS.label, Literal(storey.name)))
         if storey.elevation is not None:
             graph.add(
-                (storey_uri, self._leco.hasLevel, Literal(storey.elevation, datatype=XSD.decimal))
+                (storey_uri, self._leco.hasElevation, Literal(storey.elevation, datatype=XSD.decimal))
             )
 
     def _add_space_triples(self, graph: Graph, space_uri: URIRef, space) -> None:
