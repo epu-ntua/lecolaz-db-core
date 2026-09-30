@@ -2,7 +2,7 @@
 # DEV                         PROD
 # ------------------------------------------------
 # --reload                    no --reload
-# backend bind mount          no bind mount
+# backend bind mount          no bind mount (only read-only resources/ontology)
 # DB port exposed             DB not exposed
 # MinIO ports exposed         MinIO not exposed
 # Fuseki port exposed         Fuseki not exposed
@@ -66,6 +66,9 @@ services:
       - fuseki
     ports:
       - "${BACKEND_PORT:-8080}:8000"
+    volumes:
+      # Read-only data: lets POST /ontology/schema/reload see the schema 
+      - ../resources/ontology:/resources/ontology:ro
     restart: unless-stopped
 
 volumes:

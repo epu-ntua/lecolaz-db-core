@@ -1,5 +1,6 @@
 from dotenv import load_dotenv
 import os
+from pathlib import Path
 
 load_dotenv()
 
@@ -27,5 +28,12 @@ class Settings:
     # infra/compose.yaml's fuseki service).
     FUSEKI_ADMIN_USER: str = os.getenv("FUSEKI_ADMIN_USER", "admin")
     FUSEKI_ADMIN_PASSWORD: str = os.getenv("FUSEKI_ADMIN_PASSWORD", "")
+    # Ontology schema loaded by POST /ontology/schema/reload. Defaults to its
+    # repo location; in the backend container that resolves to
+    # /resources/ontology/, where infra/compose*.yaml mounts it.
+    LECO_SCHEMA_PATH: str = os.getenv(
+        "LECO_SCHEMA_PATH",
+        str(Path(__file__).resolve().parents[3] / "resources" / "ontology" / "le_colaz_ontology_schema.ttl"),
+    )
 
 settings = Settings()

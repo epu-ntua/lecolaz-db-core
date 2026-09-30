@@ -64,6 +64,8 @@ services:
     command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
     volumes:
       - ../backend:/app
+      # Read by POST /ontology/schema/reload (LECO_SCHEMA_PATH).
+      - ../resources/ontology:/resources/ontology:ro
 
 volumes:
   postgres_data:

@@ -11,15 +11,27 @@ OntologyService orchestrates the BIM -> RDF -> Fuseki sync flow:
 RDF build/serialization and Fuseki failures are recorded on the dataset row
 and returned as a failed SyncResult; DB errors and a missing BIM dataset
 (BimDatasetNotFoundError) raise.
+
+It also reloads the ontology schema from its file in the repo into Fuseki's
+schema graph (reload_schema); failures there raise.
 """
 
 import logging
 import uuid
 from datetime import datetime, timezone
+from pathlib import Path
 
-from app.ontology.config import build_graph_uri
+from rdflib import Graph
+
+from app.core.config import settings
+from app.ontology.config import build_graph_uri, build_schema_graph_uri
 from app.ontology.dto import BimDatasetDTO, SpaceDTO, StoreyDTO, SyncResult
-from app.ontology.exceptions import BimDatasetNotFoundError
+from app.ontology.exceptions import (
+    BimDatasetNotFoundError,
+    OntologyServiceError,
+    OntologyValidationError,
+    SchemaFileError,
+)
 from app.ontology.fuseki_client import FusekiClient
 from app.ontology.rdf_model_builder import RdfModelBuilder
 from app.ontology.turtle_serializer import TurtleSerializer
@@ -42,6 +54,7 @@ class OntologyService:
         bim_storey_store: BimStoreyStore | None = None,
         bim_space_store: BimSpaceStore | None = None,
         dataset_store: DatasetStore | None = None,
+        schema_path: str | None = None,
     ) -> None:
         self._rdf_model_builder = rdf_model_builder or RdfModelBuilder()
         self._turtle_serializer = turtle_serializer or TurtleSerializer()
@@ -50,6 +63,7 @@ class OntologyService:
         self._bim_storey_store = bim_storey_store or BimStoreyStore()
         self._bim_space_store = bim_space_store or BimSpaceStore()
         self._dataset_store = dataset_store or DatasetStore()
+        self._schema_path = Path(schema_path or settings.LECO_SCHEMA_PATH)
 
     def sync_bim_dataset(self, *, bim_dataset_id: uuid.UUID) -> SyncResult:
         bim_data = self._load_bim_dataset(bim_dataset_id)
@@ -84,6 +98,48 @@ class OntologyService:
             "failed": failed,
             "errors": errors,
         }
+
+    def reload_schema(self) -> dict:
+        """Loads the schema file into the schema graph, replacing its triples."""
+        graph_uri = build_schema_graph_uri()
+
+        try:
+            turtle = self._read_schema_file()
+            triple_count = self._count_schema_triples(turtle)
+            self._fuseki_client.put_graph(graph_uri=graph_uri, turtle=turtle)
+        except OntologyServiceError as exc:
+            logger.error(
+                "Ontology schema reload failed for graph=%s file=%s: %s",
+                graph_uri,
+                self._schema_path,
+                exc,
+            )
+            raise
+
+        logger.info(
+            "Ontology schema reloaded into graph=%s file=%s triples=%d",
+            graph_uri,
+            self._schema_path,
+            triple_count,
+        )
+        return {"graph_uri": graph_uri, "triple_count": triple_count}
+
+    def _read_schema_file(self) -> str:
+        if not self._schema_path.is_file():
+            raise SchemaFileError(f"Schema file not found: {self._schema_path}")
+        # utf-8-sig drops a BOM that Windows editors may add; rdflib rejects it.
+        turtle = self._schema_path.read_text(encoding="utf-8-sig")
+        # An empty file is valid Turtle: PUT would silently wipe the schema graph.
+        if not turtle.strip():
+            raise SchemaFileError(f"Schema file is empty: {self._schema_path}")
+        return turtle
+
+    @staticmethod
+    def _count_schema_triples(turtle: str) -> int:
+        try:
+            return len(Graph().parse(data=turtle, format="turtle"))
+        except Exception as exc:
+            raise OntologyValidationError(f"Schema file failed to parse: {exc}") from exc
 
     def _sync(self, bim_data: BimDatasetDTO) -> SyncResult:
         graph_uri = build_graph_uri(bim_data.bim_dataset_id)

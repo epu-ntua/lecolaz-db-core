@@ -15,3 +15,7 @@ class OntologyValidationError(OntologyServiceError):
 
 class FusekiPublishError(OntologyServiceError):
     """Raised when the Graph Store Protocol PUT to Fuseki fails."""
+
+
+class SchemaFileError(OntologyServiceError):
+    """Raised when the ontology schema file is missing or empty."""
