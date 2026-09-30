@@ -6,6 +6,9 @@ bim_datasets -> leco:BIMDataset, leco:Building
 bim_storeys  -> leco:Storey
 bim_spaces   -> leco:Space
 
+BIMDataset instances are also typed leco:Dataset (its superclass), since
+Fuseki runs without inference.
+
 Building/Storey/Space instances are typed as both leco: and bot: classes
 (leco:Building/Storey/Space are rdfs:subClassOf bot:Building/Storey/Space).
 
@@ -79,6 +82,7 @@ class RdfModelBuilder:
 
     def _add_dataset_triples(self, graph: Graph, dataset_uri: URIRef, bim: BimDatasetDTO) -> None:
         graph.add((dataset_uri, RDF.type, self._leco.BIMDataset))
+        graph.add((dataset_uri, RDF.type, self._leco.Dataset))
         graph.add((dataset_uri, self._leco.hasIdentifier, Literal(str(bim.bim_dataset_id))))
         if bim.format:
             graph.add((dataset_uri, self._leco.hasFileFormat, Literal(bim.format)))
@@ -96,6 +100,9 @@ class RdfModelBuilder:
             )
 
     def _add_building_triples(self, graph: Graph, building_uri: URIRef, bim: BimDatasetDTO) -> None:
+        # TODO: building information (IfcBuilding) exists in the BIM file but is
+        # not yet stored in the DB, so the Building is derived from the dataset
+        # filename. Marked for future work.
         graph.add((building_uri, RDF.type, self._leco.Building))
         graph.add((building_uri, RDF.type, BOT.Building))
         if bim.filename:
