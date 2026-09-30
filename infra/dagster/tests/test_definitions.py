@@ -10,7 +10,9 @@ from dagster import AssetKey, Definitions
 
 from infra.dagster import definitions as pipeline
 from infra.dagster.ham import sensors
-from infra.dagster.resources import HamApi
+from infra.dagster.ham.assets import observation_asset_key
+from infra.dagster.openmeteo import catalog as openmeteo_catalog
+from infra.dagster.ham.client import HamApi
 from infra.dagster.tests.support import (
     CATALOG,
     DEVICE_IDS,
@@ -37,7 +39,7 @@ with patch('sqlalchemy.create_engine', side_effect=AssertionError('DB at import'
 
     def test_definition_load_discovers_sensors(self):
         with patch.object(sensors, "load_sensor_catalog", return_value=CATALOG) as read, patch.object(
-            pipeline.openmeteo_catalog, "load_sensor_catalog", return_value=[]
+            openmeteo_catalog, "load_sensor_catalog", return_value=[]
         ):
             definitions = pipeline.build_definitions(FakeDatabase(), HamApi())
         read.assert_called_once()
@@ -51,11 +53,14 @@ with patch('sqlalchemy.create_engine', side_effect=AssertionError('DB at import'
     def test_lineage_distinct_start_dates_and_automation(self):
         defs = build_definitions()
         for device in CATALOG:
-            key = pipeline.observation_asset_key(device["id"])
+            key = observation_asset_key(device["id"])
             asset = next(a for a in defs.assets if a.key == key)
             self.assertEqual(
                 asset.asset_deps[key],
-                {AssetKey("hamapi_sensors"), AssetKey("hamapi_observation_types")},
+                {
+                    AssetKey(["sensors", "ham", "reference", "sensors"]),
+                    AssetKey(["sensors", "ham", "reference", "observation_types"]),
+                },
             )
             self.assertEqual(asset.partitions_def.start.date(), device["starting_date"].date())
             self.assertEqual(asset.backfill_policy.max_partitions_per_run, 1)
@@ -79,10 +84,10 @@ with patch('sqlalchemy.create_engine', side_effect=AssertionError('DB at import'
             "starting_date": datetime(2026, 2, 1, tzinfo=timezone.utc),
         }
         reloaded = build_definitions([renamed])
-        key = pipeline.observation_asset_key(DEVICE_IDS[0])
-        self.assertIn(pipeline.observation_asset_key(DEVICE_IDS[1]), first.resolve_all_asset_keys())
+        key = observation_asset_key(DEVICE_IDS[0])
+        self.assertIn(observation_asset_key(DEVICE_IDS[1]), first.resolve_all_asset_keys())
         self.assertNotIn(
-            pipeline.observation_asset_key(DEVICE_IDS[1]), reloaded.resolve_all_asset_keys()
+            observation_asset_key(DEVICE_IDS[1]), reloaded.resolve_all_asset_keys()
         )
         asset = next(a for a in reloaded.assets if a.key == key)
         self.assertEqual(asset.partitions_def.start.date().isoformat(), "2026-02-01")

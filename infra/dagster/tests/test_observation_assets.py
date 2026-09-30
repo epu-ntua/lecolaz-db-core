@@ -13,7 +13,7 @@ from dagster import (
     materialize,
 )
 
-from infra.dagster import assets as pipeline
+from infra.dagster.ham import assets as pipeline
 from infra.dagster.ham import observation_values, sensors
 from infra.dagster.tests.support import CATALOG, DEVICE_IDS, FakeDatabase, StubHamApi
 

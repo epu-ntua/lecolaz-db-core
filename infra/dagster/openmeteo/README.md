@@ -29,10 +29,10 @@ Each sensor has two daily assets:
 
 | Asset | Group | Output |
 | --- | --- | --- |
-| `openmeteo/raw/<sensor UUID>` | `openmeteo/raw` | Raw CSV in MinIO |
-| `observation_values/<sensor UUID>` | `openmeteo/observations` | That sensor's database rows |
+| `sensors/openmeteo/raw/<sensor UUID>` | `sensors/openmeteo/raw` | Raw CSV in MinIO |
+| `sensors/openmeteo/observation_values/<sensor UUID>` | `sensors/openmeteo/observation_values` | That sensor's database rows |
 
-In the Asset Catalog, select `+key:"observation_values/<sensor UUID>"`, select both
+In the Asset Catalog, select `+key:"sensors/openmeteo/observation_values/<sensor UUID>"`, select both
 results, then **Materialize selected** and choose the day(s). The leading `+`
 includes the raw asset. Selecting only observations replays the stored CSV without
 an API call; it does not automatically fetch missing upstream data.
@@ -46,8 +46,7 @@ explicitly by selecting both assets.
 
 CSVs use the backend's MinIO bucket and settings:
 `lecolaz-data/sensors/openmeteo/raw/<sensor UUID>/<YYYY-MM-DD>.csv`.
-The `sensors/` namespace is set on the raw asset, not globally in the IO manager.
-Older paths are not migrated; rematerialize raw partitions before replaying them.
+Object paths follow the raw asset key and partition date.
 
 Requests use UTC and parsing enforces `[start, end)`. Blank values are skipped;
 malformed/nonfinite values and conflicting duplicates fail. Quality flags remain

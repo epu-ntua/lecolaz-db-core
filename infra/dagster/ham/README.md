@@ -6,7 +6,7 @@
 
 Set `HAMAPI_API_KEY` in `infra/.env`, recreate Dagster services, then run
 `hamapi_initialize`. This imports observation types and accessible devices.
-You can also materialize `hamapi_observation_types` or `hamapi_sensors` separately.
+You can also materialize the reference assets below separately.
 Public observation types and service checks do not need the API key.
 
 Imports preserve UUIDs, locally managed location/space and `starting_date`.
@@ -18,7 +18,7 @@ channels. To include model extra readings, override the type asset's config:
 
 ```yaml
 ops:
-  hamapi_observation_types:
+  sensors__ham__reference__observation_types:
     config:
       include_extra_readings: true
 ```
@@ -27,8 +27,8 @@ ops:
 
 | Group | Assets |
 | --- | --- |
-| `ham/reference` | `hamapi_observation_types`, `hamapi_sensors` |
-| `ham/observations` | `observation_values/<sensor UUID>` |
+| `sensors/ham/reference` | `sensors/ham/reference/observation_types`, `sensors/ham/reference/sensors` |
+| `sensors/ham/observation_values` | `sensors/ham/observation_values/<sensor UUID>` |
 
 Select a sensor's observation asset and completed UTC day(s), then materialize.
 Each sensor/day runs separately. Different starting dates can produce different

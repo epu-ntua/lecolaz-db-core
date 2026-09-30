@@ -3,6 +3,10 @@
 from collections.abc import Iterator
 from datetime import datetime
 
+from app.db.models.observation_type import ObservationType
+from app.db.models.observation_value import ObservationValue
+from app.db.models.sensor import Sensor
+
 from dagster import (
     AssetExecutionContext,
     AssetKey,
@@ -20,23 +24,26 @@ from dagster import (
     RetryPolicy,
     asset,
 )
-
-from app.db.models.observation_type import ObservationType
-from app.db.models.observation_value import ObservationValue
-from app.db.models.sensor import Sensor
-from infra.dagster.ham import observation_types, observation_values, sensors
+from infra.dagster.ham import (
+    OBSERVATION_VALUES_PREFIX,
+    REFERENCE_PREFIX,
+    observation_types,
+    observation_values,
+    sensors,
+)
+from infra.dagster.ham.client import HAM_CATALOG_URL, HamApi
+from infra.dagster.ham.metadata import observation_metadata
 from infra.dagster.metadata import (
     measure_duration,
-    observation_metadata,
     table_metadata,
 )
-from infra.dagster.resources import HAM_CATALOG_URL, HamApi, LeColazDatabase
+from infra.dagster.resources import LeColazDatabase
 
 RETRY_POLICY = RetryPolicy(max_retries=3, delay=60, backoff=Backoff.EXPONENTIAL)
 
 
 def observation_asset_key(sensor_id: str) -> AssetKey:
-    return AssetKey(["observation_values", sensor_id])
+    return AssetKey([*OBSERVATION_VALUES_PREFIX, sensor_id])
 
 
 def observation_automation(delay_hours: int = 4) -> AutomationCondition:
@@ -48,7 +55,7 @@ def observation_automation(delay_hours: int = 4) -> AutomationCondition:
     return (
         AutomationCondition.on_missing()
         & AutomationCondition.on_cron(f"0 {delay_hours} * * *", cron_timezone="UTC").ignore(
-            AssetSelection.groups("ham/reference")
+            AssetSelection.groups("/".join(REFERENCE_PREFIX))
         )
         & ~AutomationCondition.in_progress()
     ).with_label("new_daily_observations_after_grace_period")
@@ -59,7 +66,8 @@ class ObservationTypesConfig(Config):
 
 
 @asset(
-    group_name="ham/reference",
+    key=AssetKey([*REFERENCE_PREFIX, "observation_types"]),
+    group_name="/".join(REFERENCE_PREFIX),
     retry_policy=RETRY_POLICY,
     kinds={"python", "postgres"},
     metadata=table_metadata(
@@ -95,7 +103,8 @@ def hamapi_observation_types(
 
 
 @asset(
-    group_name="ham/reference",
+    key=AssetKey([*REFERENCE_PREFIX, "sensors"]),
+    group_name="/".join(REFERENCE_PREFIX),
     retry_policy=RETRY_POLICY,
     kinds={"python", "postgres"},
     metadata=table_metadata(
@@ -111,9 +120,8 @@ def hamapi_sensors(ham_api: HamApi, database: LeColazDatabase) -> MaterializeRes
         response = ham_api.devices()
     with measure_duration(timings, "prepare_seconds"):
         rows = sensors.prepare_sensor_rows(response)
-    with database.engine() as engine:
-        with measure_duration(timings, "persist_seconds"):
-            summary = sensors.persist_sensor_rows(engine, rows)
+    with database.engine() as engine, measure_duration(timings, "persist_seconds"):
+        summary = sensors.persist_sensor_rows(engine, rows)
     return MaterializeResult(
         metadata={
             **summary,
@@ -135,7 +143,7 @@ def make_observation_asset(device: dict, delay_hours: int = 4) -> AssetsDefiniti
 
     @asset(
         key=observation_asset_key(sensor_id),
-        group_name="ham/observations",
+        group_name="/".join(OBSERVATION_VALUES_PREFIX),
         partitions_def=partitions,
         retry_policy=RETRY_POLICY,
         kinds={"python", "postgres"},

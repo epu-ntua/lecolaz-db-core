@@ -18,7 +18,7 @@ from sqlalchemy import delete, select, update
 
 from app.db.models.observation_value import ObservationValue
 from app.db.models.sensor import Sensor
-from infra.dagster.definitions import observation_asset_key
+from infra.dagster.ham.assets import observation_asset_key
 from infra.dagster.ham.sensors import load_sensor_catalog
 from infra.dagster.resources import LeColazDatabase
 
@@ -45,7 +45,7 @@ def launch(job_name, partition=None, sensor_id=None):
         "pipelineName": job_name,
     }
     if sensor_id:
-        selector["assetSelection"] = [{"path": ["observation_values", sensor_id]}]
+        selector["assetSelection"] = [{"path": observation_asset_key(sensor_id).path}]
     params = {"selector": selector, "runConfigData": {}}
     if partition:
         params["executionMetadata"] = {"tags": [{"key": "dagster/partition", "value": partition}]}
@@ -82,7 +82,7 @@ def backfill(sensor_id, partition_keys, expect_empty=False):
     }""",
         {
             "params": {
-                "assetSelection": [{"path": ["observation_values", sensor_id]}],
+                "assetSelection": [{"path": observation_asset_key(sensor_id).path}],
                 "partitionNames": partition_keys,
             }
         },
@@ -205,8 +205,8 @@ def verify_restart():
             "2026-03-15"
         }
     assert list(Path("/opt/dagster/storage/compute_logs").rglob("*.out")), "Compute logs lost"
-    assert ("observation_values", state["deleted_id"]) not in loaded_keys()
-    assert ("observation_values", state["sensor_ids"][0]) in loaded_keys()
+    assert tuple(observation_asset_key(state["deleted_id"]).path) not in loaded_keys()
+    assert tuple(observation_asset_key(state["sensor_ids"][0]).path) in loaded_keys()
     print(
         "Run history, retained deleted-asset history, current definitions, and logs survived restart."
     )
@@ -229,7 +229,10 @@ def verify_ingestion():
                     update(Sensor).where(Sensor.id == UUID(sensor_id)).values(starting_date=start)
                 )
     reload_location()
-    assert all(("observation_values", sensor_id) in loaded_keys() for sensor_id in sensor_ids)
+    assert all(
+        tuple(observation_asset_key(sensor_id).path) in loaded_keys()
+        for sensor_id in sensor_ids
+    )
     keys = ["2026-01-01", "2026-01-02"]
     run_ids.extend(backfill(sensor_ids[0], keys))
     run_ids.extend(backfill(sensor_ids[0], ["2026-01-03"], expect_empty=True))
@@ -254,7 +257,7 @@ def verify_ingestion():
     with fixture_database().engine() as engine, engine.begin() as connection:
         connection.execute(delete(Sensor).where(Sensor.id == UUID(deleted_id)))
     reload_location()
-    assert ("observation_values", deleted_id) not in loaded_keys()
+    assert tuple(observation_asset_key(deleted_id).path) not in loaded_keys()
     assert stored_observations() == before, (
         "Application FK should cascade only the deleted sensor's readings"
     )

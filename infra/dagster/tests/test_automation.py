@@ -10,7 +10,7 @@ from dagster import (
     evaluate_automation_conditions,
 )
 
-from infra.dagster import assets as pipeline
+from infra.dagster.ham import assets as pipeline
 from infra.dagster.tests.support import DEVICE_IDS, build_definitions
 
 
@@ -33,8 +33,8 @@ class AutomationTests(unittest.TestCase):
         return [result.get_requested_partitions(key) for key in self.keys]
 
     def initialize_references(self):
-        for name in ("hamapi_sensors", "hamapi_observation_types"):
-            self.instance.report_runless_asset_event(AssetMaterialization(name))
+        for asset in (pipeline.hamapi_sensors, pipeline.hamapi_observation_types):
+            self.instance.report_runless_asset_event(AssetMaterialization(asset.key))
 
     def test_default_delay_and_one_request_per_new_day(self):
         self.initialize_references()

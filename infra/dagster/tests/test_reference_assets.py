@@ -5,7 +5,7 @@ from unittest.mock import patch
 
 from dagster import ResourceDefinition, materialize
 
-from infra.dagster import assets as pipeline
+from infra.dagster.ham import assets as pipeline
 from infra.dagster.ham import observation_types, sensors
 from infra.dagster.tests.support import FakeDatabase, StubHamApi
 
@@ -33,7 +33,7 @@ class ReferenceAssetTests(unittest.TestCase):
                     },
                     run_config={
                         "ops": {
-                            "hamapi_observation_types": {
+                            "sensors__ham__reference__observation_types": {
                                 "config": {"include_extra_readings": enabled}
                             }
                         }

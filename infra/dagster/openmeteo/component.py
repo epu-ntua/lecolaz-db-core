@@ -15,7 +15,12 @@ from pydantic import Field
 
 import dagster as dg
 from infra.dagster.metadata import table_metadata
-from infra.dagster.openmeteo import catalog, observations
+from infra.dagster.openmeteo import (
+    OBSERVATION_VALUES_PREFIX,
+    RAW_PREFIX,
+    catalog,
+    observations,
+)
 from infra.dagster.openmeteo.client import OpenMeteoApi, parse_external_id
 from infra.dagster.resources import LeColazDatabase
 
@@ -67,11 +72,11 @@ def register_openmeteo_sensors():
 
 
 def raw_asset_key(sensor_id: str) -> dg.AssetKey:
-    return dg.AssetKey(["openmeteo", "raw", sensor_id])
+    return dg.AssetKey([*RAW_PREFIX, sensor_id])
 
 
 def observation_asset_key(sensor_id: str) -> dg.AssetKey:
-    return dg.AssetKey(["observation_values", sensor_id])
+    return dg.AssetKey([*OBSERVATION_VALUES_PREFIX, sensor_id])
 
 
 def make_sensor_assets(device: dict, delay_hours: int) -> list[dg.AssetsDefinition]:
@@ -111,11 +116,11 @@ def make_sensor_assets(device: dict, delay_hours: int) -> list[dg.AssetsDefiniti
 
     @dg.asset(
         key=raw_asset_key(sensor_id),
-        group_name="openmeteo/raw",
+        group_name="/".join(RAW_PREFIX),
         **common,
         io_manager_key="raw_csv_io_manager",
         kinds={"python", "s3"},
-        metadata={**metadata, "object_store_prefix": "sensors"},
+        metadata=metadata,
         automation_condition=(
             dg.AutomationCondition.on_missing()
             & dg.AutomationCondition.on_cron(
@@ -148,7 +153,7 @@ def make_sensor_assets(device: dict, delay_hours: int) -> list[dg.AssetsDefiniti
 
     @dg.asset(
         key=observation_asset_key(sensor_id),
-        group_name="openmeteo/observations",
+        group_name="/".join(OBSERVATION_VALUES_PREFIX),
         **common,
         ins={"raw_csv": dg.AssetIn(key=raw_asset_key(sensor_id))},
         kinds={"python", "postgres"},
@@ -227,7 +232,7 @@ class OpenMeteoComponent(dg.Component):
                 dg.AutomationConditionSensorDefinition(
                     name="openmeteo_observation_automation",
                     target=dg.AssetSelection.groups(
-                        "openmeteo/raw", "openmeteo/observations"
+                        "/".join(RAW_PREFIX), "/".join(OBSERVATION_VALUES_PREFIX)
                     ),
                     default_status=dg.DefaultSensorStatus.STOPPED,
                     minimum_interval_seconds=15 * 60,

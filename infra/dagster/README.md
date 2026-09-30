@@ -63,7 +63,7 @@ unless you intend to delete persistent data.
 ## Development
 
 - `definitions.py`: resource wiring and database-derived asset catalog.
-- `assets.py`, `ham/`, `openmeteo/`: family-specific workflows and mappings.
+- `ham/`, `openmeteo/`: each family’s definitions, API client, workflows and mappings.
 - `object_storage.py`: partitioned byte IO using the backend's `MinioStore`.
 - `backend/app/storage/postgres/`: shared stores; callers own transactions.
 

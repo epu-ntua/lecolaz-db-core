@@ -8,7 +8,8 @@ from unittest.mock import patch
 from dagster import Failure
 from sqlalchemy.engine import make_url
 
-from infra.dagster.resources import HamApi, LeColazDatabase
+from infra.dagster.ham.client import HamApi
+from infra.dagster.resources import LeColazDatabase
 
 
 class ResourceTests(unittest.TestCase):
@@ -69,7 +70,7 @@ class ResourceTests(unittest.TestCase):
 
     def test_catalog_is_public_and_has_a_timeout(self):
         with patch(
-            "infra.dagster.resources.urlopen", return_value=io.BytesIO(b'{"T": {}}')
+            "infra.dagster.ham.client.urlopen", return_value=io.BytesIO(b'{"T": {}}')
         ) as fetch:
             self.assertEqual(HamApi().catalog("readings"), {"T": {}})
         fetch.assert_called_once_with("https://api.hamsystems.eu/res/doc/readings.json", timeout=30)
@@ -78,7 +79,7 @@ class ResourceTests(unittest.TestCase):
         for body in (b"{}", b"[]", b"null"):
             with (
                 self.subTest(body=body),
-                patch("infra.dagster.resources.urlopen", return_value=io.BytesIO(body)),
+                patch("infra.dagster.ham.client.urlopen", return_value=io.BytesIO(body)),
             ):
                 with self.assertRaisesRegex(ValueError, "nonempty object"):
                     HamApi().catalog("models")

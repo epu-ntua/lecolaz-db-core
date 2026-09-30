@@ -7,7 +7,8 @@ from unittest.mock import patch
 from infra.dagster.definitions import build_definitions as _build_definitions
 from infra.dagster.ham import sensors
 from infra.dagster.openmeteo import catalog as openmeteo_catalog
-from infra.dagster.resources import HamApi, LeColazDatabase
+from infra.dagster.ham.client import HamApi
+from infra.dagster.resources import LeColazDatabase
 
 DEVICE_IDS = [
     "00000000-0000-0000-0000-000000000001",

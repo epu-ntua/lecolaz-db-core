@@ -36,8 +36,8 @@ class MetadataTests(unittest.TestCase):
                 self.assertTrue(metadata["dagster/table_name"].startswith("public."))
                 self.assertIsNotNone(metadata["dagster/column_schema"])
                 self.assertIn("preserve", metadata["write_semantics"])
-                if asset.key.path[0] == "observation_values":
-                    self.assertIn(asset.key.path[1], metadata["row_scope"])
+                if asset.key.path[-2] == "observation_values":
+                    self.assertIn(asset.key.path[-1], metadata["row_scope"])
                     self.assertIn("UTC", metadata["partition_semantics"])
                 else:
                     self.assertEqual(metadata["row_scope"], "sensor_family = 'ham'")

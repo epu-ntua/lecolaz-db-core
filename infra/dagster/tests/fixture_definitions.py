@@ -3,7 +3,7 @@
 from dagster import definitions
 
 from infra.dagster.definitions import build_definitions, configured_database
-from infra.dagster.resources import HamApi
+from infra.dagster.ham.client import HamApi
 
 
 class FixtureHamApi(HamApi):

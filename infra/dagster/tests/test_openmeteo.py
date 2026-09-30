@@ -303,7 +303,7 @@ class OpenMeteoDagsterTests(unittest.TestCase):
 
     def test_upstream_selection_materializes_both_partitions(self):
         selection = dg.AssetSelection.from_coercible(
-            f'+key:"observation_values/{SENSOR_ID}"'
+            f'+key:"sensors/openmeteo/observation_values/{SENSOR_ID}"'
         )
         result = self.execute(selected=selection)
         self.assertTrue(result.success)
@@ -363,7 +363,7 @@ class OpenMeteoDagsterTests(unittest.TestCase):
         raw, values = list(defs.assets)
         self.assertEqual(values.asset_deps[values.key], {raw.key})
         self.assertEqual(
-            values.group_names_by_key[values.key], "openmeteo/observations"
+            values.group_names_by_key[values.key], "sensors/openmeteo/observation_values"
         )
         self.assertEqual(raw.backfill_policy.max_partitions_per_run, 1)
         self.assertEqual(raw.partitions_def, values.partitions_def)

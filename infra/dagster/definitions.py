@@ -4,47 +4,32 @@ import os
 from urllib.request import urlopen
 
 from dagster import (
-    AssetSelection,
-    AutomationConditionSensorDefinition,
-    DefaultSensorStatus,
+    Backoff,
     Definitions,
     EnvVar,
     OpExecutionContext,
-    define_asset_job,
+    RetryPolicy,
     definitions,
     job,
     multiprocess_executor,
     op,
 )
-
-# Keep the existing asset imports available to code-location consumers.
-from infra.dagster.assets import (
-    RETRY_POLICY,
-    ObservationTypesConfig as ObservationTypesConfig,
-    hamapi_observation_types,
-    hamapi_sensors,
-    make_observation_asset,
-    observation_asset_key as observation_asset_key,
-    observation_automation,
-)
-from infra.dagster.ham import sensors
-from infra.dagster.resources import HamApi, LeColazDatabase
+from infra.dagster.ham.client import HamApi
+from infra.dagster.ham.definitions import build_definitions as build_ham_definitions
 from infra.dagster.object_storage import S3BytesIOManager
-from infra.dagster.openmeteo import catalog as openmeteo_catalog
 from infra.dagster.openmeteo.client import OpenMeteoApi
-from infra.dagster.openmeteo.component import OpenMeteoComponent
+from infra.dagster.openmeteo.definitions import (
+    build_definitions as build_openmeteo_definitions,
+)
+from infra.dagster.resources import LeColazDatabase
 
 EXECUTOR = multiprocess_executor.configured({"max_concurrent": 4})
 
 
-hamapi_initialize = define_asset_job(
-    "hamapi_initialize",
-    selection=AssetSelection.assets(hamapi_observation_types, hamapi_sensors),
-    executor_def=EXECUTOR,
+@op(
+    config_schema={"url": str},
+    retry_policy=RetryPolicy(max_retries=3, delay=60, backoff=Backoff.EXPONENTIAL),
 )
-
-
-@op(config_schema={"url": str}, retry_policy=RETRY_POLICY)
 def check_service(context: OpExecutionContext) -> dict:
     with urlopen(context.op_config["url"], timeout=10) as response:
         return {"status": response.status}
@@ -79,48 +64,17 @@ def build_definitions(
     raw_csv_io_manager: S3BytesIOManager | None = None,
     openmeteo_delay_hours: int = 4,
 ) -> Definitions:
-    # Read PostgreSQL at definition load, never at plain module import. Fail visibly on
-    # connection/schema errors rather than silently publishing an empty asset catalog.
-    observation_automation(delay_hours)  # Validate even when the catalog is empty.
-    with (
-        database.process_config_and_initialize_cm() as resolved,
-        resolved.engine() as engine,
-    ):
-        devices = sensors.load_sensor_catalog(engine)
-        openmeteo_devices = openmeteo_catalog.load_sensor_catalog(engine)
-    observation_assets = [
-        make_observation_asset(device, delay_hours) for device in devices
-    ]
-    ham_definitions = Definitions(
-        assets=[hamapi_observation_types, hamapi_sensors, *observation_assets],
-        jobs=[hamapi_initialize, lecolaz_services_smoke_test],
-        sensors=[
-            AutomationConditionSensorDefinition(
-                name="hamapi_observation_automation",
-                target=AssetSelection.groups("ham/observations"),
-                default_status=DefaultSensorStatus.STOPPED,
-                minimum_interval_seconds=15 * 60,
-                run_tags={"lecolaz/workflow": "hamapi_daily"},
-                description="Ingest new UTC day partitions after the configured grace period; backfill history explicitly.",
-            )
-        ],
-        resources={"database": database, "ham_api": ham_api},
-        executor=EXECUTOR,
-    )
-    openmeteo_api = openmeteo_api or OpenMeteoApi()
+    # Family loaders discover their catalogs here, never at module import.
+    # Discovery failures propagate instead of publishing an incomplete code location.
     return Definitions.merge(
-        ham_definitions,
-        OpenMeteoComponent(
-            openmeteo_devices,
+        build_ham_definitions(database, ham_api, delay_hours, executor=EXECUTOR),
+        build_openmeteo_definitions(
+            database,
+            openmeteo_api or OpenMeteoApi(),
+            raw_csv_io_manager or S3BytesIOManager(),
             openmeteo_delay_hours,
-            registration_resources={"database": database, "openmeteo_api": openmeteo_api},
-        ).build_defs(),
-        Definitions(
-            resources={
-                "openmeteo_api": openmeteo_api,
-                "raw_csv_io_manager": raw_csv_io_manager or S3BytesIOManager(),
-            }
         ),
+        Definitions(jobs=[lecolaz_services_smoke_test], executor=EXECUTOR),
     )
 
 
