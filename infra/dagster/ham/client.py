@@ -4,14 +4,13 @@ import json
 from collections.abc import Iterator
 from contextlib import contextmanager
 from datetime import datetime
-from urllib.request import urlopen
+from importlib.resources import files
 
 import hamapi
+import requests
 
 from dagster import ConfigurableResource, Failure
 from infra.dagster.ham.observation_values import validate_interval
-
-HAM_CATALOG_URL = "https://api.hamsystems.eu/res/doc"
 
 
 class HamApi(ConfigurableResource):
@@ -28,8 +27,11 @@ class HamApi(ConfigurableResource):
         return self.api_key
 
     def catalog(self, name: str) -> dict:
-        with urlopen(f"{HAM_CATALOG_URL}/{name}.json", timeout=30) as response:
-            catalog = json.load(response)
+        if name not in ("readings", "models"):
+            raise ValueError(f"Unknown HAM catalog: {name}")
+        catalog = json.loads(
+            files("hamapi").joinpath(f"{name}.json").read_text(encoding="utf-8")
+        )
         if not isinstance(catalog, dict) or not catalog:
             raise ValueError(f"{name}.json must be a nonempty object")
         return catalog
@@ -43,8 +45,15 @@ class HamApi(ConfigurableResource):
             client.cache_conn.close()
 
     def devices(self) -> dict:
-        with self._client() as client:
-            return client.get_user_devices(force_refresh=True)
+        # The SDK's get_user_devices() omits a timeout. Registration runs in the
+        # Compose startup hook, so bound this request and let Dagster retry failures.
+        with requests.post(
+            "https://api.hamsystems.eu/get_user_devices.php",
+            data={"api_key": self.require_key()},
+            timeout=(10, 30),
+        ) as response:
+            response.raise_for_status()
+            return response.json()
 
     def readings(self, external_id: str, start: datetime, end: datetime) -> dict:
         validate_interval(start, end)
@@ -61,5 +70,9 @@ class HamApi(ConfigurableResource):
                 isinstance(device, dict) and device.get("serialno") == external_id
                 for device in response["devices"]
             ):
-                raise ValueError("The configured API key cannot access the selected sensor")
-            return client.get_datalog_data(external_id, start.timestamp(), end.timestamp())
+                raise ValueError(
+                    "The configured API key cannot access the selected sensor"
+                )
+            return client.get_datalog_data(
+                external_id, start.timestamp(), end.timestamp()
+            )

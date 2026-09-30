@@ -22,6 +22,8 @@ services:
     volumes: !override
       - ../backend:/app:ro
   dagster-code:
+    # Fixture deployment initializes explicitly, without production startup hooks.
+    post_start: !reset []
     env_file: !reset []
     command: dagster code-server start -h 0.0.0.0 -p 4000 -m infra.dagster.tests.fixture_definitions
     environment:

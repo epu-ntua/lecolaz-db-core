@@ -111,11 +111,15 @@ curl -u admin:lecolaz http://localhost:3030/$/server
 ```
 
 ## Dagster workflows
+Apply alembic migrations first because Dagster reads the application’s `sensors` table when loading asset definitions. If the schema is already current, Alembic makes no changes.
 
-- Apply alembic migrations first because Dagster reads the application’s `sensors` table when loading asset definitions. If the schema is already current, Alembic makes no changes.
-- Set `HAMAPI_API_KEY` in `infra/.env` before starting Dagster; recreate its services if already running.
-- Review sensor `starting_date` values in PostgreSQL, then reload the `lecolaz` code location. 
-- Sensor registration happens during initialization whenever there is no sensor data present (or can be manually triggered). Periodic ingestions are enabled automatically.
+
+Set `HAMAPI_API_KEY` in `infra/.env` before starting Dagster; recreate its services
+if already running. HAM registration and daily ingestion start automatically.
+
+Review sensor `starting_date` values in PostgreSQL and reload the `lecolaz` code
+location if you change them. Backfill historical days from each asset’s partition
+view at <http://localhost:3000>.
 
 See the [Dagster guide](../infra/dagster/README.md) for details.
 

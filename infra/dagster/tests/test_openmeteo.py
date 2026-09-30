@@ -18,12 +18,13 @@ from infra.dagster.object_storage import S3BytesIOManager
 from infra.dagster.openmeteo import catalog, component, observations
 from infra.dagster.openmeteo.client import OpenMeteoApi, parse_external_id
 from infra.dagster.openmeteo.component import (
+    REGISTRATION_KEYS,
     OpenMeteoComponent,
     RegistrationConfig,
     make_sensor_assets,
     observation_asset_key,
     raw_asset_key,
-    register_openmeteo_sensors,
+    registration_definitions,
 )
 from infra.dagster.tests.postgres import PostgresTestCase
 from infra.dagster.tests.support import FakeDatabase, build_definitions
@@ -336,7 +337,10 @@ class OpenMeteoDagsterTests(unittest.TestCase):
         with patch.object(
             catalog, "persist_registration", return_value={"sensors": {"selected": 1}}
         ) as persist:
-            result = register_openmeteo_sensors.execute_in_process(
+            job = registration_definitions(
+                {"database": FakeDatabase(), "openmeteo_api": OpenMeteoApi()}
+            ).resolve_job_def("register_openmeteo_sensors")
+            result = job.execute_in_process(
                 run_config={
                     "ops": {
                         "register_sensors": {"config": {"external_ids": [EXTERNAL_ID]}}
@@ -360,7 +364,9 @@ class OpenMeteoDagsterTests(unittest.TestCase):
             ),
         )
         dg.Definitions.validate_loadable(defs)
-        raw, values = list(defs.assets)
+        registration, raw, values = list(defs.assets)
+        self.assertEqual(registration.keys, set(REGISTRATION_KEYS))
+        self.assertEqual(raw.asset_deps[raw.key], set(REGISTRATION_KEYS))
         self.assertEqual(values.asset_deps[values.key], {raw.key})
         self.assertEqual(
             values.group_names_by_key[values.key], "sensors/openmeteo/observation_values"
@@ -410,6 +416,8 @@ class OpenMeteoDagsterTests(unittest.TestCase):
         self.assertEqual(result.get_requested_partitions(key), {"2026-01-01"})
 
     def test_automation_grace_and_downstream_readiness(self):
+        for key in REGISTRATION_KEYS:
+            self.instance.report_runless_asset_event(dg.AssetMaterialization(key))
         defs = dg.Definitions.merge(
             OpenMeteoComponent([DEVICE]).build_defs(),
             dg.Definitions(

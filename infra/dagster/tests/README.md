@@ -22,7 +22,7 @@ session-local temporary tables. Without that setting, database tests skip.
 
 ## Full deployment check
 
-Use this disposable project with Compose 2.24.4+. Never substitute the normal
+Use this disposable project with Compose 2.30+. Never substitute the normal
 application project name. From the repository root:
 
 ```bash

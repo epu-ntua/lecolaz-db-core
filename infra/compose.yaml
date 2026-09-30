@@ -101,6 +101,8 @@ services:
 
   dagster-code:
     <<: *dagster-common
+    post_start:
+      - command: ["python", "-m", "infra.dagster.initialize"]
     healthcheck:
       test: ["CMD", "dagster", "api", "grpc-health-check", "-p", "4000"]
       interval: 10s

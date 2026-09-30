@@ -10,7 +10,9 @@ from dataclasses import dataclass
 from pathlib import Path
 
 import yaml
+from app.db.models.observation_type import ObservationType
 from app.db.models.observation_value import ObservationValue
+from app.db.models.sensor import Sensor
 from pydantic import Field
 
 import dagster as dg
@@ -18,6 +20,7 @@ from infra.dagster.metadata import table_metadata
 from infra.dagster.openmeteo import (
     OBSERVATION_VALUES_PREFIX,
     RAW_PREFIX,
+    REFERENCE_PREFIX,
     catalog,
     observations,
 )
@@ -26,6 +29,9 @@ from infra.dagster.resources import LeColazDatabase
 
 RETRY_POLICY = dg.RetryPolicy(max_retries=3, delay=60, backoff=dg.Backoff.EXPONENTIAL)
 REGISTRATION_DEFAULTS_PATH = Path(__file__).with_name("registration.yaml")
+REGISTRATION_KEYS = tuple(
+    dg.AssetKey([*REFERENCE_PREFIX, name]) for name in ("sensors", "observation_types")
+)
 
 
 def load_registration_defaults() -> list[str]:
@@ -46,29 +52,59 @@ class RegistrationConfig(dg.Config):
     )
 
 
-@dg.op(retry_policy=RETRY_POLICY)
+@dg.multi_asset(
+    specs=[
+        dg.AssetSpec(
+            key,
+            group_name="/".join(REFERENCE_PREFIX),
+            kinds={"python", "postgres"},
+            description=f"OpenMeteo {model.__tablename__} registered from the configured timeseries list.",
+            metadata=table_metadata(
+                model.__table__,
+                "sensor_family = 'openmeteo'",
+                "Upsert selected source fields; preserve local fields and source-absent rows.",
+            ),
+        )
+        for key, model in zip(REGISTRATION_KEYS, (Sensor, ObservationType))
+    ],
+    retry_policy=RETRY_POLICY,
+)
 def register_sensors(
-    context: dg.OpExecutionContext,
+    context: dg.AssetExecutionContext,
     config: RegistrationConfig,
     openmeteo_api: OpenMeteoApi,
     database: LeColazDatabase,
-) -> dict:
+):
     """Validate the explicit selection, then commit both catalogs together."""
     sensors, types = catalog.prepare_registration(openmeteo_api, config.external_ids)
     with database.engine() as engine:
         summary = catalog.persist_registration(engine, sensors, types)
-    context.add_output_metadata(
-        {
-            **{key: dg.MetadataValue.json(value) for key, value in summary.items()},
-            "next_step": "Reload the lecolaz code location to discover registered sensors.",
-        }
+    # Both tables commit before either materialization is recorded.
+    for key in REGISTRATION_KEYS:
+        yield dg.MaterializeResult(
+            asset_key=key,
+            metadata={
+                **summary.get(key.path[-1], {}),
+                "external_ids": dg.MetadataValue.json(config.external_ids),
+                "next_step": "Reload the lecolaz code location after manual registration.",
+            },
+        )
+
+
+register_openmeteo_sensors = dg.define_asset_job(
+    "register_openmeteo_sensors",
+    selection=dg.AssetSelection.assets(register_sensors),
+    description="Validate and register OpenMeteo sensors and observation types together.",
+)
+
+
+def registration_definitions(resources: dict | None = None) -> dg.Definitions:
+    """Build registration independently of sensor discovery and other families."""
+    return dg.Definitions(
+        assets=[register_sensors],
+        jobs=[register_openmeteo_sensors],
+        resources=resources,
     )
-    return summary
-
-
-@dg.job
-def register_openmeteo_sensors():
-    register_sensors()
 
 
 def raw_asset_key(sensor_id: str) -> dg.AssetKey:
@@ -116,6 +152,7 @@ def make_sensor_assets(device: dict, delay_hours: int) -> list[dg.AssetsDefiniti
 
     @dg.asset(
         key=raw_asset_key(sensor_id),
+        deps=REGISTRATION_KEYS,
         group_name="/".join(RAW_PREFIX),
         **common,
         io_manager_key="raw_csv_io_manager",
@@ -125,7 +162,7 @@ def make_sensor_assets(device: dict, delay_hours: int) -> list[dg.AssetsDefiniti
             dg.AutomationCondition.on_missing()
             & dg.AutomationCondition.on_cron(
                 f"0 {delay_hours} * * *", cron_timezone="UTC"
-            )
+            ).ignore(dg.AssetSelection.groups("/".join(REFERENCE_PREFIX)))
             & ~dg.AutomationCondition.in_progress()
         ),
         description=(
@@ -219,14 +256,19 @@ class OpenMeteoComponent(dg.Component):
             )
         return dg.Definitions(
             assets=[
-                asset
-                for sensor in self.sensors
-                for asset in make_sensor_assets(sensor, self.delay_hours)
+                register_sensors,
+                *[
+                    asset
+                    for sensor in self.sensors
+                    for asset in make_sensor_assets(sensor, self.delay_hours)
+                ],
             ],
             jobs=[
-                register_openmeteo_sensors.graph.to_job(
-                    resource_defs=self.registration_resources,
+                registration_definitions(self.registration_resources).resolve_job_def(
+                    "register_openmeteo_sensors"
                 )
+                if self.registration_resources
+                else register_openmeteo_sensors
             ],
             sensors=[
                 dg.AutomationConditionSensorDefinition(
@@ -234,9 +276,15 @@ class OpenMeteoComponent(dg.Component):
                     target=dg.AssetSelection.groups(
                         "/".join(RAW_PREFIX), "/".join(OBSERVATION_VALUES_PREFIX)
                     ),
-                    default_status=dg.DefaultSensorStatus.STOPPED,
+                    default_status=dg.DefaultSensorStatus.RUNNING,
                     minimum_interval_seconds=15 * 60,
                     run_tags={"lecolaz/workflow": "openmeteo_daily"},
+                    description=(
+                        "Fetch raw CSVs for new UTC day partitions after the configured "
+                        "grace period and reference initialization, then load observation "
+                        "values once their raw partitions are materialized; backfill "
+                        "history explicitly."
+                    ),
                 )
             ],
         )

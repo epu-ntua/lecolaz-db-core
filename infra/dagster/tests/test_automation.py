@@ -73,7 +73,7 @@ class AutomationTests(unittest.TestCase):
                 pipeline.observation_automation(value)
         self.assertEqual(
             {job.name for job in self.defs.jobs},
-            {"hamapi_initialize", "lecolaz_services_smoke_test", "register_openmeteo_sensors"},
+            {"register_hamapi_sensors", "lecolaz_services_smoke_test", "register_openmeteo_sensors"},
         )
         sensor = self.defs.get_sensor_def("hamapi_observation_automation")
-        self.assertEqual(sensor.default_status, DefaultSensorStatus.STOPPED)
+        self.assertEqual(sensor.default_status, DefaultSensorStatus.RUNNING)

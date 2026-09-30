@@ -22,6 +22,11 @@ Run `lecolaz_services_smoke_test`, then follow the relevant integration guide:
 - [HAM](ham/README.md): reference initialization, daily observations and backfills.
 - [OpenMeteo](openmeteo/README.md): sensor registration, raw CSVs and observation loading.
 
+The `dagster-code` post-start hook registers each family's reference assets only
+if any lack materializations, then reloads the code location once if registration
+succeeded. HAM is skipped without an API key. Family failures are reported after
+attempting the other family; the hook exits with an error if either failed.
+
 ## Shared behavior
 
 Sensors are discovered from PostgreSQL when the code location loads. Reload
@@ -30,7 +35,7 @@ names/starting dates. Database/schema errors fail loading rather than hiding ass
 
 Each observation asset owns one sensor's rows and has UTC daily partitions.
 The first day is clipped to `starting_date`; historical days require explicit
-backfills. Automation starts stopped and must be enabled in **Sensors**.
+backfills. HAM and OpenMeteo automation are enabled by default.
 
 Imports upsert values without deleting source-absent rows. Empty imports preserve
 existing data but do not mark observation partitions materialized. Such partitions

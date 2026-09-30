@@ -6,8 +6,15 @@
 
 Edit [registration.yaml](registration.yaml) for the default sensor list. IDs use
 `station_id/timeseries_group_id/timeseries_id`; the example is `1334/564/232`.
-Rebuild Dagster after changing the file, then launch `register_openmeteo_sensors`.
-To override the list for one run, use Launchpad:
+On Compose startup, a `dagster-code` post-start hook checks the two unpartitioned
+`sensors/openmeteo/reference/{sensors,observation_types}` assets. If both have
+materializations, it exits; otherwise it runs `register_openmeteo_sensors` and
+reloads the code location, retrying if the code server is not ready yet.
+Registration failures fail the hook; the next startup can retry safely.
+This requires Compose 2.30+ and an already migrated application database.
+
+YAML changes do not trigger registration automatically. Rebuild Dagster, then
+launch `register_openmeteo_sensors` manually. To override the list, use Launchpad:
 
 ```yaml
 ops:
@@ -21,7 +28,7 @@ types. Sensor name comes from the group; location comes from the station's `geom
 The type key is `variable_id/unit_id` (the example is air temperature, `5683/14`, °C).
 Remaining source information is kept in JSON metadata, including the sensor's
 `observation_type_key`. UUIDs, `starting_date` and `space` are preserved.
-Reload the `lecolaz` code location after registration. No API key is needed.
+Reload the `lecolaz` code location after manual registration. No API key is needed.
 
 ## Fetch and load
 
@@ -32,12 +39,12 @@ Each sensor has two daily assets:
 | `sensors/openmeteo/raw/<sensor UUID>` | `sensors/openmeteo/raw` | Raw CSV in MinIO |
 | `sensors/openmeteo/observation_values/<sensor UUID>` | `sensors/openmeteo/observation_values` | That sensor's database rows |
 
-In the Asset Catalog, select `+key:"sensors/openmeteo/observation_values/<sensor UUID>"`, select both
-results, then **Materialize selected** and choose the day(s). The leading `+`
-includes the raw asset. Selecting only observations replays the stored CSV without
+In the Asset Catalog, select `1+key:"sensors/openmeteo/observation_values/<sensor UUID>"`, select both
+results, then **Materialize selected** and choose the day(s). The `1+` includes
+only the immediate upstream raw asset. Selecting only observations replays the stored CSV without
 an API call; it does not automatically fetch missing upstream data.
 
-Enable `openmeteo_observation_automation` for new days after
+`openmeteo_observation_automation` is enabled by default for new days after
 `OPENMETEO_INGESTION_DELAY_HOURS` (default **04:00 UTC**). Dependencies enforce raw
 before observations; a failed raw step prevents loading. Backfill historical days
 explicitly by selecting both assets.

@@ -73,7 +73,7 @@ with patch('sqlalchemy.create_engine', side_effect=AssertionError('DB at import'
     def test_empty_catalog_still_loads_initialization_and_automation(self):
         defs = build_definitions([])
         Definitions.validate_loadable(defs)
-        self.assertEqual(len(defs.assets), 2)
+        self.assertEqual(len(defs.resolve_all_asset_keys()), 4)
         self.assertEqual(len(defs.sensors), 2)
 
     def test_reload_add_delete_rename_and_start_date_changes(self):
@@ -92,7 +92,7 @@ with patch('sqlalchemy.create_engine', side_effect=AssertionError('DB at import'
         asset = next(a for a in reloaded.assets if a.key == key)
         self.assertEqual(asset.partitions_def.start.date().isoformat(), "2026-02-01")
         self.assertEqual(asset.metadata_by_key[key]["sensor_name"], "Renamed")
-        self.assertEqual(len(build_definitions().resolve_all_asset_keys()), 4)
+        self.assertEqual(len(build_definitions().resolve_all_asset_keys()), 6)
 
     def test_invalid_delay_is_rejected_even_with_empty_catalog(self):
         for delay in (-1, 24, 4.5, True):

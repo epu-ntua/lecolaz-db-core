@@ -213,7 +213,7 @@ def verify_restart():
 
 
 def verify_ingestion():
-    run_ids = [launch("lecolaz_services_smoke_test"), launch("hamapi_initialize")]
+    run_ids = [launch("lecolaz_services_smoke_test"), launch("register_hamapi_sensors")]
     with fixture_database().engine() as engine:
         sensor_ids = [row["id"] for row in load_sensor_catalog(engine)]
         assert len(sensor_ids) == 2, sensor_ids

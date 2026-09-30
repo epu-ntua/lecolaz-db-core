@@ -2,6 +2,7 @@
 
 from collections.abc import Iterator
 from datetime import datetime
+from importlib.metadata import version
 
 from app.db.models.observation_type import ObservationType
 from app.db.models.observation_value import ObservationValue
@@ -31,7 +32,7 @@ from infra.dagster.ham import (
     observation_values,
     sensors,
 )
-from infra.dagster.ham.client import HAM_CATALOG_URL, HamApi
+from infra.dagster.ham.client import HamApi
 from infra.dagster.ham.metadata import observation_metadata
 from infra.dagster.metadata import (
     measure_duration,
@@ -75,7 +76,7 @@ class ObservationTypesConfig(Config):
         "sensor_family = 'ham'",
         "Upsert model-referenced reading definitions; preserve IDs and rows absent from the response.",
     ),
-    description="Manually synchronize HAM reading definitions referenced by device models.",
+    description="Register HAM reading definitions referenced by the bundled device models.",
 )
 def hamapi_observation_types(
     config: ObservationTypesConfig, ham_api: HamApi, database: LeColazDatabase
@@ -96,8 +97,9 @@ def hamapi_observation_types(
             "excluded_reading_count": len(excluded),
             "excluded_reading_keys": MetadataValue.json(excluded),
             "include_extra_readings": config.include_extra_readings,
-            "readings_catalog_url": MetadataValue.url(f"{HAM_CATALOG_URL}/readings.json"),
-            "models_catalog_url": MetadataValue.url(f"{HAM_CATALOG_URL}/models.json"),
+            "readings_catalog": "hamapi/readings.json",
+            "models_catalog": "hamapi/models.json",
+            "hamapi_version": version("hamapi"),
         }
     )
 
@@ -112,7 +114,7 @@ def hamapi_observation_types(
         "sensor_family = 'ham'",
         "Upsert source-owned device fields; preserve IDs, local fields, and source-absent devices.",
     ),
-    description="Manually synchronize devices accessible to HAMAPI_API_KEY.",
+    description="Register devices accessible to HAMAPI_API_KEY; preserve locally managed fields.",
 )
 def hamapi_sensors(ham_api: HamApi, database: LeColazDatabase) -> MaterializeResult:
     timings = {}

@@ -1,11 +1,20 @@
 """Discover OpenMeteo sensors and wire the family's component and resources."""
 
-from dagster import Definitions
+from dagster import Definitions, JobDefinition
 from infra.dagster.object_storage import S3BytesIOManager
 from infra.dagster.openmeteo import catalog
 from infra.dagster.openmeteo.client import OpenMeteoApi
-from infra.dagster.openmeteo.component import OpenMeteoComponent
+from infra.dagster.openmeteo.component import (
+    OpenMeteoComponent,
+    registration_definitions,
+)
 from infra.dagster.resources import LeColazDatabase
+
+
+def startup_registration_job(database: LeColazDatabase) -> JobDefinition:
+    return registration_definitions(
+        {"database": database, "openmeteo_api": OpenMeteoApi()}
+    ).resolve_job_def("register_openmeteo_sensors")
 
 
 def build_definitions(
@@ -24,7 +33,5 @@ def build_definitions(
         OpenMeteoComponent(
             devices, delay_hours, registration_resources=resources
         ).build_defs(),
-        Definitions(
-            resources={**resources, "raw_csv_io_manager": raw_csv_io_manager}
-        ),
+        Definitions(resources={**resources, "raw_csv_io_manager": raw_csv_io_manager}),
     )

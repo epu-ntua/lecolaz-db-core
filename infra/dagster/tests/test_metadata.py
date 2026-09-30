@@ -29,18 +29,19 @@ class MetadataTests(unittest.TestCase):
 
     def test_all_assets_describe_table_scope_and_kinds(self):
         for asset in build_definitions().assets:
-            with self.subTest(asset=asset.key):
-                spec = asset.get_asset_spec(asset.key)
+            for spec in asset.specs:
                 self.assertEqual(spec.kinds, {"python", "postgres"})
                 metadata = spec.metadata
                 self.assertTrue(metadata["dagster/table_name"].startswith("public."))
                 self.assertIsNotNone(metadata["dagster/column_schema"])
                 self.assertIn("preserve", metadata["write_semantics"])
-                if asset.key.path[-2] == "observation_values":
-                    self.assertIn(asset.key.path[-1], metadata["row_scope"])
+                if spec.key.path[-2] == "observation_values":
+                    self.assertIn(spec.key.path[-1], metadata["row_scope"])
                     self.assertIn("UTC", metadata["partition_semantics"])
                 else:
-                    self.assertEqual(metadata["row_scope"], "sensor_family = 'ham'")
+                    self.assertEqual(
+                        metadata["row_scope"], f"sensor_family = '{spec.key.path[1]}'"
+                    )
 
     def test_duration_uses_monotonic_clock_and_only_completed_phases(self):
         metadata = {}

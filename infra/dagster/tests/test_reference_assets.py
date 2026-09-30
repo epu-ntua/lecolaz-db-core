@@ -53,7 +53,8 @@ class ReferenceAssetTests(unittest.TestCase):
                 )
                 self.assertEqual(metadata["excluded_reading_count"].value, 0 if enabled else 1)
                 self.assertEqual(metadata["unchanged"].value, 0)
-                self.assertTrue(metadata["models_catalog_url"].value.endswith("/models.json"))
+                self.assertEqual(metadata["models_catalog"].value, "hamapi/models.json")
+                self.assertTrue(metadata["hamapi_version"].value)
 
     def test_sensor_import_metadata_including_empty_catalog(self):
         for devices in ([], [{"name": "Example", "serialno": "device:0"}]):
