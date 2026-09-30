@@ -2,10 +2,14 @@
 !backend/
 !backend/app/
 !backend/app/__init__.py
+!backend/app/core/
+!backend/app/core/config.py
 !backend/app/db/
 !backend/app/db/**
 !backend/app/storage/
 !backend/app/storage/__init__.py
+!backend/app/storage/object/
+!backend/app/storage/object/minio.py
 !backend/app/storage/postgres/
 !backend/app/storage/postgres/**
 !infra/

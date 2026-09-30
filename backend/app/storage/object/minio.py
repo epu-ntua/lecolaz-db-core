@@ -29,13 +29,17 @@ class MinioStore:
         except S3Error as e:
             raise RuntimeError(f"MinIO bucket check failed: {e}")
 
-    def put_object(self, object_key: str, data: bytes, content_type: str | None):
+    def put_object(
+        self, object_key: str, data: bytes, content_type: str | None,
+        *, metadata: dict[str, str] | None = None,
+    ):
         self.client.put_object(
             self.bucket,
             object_key,
             io.BytesIO(data),
             length=len(data),
             content_type=content_type,
+            metadata=metadata,
         )
 
     def delete_object(self, object_key: str):

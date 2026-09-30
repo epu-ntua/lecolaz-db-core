@@ -36,7 +36,9 @@ with patch('sqlalchemy.create_engine', side_effect=AssertionError('DB at import'
         self.assertEqual(result.returncode, 0, result.stderr)
 
     def test_definition_load_discovers_sensors(self):
-        with patch.object(sensors, "load_sensor_catalog", return_value=CATALOG) as read:
+        with patch.object(sensors, "load_sensor_catalog", return_value=CATALOG) as read, patch.object(
+            pipeline.openmeteo_catalog, "load_sensor_catalog", return_value=[]
+        ):
             definitions = pipeline.build_definitions(FakeDatabase(), HamApi())
         read.assert_called_once()
         Definitions.validate_loadable(definitions)
@@ -67,7 +69,7 @@ with patch('sqlalchemy.create_engine', side_effect=AssertionError('DB at import'
         defs = build_definitions([])
         Definitions.validate_loadable(defs)
         self.assertEqual(len(defs.assets), 2)
-        self.assertEqual(len(defs.sensors), 1)
+        self.assertEqual(len(defs.sensors), 2)
 
     def test_reload_add_delete_rename_and_start_date_changes(self):
         first = build_definitions()

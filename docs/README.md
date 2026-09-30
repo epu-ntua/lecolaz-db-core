@@ -28,7 +28,7 @@ infra/
 
 - [Development](development.md): local environment setup, Docker services, frontend workflow, migrations, and useful local commands.
 - [Deployment](deployment.md): current production model, manual deployment workflow, Nginx notes, and operational checks.
-- [Dagster](../infra/dagster/README.md): HAM assets, daily ingestion, backfills, storage, and tests.
+- [Dagster](../infra/dagster/README.md): HAM and OpenMeteo integrations, setup, and tests.
 
 ## Environment Files
 

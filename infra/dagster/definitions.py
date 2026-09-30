@@ -1,4 +1,4 @@
-"""Assemble the code location from database-discovered HAM sensors."""
+"""Assemble the code location from database-discovered sensors."""
 
 import os
 from urllib.request import urlopen
@@ -29,6 +29,10 @@ from infra.dagster.assets import (
 )
 from infra.dagster.ham import sensors
 from infra.dagster.resources import HamApi, LeColazDatabase
+from infra.dagster.object_storage import S3BytesIOManager
+from infra.dagster.openmeteo import catalog as openmeteo_catalog
+from infra.dagster.openmeteo.client import OpenMeteoApi
+from infra.dagster.openmeteo.component import OpenMeteoComponent
 
 EXECUTOR = multiprocess_executor.configured({"max_concurrent": 4})
 
@@ -48,8 +52,12 @@ def check_service(context: OpExecutionContext) -> dict:
 
 @job(executor_def=EXECUTOR)
 def lecolaz_services_smoke_test():
-    check_service.configured({"url": "http://backend:8000/health"}, name="check_backend")()
-    check_service.configured({"url": "http://minio:9000/minio/health/live"}, name="check_minio")()
+    check_service.configured(
+        {"url": "http://backend:8000/health"}, name="check_backend"
+    )()
+    check_service.configured(
+        {"url": "http://minio:9000/minio/health/live"}, name="check_minio"
+    )()
 
 
 def configured_database() -> LeColazDatabase:
@@ -63,15 +71,27 @@ def configured_database() -> LeColazDatabase:
 
 
 def build_definitions(
-    database: LeColazDatabase, ham_api: HamApi, delay_hours: int = 4
+    database: LeColazDatabase,
+    ham_api: HamApi,
+    delay_hours: int = 4,
+    *,
+    openmeteo_api: OpenMeteoApi | None = None,
+    raw_csv_io_manager: S3BytesIOManager | None = None,
+    openmeteo_delay_hours: int = 4,
 ) -> Definitions:
     # Read PostgreSQL at definition load, never at plain module import. Fail visibly on
     # connection/schema errors rather than silently publishing an empty asset catalog.
     observation_automation(delay_hours)  # Validate even when the catalog is empty.
-    with database.process_config_and_initialize_cm() as resolved, resolved.engine() as engine:
+    with (
+        database.process_config_and_initialize_cm() as resolved,
+        resolved.engine() as engine,
+    ):
         devices = sensors.load_sensor_catalog(engine)
-    observation_assets = [make_observation_asset(device, delay_hours) for device in devices]
-    return Definitions(
+        openmeteo_devices = openmeteo_catalog.load_sensor_catalog(engine)
+    observation_assets = [
+        make_observation_asset(device, delay_hours) for device in devices
+    ]
+    ham_definitions = Definitions(
         assets=[hamapi_observation_types, hamapi_sensors, *observation_assets],
         jobs=[hamapi_initialize, lecolaz_services_smoke_test],
         sensors=[
@@ -87,6 +107,21 @@ def build_definitions(
         resources={"database": database, "ham_api": ham_api},
         executor=EXECUTOR,
     )
+    openmeteo_api = openmeteo_api or OpenMeteoApi()
+    return Definitions.merge(
+        ham_definitions,
+        OpenMeteoComponent(
+            openmeteo_devices,
+            openmeteo_delay_hours,
+            registration_resources={"database": database, "openmeteo_api": openmeteo_api},
+        ).build_defs(),
+        Definitions(
+            resources={
+                "openmeteo_api": openmeteo_api,
+                "raw_csv_io_manager": raw_csv_io_manager or S3BytesIOManager(),
+            }
+        ),
+    )
 
 
 @definitions
@@ -95,4 +130,7 @@ def defs() -> Definitions:
         configured_database(),
         HamApi(api_key=EnvVar("HAMAPI_API_KEY")),
         delay_hours=int(os.environ.get("HAMAPI_INGESTION_DELAY_HOURS", "4")),
+        openmeteo_delay_hours=int(
+            os.environ.get("OPENMETEO_INGESTION_DELAY_HOURS", "4")
+        ),
     )

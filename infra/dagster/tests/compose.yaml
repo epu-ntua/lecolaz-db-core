@@ -11,7 +11,7 @@ services:
     ports: !reset []
   backend:
     env_file: !reset []
-    environment:
+    environment: &fixture-backend-environment
       POSTGRES_DSN: postgresql+psycopg://fixture:fixture@postgres:5432/dagster_fixture
       MINIO_INTERNAL_ENDPOINT: http://minio:9000
       MINIO_ACCESS_KEY: lecolaz
@@ -22,11 +22,18 @@ services:
     volumes: !override
       - ../backend:/app:ro
   dagster-code:
+    env_file: !reset []
     command: dagster code-server start -h 0.0.0.0 -p 4000 -m infra.dagster.tests.fixture_definitions
     environment:
+      <<: *fixture-backend-environment
       LECOLAZ_POSTGRES_DB: dagster_fixture
       LECOLAZ_POSTGRES_USER: fixture
       LECOLAZ_POSTGRES_PASSWORD: fixture
       HAMAPI_API_KEY: ""
   dagster-webserver:
+    env_file: !reset []
+    environment: *fixture-backend-environment
     ports: !reset []
+  dagster-daemon:
+    env_file: !reset []
+    environment: *fixture-backend-environment

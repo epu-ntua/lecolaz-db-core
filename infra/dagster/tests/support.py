@@ -6,6 +6,7 @@ from unittest.mock import patch
 
 from infra.dagster.definitions import build_definitions as _build_definitions
 from infra.dagster.ham import sensors
+from infra.dagster.openmeteo import catalog as openmeteo_catalog
 from infra.dagster.resources import HamApi, LeColazDatabase
 
 DEVICE_IDS = [
@@ -60,5 +61,8 @@ class StubHamApi:
 
 
 def build_definitions(catalog=CATALOG, *, delay_hours=4):
-    with patch.object(sensors, "load_sensor_catalog", return_value=catalog):
+    with (
+        patch.object(sensors, "load_sensor_catalog", return_value=catalog),
+        patch.object(openmeteo_catalog, "load_sensor_catalog", return_value=[]),
+    ):
         return _build_definitions(FakeDatabase(), HamApi(), delay_hours=delay_hours)

@@ -5,6 +5,8 @@ x-dagster-common: &dagster-common
   build:
     context: ..
     dockerfile: infra/dagster/Dockerfile
+  env_file:
+    - ../backend/.env
   environment:
     DAGSTER_POSTGRES_USER: ${DAGSTER_POSTGRES_USER:-dagster}
     DAGSTER_POSTGRES_PASSWORD: ${DAGSTER_POSTGRES_PASSWORD:-dagster}
@@ -16,6 +18,7 @@ x-dagster-common: &dagster-common
     LECOLAZ_POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-lecolaz}
     HAMAPI_API_KEY: ${HAMAPI_API_KEY:-}
     HAMAPI_INGESTION_DELAY_HOURS: ${HAMAPI_INGESTION_DELAY_HOURS:-4}
+    OPENMETEO_INGESTION_DELAY_HOURS: ${OPENMETEO_INGESTION_DELAY_HOURS:-4}
   volumes:
     - dagster_storage:/opt/dagster/storage
   restart: unless-stopped

@@ -14,8 +14,10 @@ RUN pip install --no-cache-dir -r /tmp/requirements.txt \
 
 COPY backend/app/__init__.py backend/app/__init__.py
 COPY backend/app/db backend/app/db
+COPY backend/app/core/config.py backend/app/core/config.py
 COPY backend/app/storage/__init__.py backend/app/storage/__init__.py
 COPY backend/app/storage/postgres backend/app/storage/postgres
+COPY backend/app/storage/object/minio.py backend/app/storage/object/minio.py
 COPY infra/dagster infra/dagster
 COPY infra/dagster/dagster.yaml infra/dagster/workspace.yaml /opt/dagster/home/
 
