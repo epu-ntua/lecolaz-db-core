@@ -2,9 +2,10 @@
 # DEV                         PROD
 # ------------------------------------------------
 # --reload                    no --reload
-# backend bind mount          no bind mount
+# backend bind mount          no bind mount (only read-only resources/ontology)
 # DB port exposed             DB not exposed
 # MinIO ports exposed         MinIO not exposed
+# Fuseki port exposed         Fuseki not exposed
 # normal restart              restart unless-stopped
 # name: ${COMPOSE_PROJECT_NAME:-lecolaz-prod}
 
@@ -30,6 +31,31 @@ services:
       - minio_data:/data
     restart: unless-stopped
 
+  fuseki:
+    image: stain/jena-fuseki:latest
+    environment:
+      ADMIN_PASSWORD: ${FUSEKI_ADMIN_PASSWORD:?FUSEKI_ADMIN_PASSWORD must be set}
+      FUSEKI_DATASET_1: ${FUSEKI_DATASET:-lecolaz}
+      TDB: "2"
+      FUSEKI_URL: http://localhost:3030
+      FUSEKI_DATASET: ${FUSEKI_DATASET:-lecolaz}
+      FUSEKI_ADMIN_PASSWORD: ${FUSEKI_ADMIN_PASSWORD:?FUSEKI_ADMIN_PASSWORD must be set}
+      SCHEMA_GRAPH: https://w3id.org/lecolaz/graph/schema
+      SCHEMA_FILE: le_colaz_ontology_schema.ttl
+    volumes:
+      - fuseki_data:/fuseki
+      - ./fuseki/load-schema.sh:/init/load-schema.sh:ro
+      - ../resources/ontology:/init/schema:ro
+    # Loads the ontology schema each time Compose starts this container.
+    # `|| echo` keeps a failed load from marking fuseki as failed, which would
+    # stop Compose from starting the backend (depends_on: fuseki).
+    post_start:
+      - command:
+          - bash
+          - -c
+          - 'bash /init/load-schema.sh || echo "Schema load failed, continuing without it"'
+    restart: unless-stopped
+
   backend:
     build: ../backend
     env_file:
@@ -37,10 +63,15 @@ services:
     depends_on:
       - postgres
       - minio
+      - fuseki
     ports:
       - "${BACKEND_PORT:-8080}:8000"
+    volumes:
+      # Read-only data: lets POST /ontology/schema/reload see the schema 
+      - ../resources/ontology:/resources/ontology:ro
     restart: unless-stopped
 
 volumes:
   postgres_data:
   minio_data:
+  fuseki_data:

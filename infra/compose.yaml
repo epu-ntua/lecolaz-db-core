@@ -25,6 +25,32 @@ services:
     volumes:
       - minio_data:/data
 
+  fuseki:
+    image: stain/jena-fuseki:latest
+    environment:
+      ADMIN_PASSWORD: ${FUSEKI_ADMIN_PASSWORD:-lecolaz}
+      FUSEKI_DATASET_1: ${FUSEKI_DATASET:-lecolaz}
+      TDB: "2"
+      FUSEKI_URL: http://localhost:3030
+      FUSEKI_DATASET: ${FUSEKI_DATASET:-lecolaz}
+      FUSEKI_ADMIN_PASSWORD: ${FUSEKI_ADMIN_PASSWORD:-lecolaz}
+      SCHEMA_GRAPH: https://w3id.org/lecolaz/graph/schema
+      SCHEMA_FILE: le_colaz_ontology_schema.ttl
+    ports:
+      - "${FUSEKI_PORT:-3030}:3030"
+    volumes:
+      - fuseki_data:/fuseki
+      - ./fuseki/load-schema.sh:/init/load-schema.sh:ro
+      - ../resources/ontology:/init/schema:ro
+    # Loads the ontology schema each time Compose starts this container.
+    # `|| echo` keeps a failed load from marking fuseki as failed, which would
+    # stop Compose from starting the backend (depends_on: fuseki).
+    post_start:
+      - command:
+          - bash
+          - -c
+          - 'bash /init/load-schema.sh || echo "Schema load failed, continuing without it"'
+
   backend:
     build: ../backend
     env_file:
@@ -32,12 +58,16 @@ services:
     depends_on:
       - postgres
       - minio
+      - fuseki
     ports:
       - "${BACKEND_PORT:-8000}:8000"
     command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
     volumes:
       - ../backend:/app
+      # Read by POST /ontology/schema/reload (LECO_SCHEMA_PATH).
+      - ../resources/ontology:/resources/ontology:ro
 
 volumes:
   postgres_data:
   minio_data:
+  fuseki_data:

@@ -73,6 +73,17 @@ class BimStore:
             row = session.execute(stmt).first()
             return self._to_dict(row[0], row[1]) if row else None
 
+    def list_processed_kg_unsynced(self) -> List[Dict[str, Any]]:
+        with self._session_factory() as session:
+            stmt = (
+                select(BimDataset, Dataset.status)
+                .join(Dataset, Dataset.id == BimDataset.dataset_id)
+                .where(Dataset.kg_synced.is_(False))
+                .where(Dataset.status == "processed")
+            )
+            rows = session.execute(stmt).all()
+            return [self._to_dict(bim, dataset_status) for bim, dataset_status in rows]
+
     def update_bim_record(
         self,
         dataset_id: uuid.UUID,

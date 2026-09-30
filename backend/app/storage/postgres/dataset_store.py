@@ -15,6 +15,7 @@ Why it exists:
 """
 
 import uuid
+from datetime import datetime
 from typing import Optional, List, Dict, Any
 
 from sqlalchemy import select
@@ -107,6 +108,30 @@ class DatasetStore:
             session.commit()
             session.refresh(obj)
             return self._to_dict(obj)
+
+    def mark_kg_synced(self, dataset_id: uuid.UUID, synced_at: datetime) -> None:
+        with self._session_factory() as session:
+            stmt = select(Dataset).where(Dataset.id == dataset_id)
+            obj = session.execute(stmt).scalars().first()
+            if not obj:
+                return
+
+            obj.kg_synced = True
+            obj.kg_synced_at = synced_at
+            obj.kg_error = None
+            session.commit()
+
+    def mark_kg_sync_failed(self, dataset_id: uuid.UUID, error: str) -> None:
+        with self._session_factory() as session:
+            stmt = select(Dataset).where(Dataset.id == dataset_id)
+            obj = session.execute(stmt).scalars().first()
+            if not obj:
+                return
+
+            obj.kg_synced = False
+            obj.kg_synced_at = None
+            obj.kg_error = error
+            session.commit()
 
     @staticmethod
     def _normalize_metadata(value: Any) -> Optional[dict]:

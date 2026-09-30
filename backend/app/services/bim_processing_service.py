@@ -1,12 +1,16 @@
+import logging
 import uuid
 from datetime import datetime, timezone
 from tempfile import NamedTemporaryFile
 from typing import Any, Dict
 import ifcopenshell
 
+from app.ontology.service import ontology_service
 from app.storage.postgres.bim_store import BimStore
 from app.storage.postgres.dataset_store import DatasetStore
 from app.storage.object.minio import MinioStore
+
+logger = logging.getLogger("uvicorn.error")
 
 
 class BimProcessingError(Exception):
@@ -140,6 +144,21 @@ def _parse_ifc_bytes(data: bytes) -> dict[str, Any]:
     }
 
 
+def _trigger_ontology_sync(bim_dataset_id: uuid.UUID) -> None:
+    """
+    Fires the ontology sync for a just-processed BIM dataset.
+
+    Expected failures (e.g. Fuseki unreachable) are already recorded on
+    datasets.kg_error by the ontology service and do not raise. This catch
+    only guards against unexpected errors, which are logged and swallowed so
+    they never mark the already-processed BIM dataset as failed.
+    """
+    try:
+        ontology_service.sync_bim_dataset(bim_dataset_id=bim_dataset_id)
+    except Exception:
+        logger.exception("Ontology sync failed to run for bim_dataset_id=%s", bim_dataset_id)
+
+
 def process_bim(dataset_id: uuid.UUID) -> Dict[str, Any]:
     dataset_store = DatasetStore()
     bim_store = BimStore()
@@ -186,6 +205,11 @@ def process_bim(dataset_id: uuid.UUID) -> Dict[str, Any]:
         )
         if not updated_dataset:
             raise BimNotFoundError("Dataset not found during BIM status update")
+
+        # BIM parsing succeeded and is already committed above; ontology sync
+        # runs as an independent step so a Fuseki failure here never rolls
+        # back or fails the BIM processing that already happened.
+        _trigger_ontology_sync(uuid.UUID(bim_dataset["id"]))
 
         return {
             "dataset_id": str(dataset_id),
