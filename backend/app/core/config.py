@@ -8,6 +8,9 @@ class Settings:
     # App
     APP_NAME: str = os.getenv("APP_NAME", "LeColaz")
     APP_ENV: str = os.getenv("APP_ENV", "dev")
+    # Externally reachable base URL of this API; used to build links that are
+    # stored outside the app (e.g. leco:timeSeriesRef in the knowledge graph).
+    API_PUBLIC_BASE_URL: str = os.getenv("API_PUBLIC_BASE_URL", "http://localhost:8000")
 
     # Postgres
     POSTGRES_DSN: str = os.getenv("POSTGRES_DSN")

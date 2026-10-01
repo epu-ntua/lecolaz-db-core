@@ -6,6 +6,7 @@ import re
 from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, Iterable
 
+from app.ontology.service import ontology_service
 from app.storage.object.minio import MinioStore
 from app.storage.postgres.bim_space_store import BimSpaceStore
 from app.storage.postgres.dataset_store import DatasetStore
@@ -354,6 +355,23 @@ def _build_timeseries_rows(
     return rows, skipped_values_count + int(summary.get("skipped_values", 0))
 
 
+def _trigger_ontology_sync(simulation_dataset_id: uuid.UUID) -> None:
+    """
+    Fires the ontology sync for a just-processed simulation dataset.
+
+    Expected failures (e.g. Fuseki unreachable) are already recorded on
+    datasets.kg_error by the ontology service and do not raise. This catch
+    only guards against unexpected errors, which are logged and swallowed so
+    they never mark the already-processed simulation dataset as failed.
+    """
+    try:
+        ontology_service.sync_simulation_dataset(simulation_dataset_id=simulation_dataset_id)
+    except Exception:
+        logger.exception(
+            "Ontology sync failed to run for simulation_dataset_id=%s", simulation_dataset_id
+        )
+
+
 def process_simulation(dataset_id: uuid.UUID, *, allow_reprocess: bool = False) -> Dict[str, Any]:
     simulation_store = SimulationStore()
     dataset_store = DatasetStore()
@@ -503,6 +521,10 @@ def process_simulation(dataset_id: uuid.UUID, *, allow_reprocess: bool = False) 
             len(timeseries_rows),
             skipped_values_count,
         )
+
+        # Ontology sync runs as an independent step
+        _trigger_ontology_sync(simulation_dataset_id)
+
         return {
             "id": simulation["id"],
             "status": updated["status"],

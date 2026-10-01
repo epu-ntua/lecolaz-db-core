@@ -43,8 +43,32 @@ class BimDatasetDTO:
 
 
 @dataclass(frozen=True)
+class SimulationVariableDTO:
+    id: uuid.UUID
+    variable_id: str
+    variable_name: str
+    unit: str | None
+    frequency: str | None
+    key: str | None
+    space_global_id: str | None
+
+
+@dataclass(frozen=True)
+class SimulationDatasetDTO:
+    simulation_dataset_id: uuid.UUID
+    dataset_id: uuid.UUID
+    filename: str
+    format: str
+    status: str | None
+    created_at: datetime | None
+    size_bytes: int | None
+    variables: list[SimulationVariableDTO] = field(default_factory=list)
+
+
+@dataclass(frozen=True)
 class SyncResult:
-    bim_dataset_id: uuid.UUID
+    # bim_dataset_id or simulation_dataset_id, depending on what was synced
+    source_id: uuid.UUID
     dataset_id: uuid.UUID
     graph_uri: str
     success: bool

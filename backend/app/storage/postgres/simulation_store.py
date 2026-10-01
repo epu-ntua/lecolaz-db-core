@@ -122,6 +122,20 @@ class SimulationStore:
             row = session.execute(stmt).first()
             return self._to_dict(row[0], row[1], row[2]) if row else None
 
+    def list_processed_kg_unsynced(self) -> List[Dict[str, Any]]:
+        with self._session_factory() as session:
+            stmt = (
+                select(SimulationDataset, Dataset.status, Dataset.dataset_metadata)
+                .join(Dataset, Dataset.id == SimulationDataset.dataset_id)
+                .where(Dataset.kg_synced.is_(False))
+                .where(Dataset.status == "processed")
+            )
+            rows = session.execute(stmt).all()
+            return [
+                self._to_dict(simulation, dataset_status, dataset_metadata)
+                for simulation, dataset_status, dataset_metadata in rows
+            ]
+
     @staticmethod
     def _to_dict(
         obj: SimulationDataset,

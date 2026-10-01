@@ -9,6 +9,10 @@ class BimDatasetNotFoundError(OntologyServiceError):
     """Raised when the referenced bim_dataset_id has no matching row."""
 
 
+class SimulationDatasetNotFoundError(OntologyServiceError):
+    """Raised when the referenced simulation_dataset_id has no matching row."""
+
+
 class OntologyValidationError(OntologyServiceError):
     """Raised when generated Turtle fails to parse back with rdflib."""
 
