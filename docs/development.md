@@ -29,6 +29,9 @@ Never commit real .env files or production credentials.
 
 Local Docker Compose commands are run from the `infra` directory. `compose.yaml` is the default development configuration, so no `-f` argument is required.
 
+For an existing PostgreSQL volume without Dagster metadata, first follow
+[existing-volume setup](../infra/dagster/README.md#storage-and-maintenance).
+
 ```bash
 cd infra
 docker compose up -d --build
@@ -41,6 +44,9 @@ The development Compose file runs:
 - `minio`: MinIO console on host port `9001` by default
 - `fuseki`: Apache Jena Fuseki (RDF triple store) on host port `3030` by default
 - `backend`: FastAPI on host port `8000` by default
+- `dagster-webserver`: Dagster UI on localhost port `3000` by default
+- `dagster-daemon`: automation evaluation and queued-run coordination
+- `dagster-code`: asset definitions and run execution
 
 The backend development container runs Uvicorn with `--reload` and bind-mounts `backend/` into `/app`, so backend source changes are picked up without rebuilding the image in most cases.
 
@@ -52,6 +58,7 @@ Useful local URLs:
 - Backend health check: `http://localhost:8000/health`
 - MinIO console: `http://localhost:9001`
 - Fuseki UI: `http://localhost:3030/#/`
+- Dagster UI: `http://localhost:3000`
 
 ## Fuseki
 
@@ -103,6 +110,19 @@ curl http://localhost:3030/$/ping
 curl -u admin:lecolaz http://localhost:3030/$/server
 ```
 
+## Dagster workflows
+Apply alembic migrations first because Dagster reads the application’s `sensors` table when loading asset definitions. If the schema is already current, Alembic makes no changes.
+
+
+Set `HAMAPI_API_KEY` in `infra/.env` before starting Dagster; recreate its services
+if already running. HAM registration and daily ingestion start automatically.
+
+Review sensor `starting_date` values in PostgreSQL and reload the `lecolaz` code
+location if you change them. Backfill historical days from each asset’s partition
+view at <http://localhost:3000>.
+
+See the [Dagster guide](../infra/dagster/README.md) for details.
+
 ## Frontend
 
 Run the frontend locally in a separate terminal. From the repository root:
@@ -148,7 +168,9 @@ Be careful with volumes:
 docker compose down -v
 ```
 
-`down -v` removes Docker volumes and therefore deletes locally persisted PostgreSQL/TimescaleDB and MinIO data.
+`down -v` removes this Compose project’s volumes: `postgres_data` (both application
+and Dagster databases in one PostgreSQL instance), `dagster_storage` (logs/artifacts),
+and `minio_data`.
 
 ## Practical Commands
 

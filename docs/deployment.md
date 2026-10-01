@@ -15,6 +15,7 @@ Docker:
   PostgreSQL / TimescaleDB
   MinIO
   Fuseki (post_start hook loads the ontology schema)
+  Dagster (code server, webserver, daemon)
 ```
 
 The production backend port should be bound to localhost rather than publicly exposed. The production Compose file publishes the backend container port using `BACKEND_PORT`, with a default of `8080`. In production `infra/.env`, use a localhost binding such as:
@@ -57,17 +58,58 @@ Development should normally happen locally. The production server should consume
 
 ## Backend and Docker Changes
 
-On the production server, from the repository directory:
+Use Docker Compose 2.30+ and keep the existing production environment-file and
+project settings. Run commands from the repository directory, proceeding only
+when the previous step succeeds.
+
+### First Dagster deployment — once per production database
+
+In `infra/.env`, set `DAGSTER_POSTGRES_USER` and
+`DAGSTER_POSTGRES_DB` to names distinct from the application user/database, and set a strong
+`DAGSTER_POSTGRES_PASSWORD`; production Compose rejects an unset or empty value.
+Set `HAMAPI_API_KEY` to enable HAM registration;
+OpenMeteo needs no API key.
+
+Existing PostgreSQL volumes do not rerun initialization scripts. Run this sequence
+once when introducing Dagster to production; its role and database persist across
+deployments and restarts. Fresh volumes initialize them automatically, and the
+explicit initialization below is safe to repeat.
 
 ```bash
 git pull origin main
-docker compose -f infra/compose.prod.yaml up -d --build
+
+# Start PostgreSQL with the updated configuration.
+docker compose -f infra/compose.prod.yaml up -d --wait postgres
+
+# ONE TIME: create Dagster's role and database on existing volumes.
+docker compose -f infra/compose.prod.yaml exec -T postgres \
+  sh /docker-entrypoint-initdb.d/020-init-dagster.sh
+
+# Build the backend and migrate before starting Dagster.
+docker compose -f infra/compose.prod.yaml build backend
+docker compose -f infra/compose.prod.yaml run --rm --no-deps backend \
+  alembic upgrade head
+
+# Start the complete stack.
+docker compose -f infra/compose.prod.yaml up -d --build --wait
 ```
 
-Run migrations after deploying backend changes that include database migrations:
+### Routine deployments
+
+When there are no new application database migrations, only run:
 
 ```bash
-docker compose -f infra/compose.prod.yaml exec backend alembic upgrade head
+git pull origin main
+docker compose -f infra/compose.prod.yaml up -d --build --wait
+```
+
+**Only when the release includes new Alembic migrations**, insert these commands
+between `git pull` and `up`:
+
+```bash
+docker compose -f infra/compose.prod.yaml build backend
+docker compose -f infra/compose.prod.yaml run --rm --no-deps backend \
+  alembic upgrade head
 ```
 
 Useful production Compose checks:
@@ -92,7 +134,7 @@ sudo mkdir -p /var/www/lecolaz
 sudo rsync -av --delete dist/ /var/www/lecolaz/
 ```
 
-The Nginx site configuration currently lives under :
+The Nginx site configuration currently lives under:
 
 ```text
 /etc/nginx/sites-available/lecolaz
@@ -125,7 +167,8 @@ The development file exposes PostgreSQL, MinIO, the MinIO console, and the backe
 
 The production file runs PostgreSQL/TimescaleDB, MinIO, Fuseki, and the backend with `restart: unless-stopped`. Fuseki is not exposed on a host port. A `post_start` hook of the `fuseki` service loads the ontology schema from `resources/ontology/` each time Compose starts the container; this needs Docker Compose 2.30 or newer on the server. A failed load does not stop the deploy and `up -d` does not report it, so after each deploy, and after a `git pull` that changes the schema, run `curl -X POST http://127.0.0.1:8080/ontology/schema/reload` on the server: it reloads the schema from `resources/ontology/` (mounted read-only into the backend) and returns the triple count or the reason it failed. Production `infra/.env` must set `FUSEKI_ADMIN_PASSWORD`, with the same value as in `backend/.env`. Compose refuses to start if it is missing. The Fuseki image writes the password into `shiro.ini` inside the `fuseki_data` volume on first start; changing `FUSEKI_ADMIN_PASSWORD` afterwards has no effect until the `admin=` line in `/fuseki/shiro.ini` is updated and Fuseki is restarted. It does not run the React frontend; production frontend serving is handled by system Nginx.
 
-Because these files are maintained separately, architectural or service changes required in both environments must be reflected in both files.
+Shared Dagster service changes apply to both environments; other architectural or
+service changes must be reflected in both Compose files.
 
 SSH port forwarding is no longer needed for normal frontend access. It can still be used for debugging internal services.
 

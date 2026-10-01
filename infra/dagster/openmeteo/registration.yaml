@@ -1,0 +1,18 @@
+# Defaults for register_openmeteo_sensors; Launchpad config can override this list.
+# Station 1334 (NTUA Campus), Initial timeseries; comments are the API's timeseries group names.
+# These datasets are publicly available.
+external_ids:
+  - "1334/669/5461" # Barometric pressure (from 2005)
+  - "1334/383/233" # Humidity (main sensor, from 1998)
+  - "1334/557/248" # Humidity (second sensor, from 2001)
+  - "1334/670/230" # Rainfall (from 1998)
+  - "1334/414/234" # Rainfall (second sensor, from 2000)
+  - "1334/318/9141" # Solar radiation (from 2009)
+  - "1334/564/232" # Temperature (from 1998)
+  - "1334/499/247" # Temperature (second sensor, from 2001)
+  - "1334/617/240" # Wind direction (from 2000)
+  - "1334/677/6661" # Wind direction (supersonic, from 2006)
+  - "1334/668/6541" # Wind gust (from 2006)
+  - "1334/468/9139" # Wind gust (from 2009, supersonic)
+  - "1334/667/6539" # Wind speed (from 2006)
+  - "1334/41/6659" # Wind speed (from 2009, supersonic)

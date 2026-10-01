@@ -1,0 +1,9 @@
+dagster==1.13.23
+dagster-webserver==1.13.23
+dagster-postgres==0.29.23
+hamapi==0.1.15
+sqlalchemy==2.0.36
+psycopg[binary]==3.2.13
+minio==7.2.8
+urllib3==2.6.3
+python-dotenv==1.0.1
