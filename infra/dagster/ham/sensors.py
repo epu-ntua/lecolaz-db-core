@@ -4,6 +4,7 @@ import logging
 from datetime import datetime, timezone
 
 from sqlalchemy import Engine
+from sqlalchemy.orm import sessionmaker
 
 from app.storage.postgres.sensor_store import SensorStore
 from infra.dagster.ham import SENSOR_FAMILY
@@ -52,7 +53,7 @@ def persist_sensor_rows(engine: Engine, rows: list[dict]) -> dict:
         return {"selected": 0, "inserted_or_updated": 0, "verified": 0}
 
     with engine.begin() as connection:
-        summary = SensorStore(connection).upsert_source_fields(SENSOR_FAMILY, rows)
+        summary = SensorStore(sessionmaker(bind=connection)).upsert_source_fields(SENSOR_FAMILY, rows)
     LOGGER.info("HAM sensor import committed: %s", summary)
     return summary
 
@@ -70,7 +71,7 @@ def utc_starting_date(value: datetime) -> datetime:
 def load_sensor_catalog(engine: Engine) -> list[dict]:
     """Read the stored HAM catalog and validate definition inputs."""
     with engine.connect() as connection:
-        rows = SensorStore(connection).list_by_sensor_family(SENSOR_FAMILY)
+        rows = SensorStore(sessionmaker(bind=connection)).list_by_sensor_family(SENSOR_FAMILY)
     for row in rows:
         row["id"] = str(row["id"])
         row["starting_date"] = utc_starting_date(row["starting_date"])

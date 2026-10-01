@@ -2,7 +2,9 @@
 
 [Overview](../README.md)
 
-From the repository root, with `infra/dagster/requirements.txt` installed:
+From the repository root, with `infra/dagster/requirements.txt` installed and
+`POSTGRES_DSN` set (as in `backend/.env`). The stores import the backend session
+factory; this creates an engine but does not connect to the database:
 
 ```bash
 PYTHONPATH=backend:. python -m unittest discover -s infra/dagster/tests -v
@@ -12,7 +14,7 @@ Or use the pinned image:
 
 ```bash
 docker build -t lecolaz-dagster:1.13.23 -f infra/dagster/Dockerfile .
-docker run --rm lecolaz-dagster:1.13.23 python -m unittest discover -s infra/dagster/tests -v
+docker run --rm -e POSTGRES_DSN lecolaz-dagster:1.13.23 python -m unittest discover -s infra/dagster/tests -v
 ```
 
 Tests use fixture API responses. OpenMeteo fixtures cover `1334/564/232` on

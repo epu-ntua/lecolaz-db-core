@@ -7,6 +7,7 @@ from datetime import datetime, timezone
 from uuid import UUID
 
 from sqlalchemy import Engine
+from sqlalchemy.orm import sessionmaker
 
 from app.storage.postgres.observation_type_store import ObservationTypeStore
 from app.storage.postgres.observation_value_store import ObservationValueStore
@@ -20,14 +21,14 @@ LOGGER = logging.getLogger(__name__)
 def load_references(engine: Engine, sensor_id: str) -> tuple[dict, dict[str, str]]:
     """Load one HAM sensor and its family's reading-type UUIDs for an import."""
     with engine.connect() as connection:
-        sensor = SensorStore(connection).get_by_id_and_sensor_family(
+        sensor = SensorStore(sessionmaker(bind=connection)).get_by_id_and_sensor_family(
             UUID(sensor_id), SENSOR_FAMILY
         )
         if sensor is None:
             raise SensorUnavailable(
                 f"HAM sensor {sensor_id} not found or no longer HAM; reload the code location"
             )
-        type_ids = ObservationTypeStore(connection).get_id_map_by_sensor_family(SENSOR_FAMILY)
+        type_ids = ObservationTypeStore(sessionmaker(bind=connection)).get_id_map_by_sensor_family(SENSOR_FAMILY)
         types = {key: str(type_id) for key, type_id in type_ids.items()}
     if not types:
         raise ValueError("No HAM observation types found; run their initialization first")
@@ -167,5 +168,5 @@ def persist_observation_rows(engine: Engine, rows: list[dict]) -> dict:
     if not rows:
         return {"selected": 0, "inserted_or_updated": 0}
     with engine.begin() as connection:
-        summary = ObservationValueStore(connection).upsert_rows(rows)
+        summary = ObservationValueStore(sessionmaker(bind=connection)).upsert_rows(rows)
     return summary

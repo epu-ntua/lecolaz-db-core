@@ -6,6 +6,8 @@ import math
 from datetime import datetime, timezone
 from uuid import UUID
 
+from sqlalchemy.orm import sessionmaker
+
 from app.storage.postgres.observation_value_store import ObservationValueStore
 
 
@@ -63,4 +65,4 @@ def prepare_rows(
 
 def persist_rows(engine, rows: list[dict]) -> dict:
     with engine.begin() as connection:
-        return ObservationValueStore(connection).upsert_rows(rows)
+        return ObservationValueStore(sessionmaker(bind=connection)).upsert_rows(rows)

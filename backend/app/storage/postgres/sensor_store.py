@@ -1,22 +1,23 @@
 import uuid
 from typing import Any, Dict, List, Optional
 
-from sqlalchemy import Connection, or_, select
+from sqlalchemy import or_, select
 from sqlalchemy.dialects.postgresql import insert
 
 from app.db.models.sensor import Sensor
+from app.db.session import SessionLocal
 
 
 class SensorStore:
-    """Sensor persistence; the caller owns the connection and transaction.
+    """Sensor persistence; uses a session factory for database access.
 
     Returns plain records with native UUIDs and datetimes, without ORM objects.
     Source metadata is opaque here: integrations interpret it. OpenMeteo needs it
     in catalog/detail reads to resolve the single observation type for each sensor.
     """
 
-    def __init__(self, connection: Connection):
-        self._connection = connection
+    def __init__(self, session_factory=SessionLocal):
+        self._session_factory = session_factory
 
     def upsert_source_fields(
         self,
@@ -61,23 +62,25 @@ class SensorStore:
                 ]
             ),
         ).returning(Sensor.external_id)
-        changed = len(self._connection.execute(statement).scalars().all())
-        external_ids = {row["external_id"] for row in rows}
-        stored = set(
-            self._connection.execute(
-                select(Sensor.external_id).where(
-                    Sensor.sensor_family == sensor_family,
-                    Sensor.external_id.in_(external_ids),
-                )
-            ).scalars()
-        )
-        if stored != external_ids:
-            raise ValueError("Sensor verification failed; rolling back")
-        return {
-            "selected": len(rows),
-            "inserted_or_updated": changed,
-            "verified": len(stored),
-        }
+        with self._session_factory() as session:
+            changed = len(session.execute(statement).scalars().all())
+            external_ids = {row["external_id"] for row in rows}
+            stored = set(
+                session.execute(
+                    select(Sensor.external_id).where(
+                        Sensor.sensor_family == sensor_family,
+                        Sensor.external_id.in_(external_ids),
+                    )
+                ).scalars()
+            )
+            if stored != external_ids:
+                raise ValueError("Sensor verification failed; rolling back")
+            session.commit()
+            return {
+                "selected": len(rows),
+                "inserted_or_updated": changed,
+                "verified": len(stored),
+            }
 
     def list_by_sensor_family(self, sensor_family: str) -> List[Dict[str, Any]]:
         """Return the complete catalog in stable UUID order for ingestion discovery."""
@@ -92,7 +95,8 @@ class SensorStore:
             .where(Sensor.sensor_family == sensor_family)
             .order_by(Sensor.id)
         )
-        return [dict(row) for row in self._connection.execute(statement).mappings()]
+        with self._session_factory() as session:
+            return [dict(row) for row in session.execute(statement).mappings()]
 
     def get_by_id_and_sensor_family(
         self, sensor_id: uuid.UUID, sensor_family: str
@@ -100,5 +104,6 @@ class SensorStore:
         statement = select(
             Sensor.id, Sensor.external_id, Sensor.starting_date, Sensor.sensor_metadata
         ).where(Sensor.id == sensor_id, Sensor.sensor_family == sensor_family)
-        row = self._connection.execute(statement).mappings().one_or_none()
-        return dict(row) if row is not None else None
+        with self._session_factory() as session:
+            row = session.execute(statement).mappings().one_or_none()
+            return dict(row) if row is not None else None

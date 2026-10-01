@@ -3,6 +3,7 @@
 import logging
 
 from sqlalchemy import Engine
+from sqlalchemy.orm import sessionmaker
 
 from app.storage.postgres.observation_type_store import ObservationTypeStore
 from infra.dagster.ham import SENSOR_FAMILY
@@ -78,6 +79,6 @@ def persist_rows(engine: Engine, rows: list[dict]) -> dict:
     if not rows:
         raise ValueError("Refusing to load an empty observation-type batch")
     with engine.begin() as connection:
-        summary = ObservationTypeStore(connection).upsert_source_fields(SENSOR_FAMILY, rows)
+        summary = ObservationTypeStore(sessionmaker(bind=connection)).upsert_source_fields(SENSOR_FAMILY, rows)
     LOGGER.info("HAMAPI observation-type import committed: %s", summary)
     return summary
