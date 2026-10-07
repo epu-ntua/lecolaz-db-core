@@ -12,14 +12,15 @@ from dagster import (
     JobDefinition,
     define_asset_job,
 )
-from infra.dagster.ham import OBSERVATION_VALUES_PREFIX, sensors
+from infra.dagster.ham import OBSERVATION_VALUES_PREFIX, RAW_PREFIX, sensors
 from infra.dagster.ham.assets import (
+    HamComponent,
     hamapi_observation_types,
     hamapi_sensors,
-    make_observation_asset,
     observation_automation,
 )
 from infra.dagster.ham.client import HamApi
+from infra.dagster.object_storage import S3BytesIOManager
 from infra.dagster.resources import LeColazDatabase
 
 
@@ -63,6 +64,7 @@ def build_definitions(
     delay_hours: int = 4,
     *,
     executor: ExecutorDefinition,
+    raw_io_manager: S3BytesIOManager | None = None,
 ) -> Definitions:
     observation_automation(delay_hours)  # Validate even when the catalog is empty.
     with (
@@ -70,26 +72,35 @@ def build_definitions(
         resolved.engine() as engine,
     ):
         devices = sensors.load_sensor_catalog(engine)
-    return Definitions(
-        assets=[
-            hamapi_observation_types,
-            hamapi_sensors,
-            *[make_observation_asset(device, delay_hours) for device in devices],
-        ],
-        jobs=[
-            registration_definitions(database, ham_api, executor).resolve_job_def(
-                "register_hamapi_sensors"
-            )
-        ],
-        sensors=[
-            AutomationConditionSensorDefinition(
-                name="hamapi_observation_automation",
-                target=AssetSelection.groups("/".join(OBSERVATION_VALUES_PREFIX)),
-                default_status=DefaultSensorStatus.RUNNING,
-                minimum_interval_seconds=15 * 60,
-                run_tags={"lecolaz/workflow": "hamapi_daily"},
-                description="Ingest new UTC day partitions after the configured grace period; backfill history explicitly.",
-            )
-        ],
-        resources={"database": database, "ham_api": ham_api},
+    return Definitions.merge(
+        HamComponent(devices, delay_hours).build_defs(),
+        Definitions(
+            jobs=[
+                registration_definitions(database, ham_api, executor).resolve_job_def(
+                    "register_hamapi_sensors"
+                )
+            ],
+            sensors=[
+                AutomationConditionSensorDefinition(
+                    name="hamapi_observation_automation",
+                    target=AssetSelection.groups(
+                        "/".join(RAW_PREFIX), "/".join(OBSERVATION_VALUES_PREFIX)
+                    ),
+                    default_status=DefaultSensorStatus.RUNNING,
+                    minimum_interval_seconds=15 * 60,
+                    run_tags={"lecolaz/workflow": "hamapi_daily"},
+                    description=(
+                        "Fetch raw daily datalogs after the grace period, then parse "
+                        "and load stored partitions; backfill history explicitly."
+                    ),
+                )
+            ],
+            resources={
+                "database": database,
+                "ham_api": ham_api,
+                "ham_raw_io_manager": raw_io_manager or S3BytesIOManager(
+                    extension="hal", content_type="text/plain"
+                ),
+            },
+        ),
     )

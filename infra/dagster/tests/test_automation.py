@@ -5,6 +5,7 @@ from datetime import datetime, timezone
 
 from dagster import (
     AssetMaterialization,
+    AssetSelection,
     DagsterInstance,
     DefaultSensorStatus,
     evaluate_automation_conditions,
@@ -20,7 +21,7 @@ class AutomationTests(unittest.TestCase):
         self.addCleanup(self.instance.dispose)
         self.defs = build_definitions()
         self.cursor = None
-        self.keys = [pipeline.observation_asset_key(id_) for id_ in DEVICE_IDS]
+        self.keys = [pipeline.raw_asset_key(id_) for id_ in DEVICE_IDS]
 
     def evaluate(self, timestamp):
         result = evaluate_automation_conditions(
@@ -77,3 +78,21 @@ class AutomationTests(unittest.TestCase):
         )
         sensor = self.defs.get_sensor_def("hamapi_observation_automation")
         self.assertEqual(sensor.default_status, DefaultSensorStatus.RUNNING)
+
+    def test_load_waits_for_raw_then_automates(self):
+        key = pipeline.observation_asset_key(DEVICE_IDS[0])
+        cursor = None
+        for hour, expected in ((4, set()), (5, {"2026-09-08"})):
+            if hour == 5:
+                self.instance.report_runless_asset_event(
+                    AssetMaterialization(self.keys[0], partition="2026-09-08")
+                )
+            result = evaluate_automation_conditions(
+                self.defs,
+                instance=self.instance,
+                cursor=cursor,
+                asset_selection=AssetSelection.assets(key),
+                evaluation_time=datetime(2026, 9, 9, hour, tzinfo=timezone.utc),
+            )
+            cursor = result.cursor
+            self.assertEqual(result.get_requested_partitions(key), expected)
