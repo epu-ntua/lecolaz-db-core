@@ -34,9 +34,9 @@ Simulation (EnergyPlus ESO) mapping, build_simulation():
 
 simulation_datasets  -> leco:EnergyModelDataset (+ leco:Dataset) and one
                         leco:SimulationRun
-simulation_variables -> leco:Observation (+ sosa:Observation), only for
-                        variable names listed in ESO_VARIABLE_CONCEPTS
-                        (the rest stay in Postgres only)
+simulation_variables -> leco:Observation (+ sosa:Observation), one per variable
+variable_name        -> leco:ObservableProperty (+ sosa:ObservableProperty),
+                        created dynamically, one per distinct name
 
     SimulationRun leco:usesEnergyModelDataset EnergyModelDataset
     SimulationRun leco:simulates              <ObservableProperty concept>
@@ -44,14 +44,22 @@ simulation_variables -> leco:Observation (+ sosa:Observation), only for
     Observation   sosa:hasFeatureOfInterest   Space (when the zone matched a BIM space)
     Observation   leco:timeSeriesRef          API URL returning its timeseries
                                               (GET /simulations/{id}/timeseries)
+    Concept       rdfs:label                  the EnergyPlus variable name
+    Concept       leco:hasUnit                the variable's unit (EnergyPlus ESO: always SI)
+
+Concept URI = variable name split on any non-alphanumeric character, each
+word capitalised, joined: "Zone Mean Air Temperature" -> leco:ZoneMeanAirTemperature,
+"Electricity:Facility" -> leco:ElectricityFacility. The same name always gives
+the same URI, so every simulation graph that uses a concept writes identical
+definition triples; concepts are not stored in a shared graph.
 
 Timeseries values stay in Postgres. No Observation -> SimulationRun link is
 emitted (the schema has none); the simulation's named graph gives provenance.
-Units are not emitted: leco:hasUnit's domain is the shared concept, not the
-variable. Observation URIs are keyed by simulation_dataset id + ESO variable
-id, so they are stable across reprocessing.
+Observation URIs are keyed by simulation_dataset id + ESO variable id, so they
+are stable across reprocessing.
 """
 
+import re
 from pathlib import PurePath
 
 from rdflib import Graph, Literal, Namespace, RDF, RDFS, URIRef
@@ -62,15 +70,6 @@ from app.ontology.dto import BimDatasetDTO, SimulationDatasetDTO
 
 BOT = Namespace("https://w3id.org/bot#")
 SOSA = Namespace("http://www.w3.org/ns/sosa/")
-
-# EnergyPlus ESO variable name -> local name of a leco:ObservableProperty
-# individual declared in the ontology schema. Only unambiguous matches.
-ESO_VARIABLE_CONCEPTS = {
-    "Zone Mean Air Temperature": "IndoorAirTemperature",
-    "Zone Air Relative Humidity": "RelativeHumidity",
-    "Zone Ideal Loads Supply Air Total Heating Energy": "EnergyConsumption",
-    "Zone Ideal Loads Supply Air Total Cooling Energy": "EnergyConsumption",
-}
 
 
 class RdfModelBuilder:
@@ -132,10 +131,8 @@ class RdfModelBuilder:
         graph.add((run_uri, self._leco.usesEnergyModelDataset, dataset_uri))
 
         for variable in sim.variables:
-            concept = ESO_VARIABLE_CONCEPTS.get(variable.variable_name)
-            if concept is None:
-                continue
-            concept_uri = self._leco[concept]
+            concept_uri = self._observable_property_uri(variable.variable_name)
+            self._add_observable_property_triples(graph, concept_uri, variable)
             graph.add((run_uri, self._leco.simulates, concept_uri))
 
             observation_uri = self._observation_uri(sim.simulation_dataset_id, variable.variable_id)
@@ -165,6 +162,14 @@ class RdfModelBuilder:
             graph.add(
                 (dataset_uri, self._leco.hasSize, Literal(dataset.size_bytes, datatype=XSD.decimal))
             )
+
+    def _add_observable_property_triples(self, graph: Graph, concept_uri: URIRef, variable) -> None:
+        # Derived only from name + unit, so every graph writes identical triples.
+        graph.add((concept_uri, RDF.type, self._leco.ObservableProperty))
+        graph.add((concept_uri, RDF.type, SOSA.ObservableProperty))
+        graph.add((concept_uri, RDFS.label, Literal(variable.variable_name)))
+        if variable.unit:
+            graph.add((concept_uri, self._leco.hasUnit, Literal(variable.unit)))
 
     def _add_observation_triples(
         self, graph: Graph, observation_uri: URIRef, simulation_dataset_id, variable, concept_uri: URIRef
@@ -240,6 +245,12 @@ class RdfModelBuilder:
 
     def _observation_uri(self, simulation_dataset_id, eso_variable_id: str) -> URIRef:
         return URIRef(f"{self._leco}simulation-observation-{simulation_dataset_id}-{eso_variable_id}")
+
+    def _observable_property_uri(self, variable_name: str) -> URIRef:
+        # Two names differing only in separators (e.g. "A:B" / "A B") would
+        # share a URI; not expected in EnergyPlus output.
+        words = re.split(r"[^0-9A-Za-z]+", variable_name)
+        return self._leco["".join(word[0].upper() + word[1:] for word in words if word)]
 
     def _timeseries_ref(self, simulation_dataset_id, simulation_variable_id) -> str:
         # app/api/simulations.py: list_simulation_timeseries
