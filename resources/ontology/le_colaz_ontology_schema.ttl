@@ -367,7 +367,7 @@ leco:hasUnit a owl:DatatypeProperty ;
     rdfs:comment "Measurement or variable unit." ;
     rdfs:domain leco:ObservableProperty ;
     rdfs:range xsd:string ;
-    skos:closeMatch qudt:unit .
+    skos:closeMatch qudt:hasUnit .
 
 leco:hasArea a owl:DatatypeProperty ;
     rdfs:label "has area" ;
