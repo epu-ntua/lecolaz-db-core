@@ -1,20 +1,19 @@
-"""HAM API access and client cache lifetime."""
+"""Bounded HAM HTTP requests, preserving datalog response bodies for replay."""
 
-import json
-from collections.abc import Iterator
-from contextlib import contextmanager
+import math
+import re
 from datetime import datetime
-from importlib.resources import files
 
-import hamapi
 import requests
 
 from dagster import ConfigurableResource, Failure
+from infra.dagster.ham.catalog import load_catalog
+from infra.dagster.ham.datalog import is_missing_datalog
 from infra.dagster.ham.observation_values import validate_interval
 
 
 class HamApi(ConfigurableResource):
-    """Network access and lifetime of the HAM library's in-memory cache."""
+    """Fetch source bytes without invoking the HAM library's parser or cache."""
 
     api_key: str = ""
 
@@ -27,22 +26,7 @@ class HamApi(ConfigurableResource):
         return self.api_key
 
     def catalog(self, name: str) -> dict:
-        if name not in ("readings", "models"):
-            raise ValueError(f"Unknown HAM catalog: {name}")
-        catalog = json.loads(
-            files("hamapi").joinpath(f"{name}.json").read_text(encoding="utf-8")
-        )
-        if not isinstance(catalog, dict) or not catalog:
-            raise ValueError(f"{name}.json must be a nonempty object")
-        return catalog
-
-    @contextmanager
-    def _client(self) -> Iterator[hamapi.hamapi]:
-        client = hamapi.hamapi(api_key=self.require_key(), cache_db_file=":memory:")
-        try:
-            yield client
-        finally:
-            client.cache_conn.close()
+        return load_catalog(name)
 
     def devices(self) -> dict:
         # The SDK's get_user_devices() omits a timeout. Registration runs in the
@@ -55,24 +39,48 @@ class HamApi(ConfigurableResource):
             response.raise_for_status()
             return response.json()
 
-    def readings(self, external_id: str, start: datetime, end: datetime) -> dict:
+    def readings(self, external_id: str, start: datetime, end: datetime) -> bytes:
+        """Fetch the level-0 bin containing this UTC daily partition, unchanged."""
         validate_interval(start, end)
-        with self._client() as client:
-            # The library otherwise chooses a default server for unknown devices.
-            response = client.get_user_devices(force_refresh=True)
-            if (
-                not isinstance(response, dict)
-                or response.get("error")
-                or not isinstance(response.get("devices"), list)
-            ):
-                raise ValueError("HAMAPI returned an invalid device response")
-            if not any(
-                isinstance(device, dict) and device.get("serialno") == external_id
-                for device in response["devices"]
-            ):
-                raise ValueError(
-                    "The configured API key cannot access the selected sensor"
+        bin_id = math.floor(start.timestamp() / 86400)
+        if end.timestamp() > (bin_id + 1) * 86400:
+            raise ValueError("HAM raw requests must fit within one UTC day")
+        response = self.devices()
+        if (
+            not isinstance(response, dict)
+            or response.get("error")
+            or not isinstance(response.get("devices"), list)
+        ):
+            raise ValueError("HAMAPI returned an invalid device response")
+        device = next(
+            (
+                item for item in response["devices"]
+                if isinstance(item, dict) and item.get("serialno") == external_id
+            ),
+            None,
+        )
+        if device is None:
+            raise ValueError("The configured API key cannot access the selected sensor")
+        server = device.get("device_server") or "node0.hamsystems.eu"
+        if not isinstance(server, str):
+            raise ValueError("Invalid HAM device server")
+        if "." not in server:
+            server += ".hamsystems.eu"
+        if server in ("device0.hamsystems.eu", "hamsystems.eu"):
+            server = "node0.hamsystems.eu"
+        if not re.fullmatch(r"[a-zA-Z0-9-]+\.hamsystems\.eu", server):
+            raise ValueError("Invalid HAM device server")
+        with requests.post(
+            f"https://{server}/datalogs.php",
+            params={"serialno": external_id, "id": f"0.{bin_id}"},
+            data={"api_key": self.require_key()},
+            timeout=(10, 60),
+        ) as response:
+            if response.status_code in (200, 404) and is_missing_datalog(response.content):
+                raise Failure(
+                    f"HAM datalog file not found for {external_id}, bin 0.{bin_id}; "
+                    "no raw payload was stored. Retry the partition when source data is available.",
+                    allow_retries=False,
                 )
-            return client.get_datalog_data(
-                external_id, start.timestamp(), end.timestamp()
-            )
+            response.raise_for_status()
+            return response.content

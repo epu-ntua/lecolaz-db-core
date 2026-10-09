@@ -30,6 +30,10 @@ class MetadataTests(unittest.TestCase):
     def test_all_assets_describe_table_scope_and_kinds(self):
         for asset in build_definitions().assets:
             for spec in asset.specs:
+                if spec.key.path[-2] == "raw":
+                    self.assertEqual(spec.kinds, {"python", "s3"})
+                    self.assertIn("source_fingerprint", spec.metadata)
+                    continue
                 self.assertEqual(spec.kinds, {"python", "postgres"})
                 metadata = spec.metadata
                 self.assertTrue(metadata["dagster/table_name"].startswith("public."))

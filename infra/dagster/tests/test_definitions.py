@@ -10,7 +10,7 @@ from dagster import AssetKey, Definitions
 
 from infra.dagster import definitions as pipeline
 from infra.dagster.ham import sensors
-from infra.dagster.ham.assets import observation_asset_key
+from infra.dagster.ham.assets import observation_asset_key, raw_asset_key
 from infra.dagster.openmeteo import catalog as openmeteo_catalog
 from infra.dagster.ham.client import HamApi
 from infra.dagster.tests.support import (
@@ -52,8 +52,13 @@ with patch('sqlalchemy.engine.Engine.connect', side_effect=AssertionError('DB at
         for device in CATALOG:
             key = observation_asset_key(device["id"])
             asset = next(a for a in defs.assets if a.key == key)
+            raw_key = raw_asset_key(device["id"])
+            raw = next(a for a in defs.assets if a.key == raw_key)
+            self.assertEqual(asset.asset_deps[key], {raw_key})
+            self.assertEqual(asset.partitions_def, raw.partitions_def)
+            self.assertNotIn("ham_api", asset.required_resource_keys)
             self.assertEqual(
-                asset.asset_deps[key],
+                raw.asset_deps[raw_key],
                 {
                     AssetKey(["sensors", "ham", "reference", "sensors"]),
                     AssetKey(["sensors", "ham", "reference", "observation_types"]),
@@ -89,7 +94,7 @@ with patch('sqlalchemy.engine.Engine.connect', side_effect=AssertionError('DB at
         asset = next(a for a in reloaded.assets if a.key == key)
         self.assertEqual(asset.partitions_def.start.date().isoformat(), "2026-02-01")
         self.assertEqual(asset.metadata_by_key[key]["sensor_name"], "Renamed")
-        self.assertEqual(len(build_definitions().resolve_all_asset_keys()), 6)
+        self.assertEqual(len(build_definitions().resolve_all_asset_keys()), 8)
 
     def test_invalid_delay_is_rejected_even_with_empty_catalog(self):
         for delay in (-1, 24, 4.5, True):

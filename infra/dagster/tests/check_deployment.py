@@ -18,7 +18,7 @@ from sqlalchemy import delete, select, update
 
 from app.db.models.observation_value import ObservationValue
 from app.db.models.sensor import Sensor
-from infra.dagster.ham.assets import observation_asset_key
+from infra.dagster.ham.assets import observation_asset_key, raw_asset_key
 from infra.dagster.ham.sensors import load_sensor_catalog
 from infra.dagster.resources import LeColazDatabase
 
@@ -38,14 +38,17 @@ def graphql(query, variables=None):
     return body["data"]
 
 
-def launch(job_name, partition=None, sensor_id=None):
+def launch(job_name, partition=None, sensor_id=None, *, replay=False):
     selector = {
         "repositoryLocationName": "lecolaz",
         "repositoryName": "__repository__",
         "pipelineName": job_name,
     }
     if sensor_id:
-        selector["assetSelection"] = [{"path": observation_asset_key(sensor_id).path}]
+        selector["assetSelection"] = [
+            {"path": key.path}
+            for key in ([observation_asset_key(sensor_id)] if replay else [raw_asset_key(sensor_id), observation_asset_key(sensor_id)])
+        ]
     params = {"selector": selector, "runConfigData": {}}
     if partition:
         params["executionMetadata"] = {"tags": [{"key": "dagster/partition", "value": partition}]}
@@ -82,7 +85,10 @@ def backfill(sensor_id, partition_keys, expect_empty=False):
     }""",
         {
             "params": {
-                "assetSelection": [{"path": observation_asset_key(sensor_id).path}],
+                "assetSelection": [
+                    {"path": raw_asset_key(sensor_id).path},
+                    {"path": observation_asset_key(sensor_id).path},
+                ],
                 "partitionNames": partition_keys,
             }
         },
@@ -244,7 +250,7 @@ def verify_ingestion():
         "2026-01-02T00:00:00+00:00",
     }
     assert all(row["value"] == 21.5 for row in before), before
-    run_ids.append(launch("__ASSET_JOB", keys[0], sensor_ids[0]))
+    run_ids.append(launch("__ASSET_JOB", keys[0], sensor_ids[0], replay=True))
     assert stored_observations() == before, "Rerun changed existing observation identities"
     with DagsterInstance.get() as instance:
         assert instance.get_materialized_partitions(observation_asset_key(sensor_ids[0])) == set(

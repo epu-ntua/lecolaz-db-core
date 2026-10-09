@@ -42,6 +42,9 @@ htmlcov/
 coverage.xml
 *.cover
 
+# Local development investigations, reports, and ad-hoc scripts
+/.local/
+
 # Type checking
 .mypy_cache/
 .pyre/
