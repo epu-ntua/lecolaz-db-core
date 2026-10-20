@@ -8,6 +8,10 @@ class Settings:
     # App
     APP_NAME: str = os.getenv("APP_NAME", "LeColaz")
     APP_ENV: str = os.getenv("APP_ENV", "dev")
+    # Externally reachable base URL of this API, written into links stored in
+    # Fuseki (for example, leco:timeSeriesRef). Use the public reverse-proxy
+    # URL in production, including its /api prefix; never a Docker-internal URL.
+    API_PUBLIC_BASE_URL: str = os.getenv("API_PUBLIC_BASE_URL", "http://localhost:8000")
 
     # Postgres
     POSTGRES_DSN: str = os.getenv("POSTGRES_DSN")

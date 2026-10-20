@@ -29,22 +29,54 @@ IFC provides no reliable source for them.
 
 URIs: storeys/spaces from IFC GlobalId (stable across re-parses);
 dataset and building from the bim_dataset id.
+
+Simulation (EnergyPlus ESO) mapping, build_simulation():
+
+simulation_datasets  -> leco:EnergyModelDataset (+ leco:Dataset) and one
+                        leco:SimulationRun
+simulation_variables -> leco:Observation (+ sosa:Observation), one per variable
+variable_name        -> leco:ObservableProperty (+ sosa:ObservableProperty),
+                        created dynamically, one per distinct name
+
+    EnergyModelDataset leco:simulatesBuilding Building (only when linked to a BIM dataset)
+    SimulationRun leco:usesEnergyModelDataset EnergyModelDataset
+    SimulationRun leco:simulates              <ObservableProperty concept>
+    Observation   sosa:observedProperty       <ObservableProperty concept>
+    Observation   sosa:hasFeatureOfInterest   Space (when the zone matched a BIM space)
+    Observation   leco:timeSeriesRef          API URL returning its timeseries
+                                              (GET /simulations/{id}/timeseries)
+    Concept       rdfs:label                  the EnergyPlus variable name
+    Concept       leco:hasUnit                the variable's unit (EnergyPlus ESO: always SI)
+
+Concept URI = variable name split on any non-alphanumeric character, each
+word capitalised, joined: "Zone Mean Air Temperature" -> leco:ZoneMeanAirTemperature,
+"Electricity:Facility" -> leco:ElectricityFacility. The same name always gives
+the same URI, so every simulation graph that uses a concept writes identical
+definition triples; concepts are not stored in a shared graph.
+
+Timeseries values stay in Postgres. No Observation -> SimulationRun link is
+emitted (the schema has none); the simulation's named graph gives provenance.
+Observation URIs are keyed by simulation_dataset id + ESO variable id, so they
+are stable across reprocessing.
 """
 
+import re
 from pathlib import PurePath
 
 from rdflib import Graph, Literal, Namespace, RDF, RDFS, URIRef
 from rdflib.namespace import DCTERMS, XSD
 
 from app.core.config import settings
-from app.ontology.dto import BimDatasetDTO
+from app.ontology.dto import BimDatasetDTO, SimulationDatasetDTO
 
 BOT = Namespace("https://w3id.org/bot#")
+SOSA = Namespace("http://www.w3.org/ns/sosa/")
 
 
 class RdfModelBuilder:
-    def __init__(self, namespace: str | None = None) -> None:
+    def __init__(self, namespace: str | None = None, api_base_url: str | None = None) -> None:
         self._leco = Namespace(namespace or settings.LECO_NAMESPACE)
+        self._api_base_url = (api_base_url or settings.API_PUBLIC_BASE_URL).rstrip("/")
 
     def build(self, bim: BimDatasetDTO) -> Graph:
         graph = Graph()
@@ -55,7 +87,9 @@ class RdfModelBuilder:
         graph.bind("rdfs", RDFS)
 
         dataset_uri = self._dataset_uri(bim.bim_dataset_id)
-        self._add_dataset_triples(graph, dataset_uri, bim)
+        self._add_dataset_triples(
+            graph, dataset_uri, self._leco.BIMDataset, bim.bim_dataset_id, bim
+        )
 
         building_uri = self._building_uri(bim.bim_dataset_id)
         self._add_building_triples(graph, building_uri, bim)
@@ -80,24 +114,88 @@ class RdfModelBuilder:
 
         return graph
 
-    def _add_dataset_triples(self, graph: Graph, dataset_uri: URIRef, bim: BimDatasetDTO) -> None:
-        graph.add((dataset_uri, RDF.type, self._leco.BIMDataset))
+    def build_simulation(self, sim: SimulationDatasetDTO) -> Graph:
+        graph = Graph()
+        graph.bind("leco", self._leco)
+        graph.bind("sosa", SOSA)
+        graph.bind("dct", DCTERMS)
+        graph.bind("xsd", XSD)
+        graph.bind("rdfs", RDFS)
+
+        dataset_uri = self._energy_model_dataset_uri(sim.simulation_dataset_id)
+        self._add_dataset_triples(
+            graph, dataset_uri, self._leco.EnergyModelDataset, sim.simulation_dataset_id, sim
+        )
+        if sim.bim_dataset_id:
+            graph.add(
+                (dataset_uri, self._leco.simulatesBuilding, self._building_uri(sim.bim_dataset_id))
+            )
+
+        run_uri = self._simulation_run_uri(sim.simulation_dataset_id)
+        graph.add((run_uri, RDF.type, self._leco.SimulationRun))
+        graph.add((run_uri, self._leco.usesEnergyModelDataset, dataset_uri))
+
+        for variable in sim.variables:
+            concept_uri = self._observable_property_uri(variable.variable_name)
+            self._add_observable_property_triples(graph, concept_uri, variable)
+            graph.add((run_uri, self._leco.simulates, concept_uri))
+
+            observation_uri = self._observation_uri(sim.simulation_dataset_id, variable.variable_id)
+            self._add_observation_triples(
+                graph, observation_uri, sim.simulation_dataset_id, variable, concept_uri
+            )
+
+        return graph
+
+    def _add_dataset_triples(
+        self, graph: Graph, dataset_uri: URIRef, dataset_class: URIRef, identifier, dataset
+    ) -> None:
+        graph.add((dataset_uri, RDF.type, dataset_class))
         graph.add((dataset_uri, RDF.type, self._leco.Dataset))
-        graph.add((dataset_uri, self._leco.hasIdentifier, Literal(str(bim.bim_dataset_id))))
-        if bim.format:
-            graph.add((dataset_uri, self._leco.hasFileFormat, Literal(bim.format)))
-        if bim.status:
-            graph.add((dataset_uri, self._leco.hasStatus, Literal(bim.status)))
-        if bim.created_at is not None:
+        graph.add((dataset_uri, self._leco.hasIdentifier, Literal(str(identifier))))
+        if dataset.format:
+            graph.add((dataset_uri, self._leco.hasFileFormat, Literal(dataset.format)))
+        if dataset.status:
+            graph.add((dataset_uri, self._leco.hasStatus, Literal(dataset.status)))
+        if dataset.created_at is not None:
             graph.add(
-                (dataset_uri, self._leco.hasUploadDate, Literal(bim.created_at, datatype=XSD.dateTime))
+                (dataset_uri, self._leco.hasUploadDate, Literal(dataset.created_at, datatype=XSD.dateTime))
             )
-        if bim.filename:
-            graph.add((dataset_uri, DCTERMS.title, Literal(bim.filename)))
-        if bim.size_bytes is not None:
+        if dataset.filename:
+            graph.add((dataset_uri, DCTERMS.title, Literal(dataset.filename)))
+        if dataset.size_bytes is not None:
             graph.add(
-                (dataset_uri, self._leco.hasSize, Literal(bim.size_bytes, datatype=XSD.decimal))
+                (dataset_uri, self._leco.hasSize, Literal(dataset.size_bytes, datatype=XSD.decimal))
             )
+
+    def _add_observable_property_triples(self, graph: Graph, concept_uri: URIRef, variable) -> None:
+        # Derived only from name + unit, so every graph writes identical triples.
+        graph.add((concept_uri, RDF.type, self._leco.ObservableProperty))
+        graph.add((concept_uri, RDF.type, SOSA.ObservableProperty))
+        graph.add((concept_uri, RDFS.label, Literal(variable.variable_name)))
+        if variable.unit:
+            graph.add((concept_uri, self._leco.hasUnit, Literal(variable.unit)))
+
+    def _add_observation_triples(
+        self, graph: Graph, observation_uri: URIRef, simulation_dataset_id, variable, concept_uri: URIRef
+    ) -> None:
+        graph.add((observation_uri, RDF.type, self._leco.Observation))
+        graph.add((observation_uri, RDF.type, SOSA.Observation))
+        graph.add((observation_uri, self._leco.hasIdentifier, Literal(str(variable.id))))
+        label = f"{variable.variable_name} ({variable.key})" if variable.key else variable.variable_name
+        graph.add((observation_uri, RDFS.label, Literal(label)))
+        graph.add((observation_uri, SOSA.observedProperty, concept_uri))
+        if variable.space_global_id:
+            graph.add(
+                (observation_uri, SOSA.hasFeatureOfInterest, self._space_uri(variable.space_global_id))
+            )
+        graph.add(
+            (
+                observation_uri,
+                self._leco.timeSeriesRef,
+                Literal(self._timeseries_ref(simulation_dataset_id, variable.id), datatype=XSD.anyURI),
+            )
+        )
 
     def _add_building_triples(self, graph: Graph, building_uri: URIRef, bim: BimDatasetDTO) -> None:
         # TODO: building information (IfcBuilding) exists in the BIM file but is
@@ -143,3 +241,25 @@ class RdfModelBuilder:
 
     def _space_uri(self, global_id: str) -> URIRef:
         return URIRef(f"{self._leco}space-{global_id}")
+
+    def _energy_model_dataset_uri(self, simulation_dataset_id) -> URIRef:
+        return URIRef(f"{self._leco}energy-model-dataset-{simulation_dataset_id}")
+
+    def _simulation_run_uri(self, simulation_dataset_id) -> URIRef:
+        return URIRef(f"{self._leco}simulation-run-{simulation_dataset_id}")
+
+    def _observation_uri(self, simulation_dataset_id, eso_variable_id: str) -> URIRef:
+        return URIRef(f"{self._leco}simulation-observation-{simulation_dataset_id}-{eso_variable_id}")
+
+    def _observable_property_uri(self, variable_name: str) -> URIRef:
+        # Two names differing only in separators (e.g. "A:B" / "A B") would
+        # share a URI; not expected in EnergyPlus output.
+        words = re.split(r"[^0-9A-Za-z]+", variable_name)
+        return self._leco["".join(word[0].upper() + word[1:] for word in words if word)]
+
+    def _timeseries_ref(self, simulation_dataset_id, simulation_variable_id) -> str:
+        # app/api/simulations.py: list_simulation_timeseries
+        return (
+            f"{self._api_base_url}/simulations/{simulation_dataset_id}/timeseries"
+            f"?variable_id={simulation_variable_id}"
+        )
