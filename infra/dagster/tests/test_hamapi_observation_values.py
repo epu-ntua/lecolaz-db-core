@@ -1,10 +1,9 @@
-"""Reading conversion, library contract, and optional PostgreSQL upsert checks."""
+"""Reading conversion and optional PostgreSQL upsert checks."""
 
 import unittest
 from datetime import datetime, timedelta, timezone
 from uuid import uuid4
 
-import hamapi
 from sqlalchemy import insert, select
 from sqlalchemy.exc import IntegrityError
 
@@ -65,11 +64,84 @@ class ReadingTests(unittest.TestCase):
         self.assertEqual(self.rows({"timestamp": [], "T": []}), [])
         self.assertEqual(self.rows({"timestamp": [t], "T": [None]}), [])
         self.assertEqual(len(self.rows({"timestamp": [t, t], "T": [1, 1]})), 1)
-        with self.assertRaisesRegex(ValueError, "Conflicting"):
-            self.rows({"timestamp": [t, t], "T": [1, 2]})
+        self.assertEqual(self.rows({"timestamp": [t, t], "T": [1, 2]})[0]["value"], 2)
         self.assertEqual(
             pipeline.persist_observation_rows(None, []), {"selected": 0, "inserted_or_updated": 0}
         )
+
+    def test_conflicts_use_last_non_missing_value_per_reading_and_summary(self):
+        t = self.start.timestamp()
+        types = {**self.types, "H": str(uuid4())}
+        prepared = pipeline.prepare_observation_rows(
+            {"timestamp": [t, t, t], "T": [1, 2, None], "H": [40, 50, 45]},
+            self.sensor, types, self.start, self.end,
+        )
+        values = {str(row["observation_type_id"]): row["value"] for row in prepared.rows}
+        self.assertEqual(values, {types["T"]: 2, types["H"]: 45})
+        self.assertEqual(prepared.diagnostics["conflicting_duplicate_count"], 2)
+        self.assertEqual(prepared.conflicts, [
+            {"reading_key": "H", "timestamp": self.start, "values": [40, 50, 45], "selected_value": 45},
+            {"reading_key": "T", "timestamp": self.start, "values": [1, 2], "selected_value": 2},
+        ])
+        humidity, temperature = prepared.reading_summary
+        self.assertEqual(humidity["minimum"], 45)
+        self.assertEqual(humidity["maximum"], 45)
+        self.assertEqual(temperature["selected_rows"], 1)
+        self.assertEqual(temperature["minimum"], 2)
+
+    def test_missing_and_matching_values_are_not_conflicts(self):
+        for values, expected in (
+            ([None, None], []),
+            ([None, 0, None], [0]),
+            ([1, None], [1]),
+            ([None, 1], [1]),
+            ([None, 1, None, 1, None], [1]),
+        ):
+            with self.subTest(values=values):
+                prepared = pipeline.prepare_observation_rows(
+                    {"timestamp": [self.start.timestamp()] * len(values), "T": values},
+                    self.sensor, self.types, self.start, self.end,
+                )
+                self.assertEqual([row["value"] for row in prepared.rows], expected)
+                self.assertEqual(prepared.conflicts, [])
+                self.assertEqual(prepared.diagnostics["conflicting_duplicate_count"], 0)
+                self.assertEqual(prepared.diagnostics["null_value_count"], values.count(None))
+
+    def test_conflict_group_keeps_final_choice_even_when_it_returns_to_first_value(self):
+        t = self.start.timestamp()
+        prepared = pipeline.prepare_observation_rows(
+            {"timestamp": [t, t, t + 1, t, t, t, t], "T": [1, None, 9, 2, 1, 1, None]},
+            self.sensor, self.types, self.start, self.end,
+        )
+        self.assertEqual([row["value"] for row in prepared.rows], [1, 9])
+        self.assertEqual(prepared.diagnostics["conflicting_duplicate_count"], 1)
+        self.assertEqual(prepared.diagnostics["identical_duplicate_count"], 1)
+        self.assertEqual(prepared.conflicts, [
+            {"reading_key": "T", "timestamp": self.start, "values": [1, 2], "selected_value": 1},
+        ])
+
+    def test_complementary_readings_merge_in_either_source_order(self):
+        types = {**self.types, "H": str(uuid4())}
+        for temperatures, humidities in (([21, None], [None, 50]), ([None, 21], [50, None])):
+            with self.subTest(temperatures=temperatures):
+                prepared = pipeline.prepare_observation_rows(
+                    {"timestamp": [self.start.timestamp()] * 2, "T": temperatures, "H": humidities},
+                    self.sensor, types, self.start, self.end,
+                )
+                self.assertEqual(
+                    {str(row["observation_type_id"]): row["value"] for row in prepared.rows},
+                    {types["T"]: 21, types["H"]: 50},
+                )
+                self.assertEqual(prepared.conflicts, [])
+
+    def test_out_of_window_conflicts_are_not_reported(self):
+        t = self.start.timestamp()
+        prepared = pipeline.prepare_observation_rows(
+            {"timestamp": [t - 1, t - 1, t, self.end.timestamp(), self.end.timestamp()], "T": [1, 2, 3, 4, 5]},
+            self.sensor, self.types, self.start, self.end,
+        )
+        self.assertEqual([row["value"] for row in prepared.rows], [3])
+        self.assertEqual(prepared.conflicts, [])
 
     def test_channels_at_the_same_timestamp_remain_distinct(self):
         self.types["H"] = str(uuid4())
@@ -130,20 +202,6 @@ class ReadingTests(unittest.TestCase):
         ):
             with self.assertRaises(ValueError):
                 pipeline.validate_interval(start, end)
-
-    def test_actual_library_parser_contract(self):
-        client = hamapi.hamapi(cache_db_file=":memory:")
-        self.addCleanup(client.cache_conn.close)
-        client.family_info_map = {"test": {"readings": ["T"], "output_names": ["OUT"]}}
-        client.reading_info_map_load({"T": {"transform": "divide_by_100"}})
-        t = self.start.timestamp()
-        response = client.parse_datalog_data(
-            "test:1", {"0.1": f"{t};2150;0\n{t + 60};2200;1"}, t, t + 3600
-        )
-        rows = self.rows(response)
-        self.assertEqual([r["value"] for r in rows], [21.5, 21.5, 22])
-        self.assertEqual(rows[1]["timestamp"], self.start + timedelta(seconds=59.99))
-
 
 class ReadingPostgresTests(PostgresTestCase):
     def setUp(self):
@@ -225,6 +283,19 @@ class ReadingPostgresTests(PostgresTestCase):
             )
         with self.assertRaisesRegex(ValueError, "not found"):
             pipeline.load_references(self.engine, sensor_id=str(non_ham_id))
+
+    def test_last_non_missing_replay_preserves_value_and_row_identity(self):
+        start = self.row["timestamp"]
+        prepared = pipeline.prepare_observation_rows(
+            {"timestamp": [start.timestamp()] * 4, "T": [21, None, 22, None]},
+            {"id": str(self.sensor_id)}, {"T": str(self.type_id)},
+            start, start + timedelta(days=1),
+        )
+        self.assertEqual(pipeline.persist_observation_rows(self.engine, prepared.rows)["inserted_or_updated"], 1)
+        original = self.stored()[0]
+        self.assertEqual(original["value"], 22)
+        self.assertEqual(pipeline.persist_observation_rows(self.engine, prepared.rows)["inserted_or_updated"], 0)
+        self.assertEqual(self.stored()[0], original)
 
     def test_later_batch_fk_failure_rolls_back_every_batch(self):
         rows = [

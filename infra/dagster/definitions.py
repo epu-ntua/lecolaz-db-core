@@ -62,12 +62,16 @@ def build_definitions(
     *,
     openmeteo_api: OpenMeteoApi | None = None,
     raw_csv_io_manager: S3BytesIOManager | None = None,
+    ham_raw_io_manager: S3BytesIOManager | None = None,
     openmeteo_delay_hours: int = 4,
 ) -> Definitions:
     # Family loaders discover their catalogs here, never at module import.
     # Discovery failures propagate instead of publishing an incomplete code location.
     return Definitions.merge(
-        build_ham_definitions(database, ham_api, delay_hours, executor=EXECUTOR),
+        build_ham_definitions(
+            database, ham_api, delay_hours,
+            executor=EXECUTOR, raw_io_manager=ham_raw_io_manager,
+        ),
         build_openmeteo_definitions(
             database,
             openmeteo_api or OpenMeteoApi(),

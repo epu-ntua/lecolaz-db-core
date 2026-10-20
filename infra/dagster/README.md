@@ -19,7 +19,7 @@ docker compose up -d --build dagster-code dagster-webserver dagster-daemon
 
 Run `lecolaz_services_smoke_test`, then follow the relevant integration guide:
 
-- [HAM](ham/README.md): reference initialization, daily observations and backfills.
+- [HAM](ham/README.md): reference initialization, raw datalogs and observation loading.
 - [OpenMeteo](openmeteo/README.md): sensor registration, raw CSVs and observation loading.
 
 The `dagster-code` post-start hook registers each family's reference assets only

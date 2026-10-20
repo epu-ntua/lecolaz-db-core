@@ -56,6 +56,7 @@ class PreparedObservations:
     rows: list[dict]
     diagnostics: dict
     reading_summary: list[dict]
+    conflicts: list[dict]
 
 
 def prepare_observation_rows(
@@ -86,11 +87,13 @@ def prepare_observation_rows(
         "out_of_interval_timestamp_count": 0,
         "null_value_count": 0,
         "identical_duplicate_count": 0,
+        "conflicting_duplicate_count": 0,
     }
     type_ids = {key: UUID(types[key]) for key in selected_keys}
     reading_rows = {key: [] for key in selected_keys}
     null_counts = dict.fromkeys(selected_keys, 0)
     rows = {}
+    conflicts = {}
     sensor_id = UUID(sensor["id"])
     for index, seconds in enumerate(timestamps):
         if (
@@ -109,7 +112,7 @@ def prepare_observation_rows(
                 diagnostics["null_value_count"] += 1
                 null_counts[key] += 1
                 continue
-            if (
+            elif (
                 isinstance(value, bool)
                 or not isinstance(value, (int, float))
                 or not math.isfinite(value)
@@ -124,11 +127,24 @@ def prepare_observation_rows(
             }
             if identity in rows:
                 if rows[identity]["value"] != row["value"]:
-                    raise ValueError(f"Conflicting duplicate value for {key!r} at {timestamp}")
-                diagnostics["identical_duplicate_count"] += 1
-                continue
+                    conflict = conflicts.setdefault(identity, {
+                        "reading_key": key,
+                        "timestamp": timestamp,
+                        "values": [rows[identity]["value"]],
+                    })
+                    if row["value"] not in conflict["values"]:
+                        conflict["values"].append(row["value"])
+                else:
+                    diagnostics["identical_duplicate_count"] += 1
+            # Only measurements participate: a blank cannot retract an earlier value.
             rows[identity] = row
-            reading_rows[key].append(row)
+
+    diagnostics["conflicting_duplicate_count"] = len(conflicts)
+    for identity, conflict in conflicts.items():
+        conflict["selected_value"] = rows[identity]["value"]
+    type_keys = {type_id: key for key, type_id in type_ids.items()}
+    for row in rows.values():
+        reading_rows[type_keys[row["observation_type_id"]]].append(row)
 
     valid_timestamps = {row["timestamp"] for row in rows.values()}
     diagnostics["distinct_timestamp_count"] = len(valid_timestamps)
@@ -147,6 +163,7 @@ def prepare_observation_rows(
         reading_summary=[
             _summarize_reading(key, reading_rows[key], null_counts[key]) for key in selected_keys
         ],
+        conflicts=list(conflicts.values()),
     )
 
 

@@ -33,27 +33,31 @@ class ResourceTests(unittest.TestCase):
             make_url(url.render_as_string(hide_password=False)).password, password
         )
 
-    def test_fetch_passes_key_and_epoch_interval_and_closes_cache(self):
-        with patch("hamapi.hamapi") as factory:
-            client = factory.return_value
-            client.get_user_devices.return_value = {"devices": [{"serialno": "e45:1"}]}
-            client.get_datalog_data.return_value = {"timestamp": [], "T": []}
-            HamApi(api_key="test-key").readings("e45:1", self.start, self.end)
-            factory.assert_called_once_with(
-                api_key="test-key", cache_db_file=":memory:"
-            )
-            client.get_datalog_data.assert_called_once_with(
-                "e45:1", self.start.timestamp(), self.end.timestamp()
-            )
-            client.cache_conn.close.assert_called_once()
+    def test_fetch_preserves_bytes_and_uses_device_server_and_daily_bin(self):
+        for server, expected in (("node2", "node2"), ("device0.hamsystems.eu", "node0"), (None, "node0")):
+            with (
+                self.subTest(server=server),
+                patch.object(HamApi, "devices", return_value={"devices": [{"serialno": "e45:1", "device_server": server}]}),
+                patch("infra.dagster.ham.client.requests.post") as post,
+                patch("hamapi.hamapi", side_effect=AssertionError("SDK")),
+            ):
+                response = post.return_value.__enter__.return_value
+                response.content = b"\xef\xbb\xbf1767225600;2150;4500;2500;0\r\n"
+                actual = HamApi(api_key="test-key").readings("e45:1", self.start, self.start + timedelta(days=1))
+                self.assertEqual(actual, response.content)
+                post.assert_called_once_with(
+                    f"https://{expected}.hamsystems.eu/datalogs.php",
+                    params={"serialno": "e45:1", "id": f"0.{int(self.start.timestamp()) // 86400}"},
+                    data={"api_key": "test-key"},
+                    timeout=(10, 60),
+                )
+                response.raise_for_status.assert_called_once()
 
-    def test_inaccessible_sensor_fails_and_closes_cache(self):
-        with patch("hamapi.hamapi") as factory:
-            factory.return_value.get_user_devices.return_value = {"devices": []}
+    def test_inaccessible_sensor_fails_without_fetch(self):
+        with patch.object(HamApi, "devices", return_value={"devices": []}), patch("requests.post") as post:
             with self.assertRaisesRegex(ValueError, "cannot access"):
                 HamApi(api_key="test-key").readings("e45:1", self.start, self.end)
-            factory.return_value.get_datalog_data.assert_not_called()
-            factory.return_value.cache_conn.close.assert_called_once()
+            post.assert_not_called()
 
     def test_device_fetch_has_timeouts_and_checks_http_status(self):
         with patch("infra.dagster.ham.client.requests.post") as post:
@@ -70,13 +74,43 @@ class ResourceTests(unittest.TestCase):
             with self.assertRaises(requests.HTTPError):
                 HamApi(api_key="test-key").devices()
 
-    def test_failed_library_request_closes_cache(self):
-        with patch("hamapi.hamapi") as factory:
-            client = factory.return_value
-            client.get_user_devices.side_effect = OSError("Unavailable")
+    def test_failed_device_request_propagates(self):
+        with patch.object(HamApi, "devices", side_effect=OSError("Unavailable")):
             with self.assertRaisesRegex(OSError, "Unavailable"):
                 HamApi(api_key="test-key").readings("e45:1", self.start, self.end)
-            client.cache_conn.close.assert_called_once()
+
+    def test_invalid_device_response_server_and_multi_day_interval(self):
+        for response in ({"error": "denied"}, {"devices": None}, {"devices": [{"serialno": "e45:1", "device_server": "evil.example"}]}):
+            with patch.object(HamApi, "devices", return_value=response), patch("requests.post") as post:
+                with self.assertRaises(ValueError):
+                    HamApi(api_key="test").readings("e45:1", self.start, self.end)
+                post.assert_not_called()
+        with self.assertRaisesRegex(ValueError, "one UTC day"):
+            HamApi().readings("e45:1", self.start, self.start + timedelta(days=2))
+
+    def test_datalog_http_failure_closes_response(self):
+        with patch.object(HamApi, "devices", return_value={"devices": [{"serialno": "e45:1"}]}), patch("requests.post") as post:
+            response = post.return_value.__enter__.return_value
+            response.raise_for_status.side_effect = requests.HTTPError("Unauthorized")
+            with self.assertRaises(requests.HTTPError):
+                HamApi(api_key="test").readings("e45:1", self.start, self.end)
+            post.return_value.__exit__.assert_called_once()
+
+    def test_missing_file_fails_without_returning_payload_or_retrying(self):
+        with patch.object(HamApi, "devices", return_value={"devices": [{"serialno": "14:690"}]}), patch("requests.post") as post:
+            response = post.return_value.__enter__.return_value
+            response.content = b'{"messages":["File not found"]}'
+            for status in (200, 404):
+                response.status_code = status
+                with self.assertRaisesRegex(Failure, "file not found") as raised:
+                    HamApi(api_key="test").readings("14:690", self.start, self.end)
+                self.assertFalse(raised.exception.allow_retries)
+            response.raise_for_status.assert_not_called()
+            response.raise_for_status.side_effect = requests.HTTPError("Not found")
+            for status, body in ((404, b"<html>Not found</html>"), (403, b'{"messages":["File not found"]}'), (404, b'{"messages":["Access denied"]}')):
+                response.status_code, response.content = status, body
+                with self.assertRaises(requests.HTTPError):
+                    HamApi(api_key="test").readings("14:690", self.start, self.end)
 
     def test_catalogs_load_from_installed_package_without_key_or_network(self):
         with (
@@ -95,7 +129,7 @@ class ResourceTests(unittest.TestCase):
         for body in ("{}", "[]", "null"):
             with (
                 self.subTest(body=body),
-                patch("infra.dagster.ham.client.files") as files,
+                patch("infra.dagster.ham.catalog.files") as files,
             ):
                 files.return_value.joinpath.return_value.read_text.return_value = body
                 with self.assertRaisesRegex(ValueError, "nonempty object"):
