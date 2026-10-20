@@ -290,9 +290,10 @@ class OntologyService:
 
         # simulation_variables.bim_space_id -> IFC GlobalId, so observations point
         # at the same space URIs the BIM graph mints.
+        bim_dataset_id = uuid.UUID(simulation["bim_dataset_id"]) if simulation["bim_dataset_id"] else None
         space_global_id_by_id: dict[str, str] = {}
-        if simulation["bim_dataset_id"]:
-            spaces = self._bim_space_store.list_by_bim_dataset_id(uuid.UUID(simulation["bim_dataset_id"]))
+        if bim_dataset_id:
+            spaces = self._bim_space_store.list_by_bim_dataset_id(bim_dataset_id)
             space_global_id_by_id = {sp["id"]: sp["global_id"] for sp in spaces}
 
         return SimulationDatasetDTO(
@@ -303,6 +304,7 @@ class OntologyService:
             status=dataset["status"],
             created_at=datetime.fromisoformat(dataset["created_at"]) if dataset["created_at"] else None,
             size_bytes=dataset["size_bytes"],
+            bim_dataset_id=bim_dataset_id,
             variables=[
                 SimulationVariableDTO(
                     id=uuid.UUID(v["id"]),

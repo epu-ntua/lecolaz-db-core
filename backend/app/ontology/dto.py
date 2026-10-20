@@ -62,6 +62,7 @@ class SimulationDatasetDTO:
     status: str | None
     created_at: datetime | None
     size_bytes: int | None
+    bim_dataset_id: uuid.UUID | None = None
     variables: list[SimulationVariableDTO] = field(default_factory=list)
 
 

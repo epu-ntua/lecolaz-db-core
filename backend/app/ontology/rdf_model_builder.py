@@ -38,6 +38,7 @@ simulation_variables -> leco:Observation (+ sosa:Observation), one per variable
 variable_name        -> leco:ObservableProperty (+ sosa:ObservableProperty),
                         created dynamically, one per distinct name
 
+    EnergyModelDataset leco:simulatesBuilding Building (only when linked to a BIM dataset)
     SimulationRun leco:usesEnergyModelDataset EnergyModelDataset
     SimulationRun leco:simulates              <ObservableProperty concept>
     Observation   sosa:observedProperty       <ObservableProperty concept>
@@ -125,6 +126,10 @@ class RdfModelBuilder:
         self._add_dataset_triples(
             graph, dataset_uri, self._leco.EnergyModelDataset, sim.simulation_dataset_id, sim
         )
+        if sim.bim_dataset_id:
+            graph.add(
+                (dataset_uri, self._leco.simulatesBuilding, self._building_uri(sim.bim_dataset_id))
+            )
 
         run_uri = self._simulation_run_uri(sim.simulation_dataset_id)
         graph.add((run_uri, RDF.type, self._leco.SimulationRun))
