@@ -1,5 +1,7 @@
 # LeColaz Platform Documentation
 
+OUTDATED: This documentation is a work in progress and may not reflect the current state of the repository. Please refer to the source code for the most accurate information.
+
 LeColaz Platform is a web application repository with a FastAPI backend, a React/Vite frontend, and Docker Compose infrastructure for local and production runtime services.
 
 The current implemented stack includes:
