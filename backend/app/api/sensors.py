@@ -1,7 +1,11 @@
+from uuid import UUID
+
 from fastapi import APIRouter, HTTPException
 
 from app.schemas.sensors import (
     EligibleSensorResponse,
+    RegisteredSensorResponse,
+    SensorFamily,
     SensorListRequest,
     SensorRegistrationRequest,
     SensorRegistrationResponse,
@@ -16,8 +20,20 @@ from app.services.sensor_registration_service import (
     list_eligible_sensors,
     register_sensors,
 )
+from app.storage.postgres.sensor_store import SensorStore
 
 router = APIRouter(prefix="/sensors", tags=["Sensors"])
+
+
+@router.get("/registered", response_model=list[RegisteredSensorResponse])
+def list_registered_sensors(
+    sensor_family: SensorFamily | None = None,
+    bim_dataset_id: UUID | None = None,
+):
+    return SensorStore().list_registered(
+        sensor_family=sensor_family,
+        bim_dataset_id=bim_dataset_id,
+    )
 
 
 def _catalog_response(family: str):

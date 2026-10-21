@@ -1,5 +1,5 @@
 import { createBrowserRouter } from 'react-router-dom';
-import { Activity, Blocks, FileBarChart } from 'lucide-react';
+import { Blocks, FileBarChart } from 'lucide-react';
 import AppLayout from './layout/AppLayout';
 import AdministrationPage from '@/pages/Administration/AdministrationPage';
 import BIMPage from '@/pages/BIM/BIMpage';
@@ -7,6 +7,7 @@ import BIMViewerPage from '@/pages/BIM/BIMViewerPage';
 import DataDiscoveryPage from '@/pages/DataDiscovery/DataDiscoveryPage';
 import NotFoundPage from '@/pages/NotFound/NotFoundPage';
 import OverviewPage from '@/pages/Overview/OverviewPage';
+import MonitoringPage from '@/pages/Monitoring/MonitoringPage';
 import PlaceholderPage from '@/pages/Placeholder/PlaceholderPage';
 import ScenariosPage from '@/pages/Simulations/ScenariosPage';
 import SimulationDetailsPage from '@/pages/Simulations/SimulationDetailsPage';
@@ -32,13 +33,7 @@ export const router = createBrowserRouter([
       },
       {
         path: 'monitoring',
-        element: (
-          <PlaceholderPage
-            title="Monitoring & Insights"
-            description="A future home for live building status, signals and alerts."
-            icon={Activity}
-          />
-        ),
+        element: <MonitoringPage />,
       },
       {
         path: 'scenarios',

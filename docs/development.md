@@ -153,6 +153,8 @@ in production. The example `VITE_API_BASE_URL` variable is currently unused.
 - `POST /sensors/list/ham`: devices accessible with the server's `HAMAPI_API_KEY`.
 - `POST /sensors/list/openmeteo`: timeseries in the shared
   [OpenMeteo catalog](../backend/app/integrations/openmeteo_registration.yaml).
+- `GET /sensors/registered`: registered sensors from PostgreSQL, optionally filtered
+  by `sensor_family` or `bim_dataset_id`, without contacting an external provider.
 
 Both accept `{}` or an empty body and return eligible sensors with their registration
 status. Submit selected external IDs to `POST /sensors/register`:

@@ -1,5 +1,5 @@
-import { useEffect, useMemo, useState } from 'react';
-import { Download, Eye } from 'lucide-react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { Download, Eye, RadioTower } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { getDatasetDownloadUrl } from '@/api/datasets';
 import {
@@ -10,6 +10,7 @@ import {
   updateBimCategory,
 } from '@/api/bim_files';
 import { uploadSimulationFile } from '@/api/simulation_files';
+import { listRegisteredSensors } from '@/api/sensors';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -30,6 +31,7 @@ import {
 } from '@/components/ui/table';
 import { FileUpload } from '@/pages/DataDiscovery/components/FileUpload';
 import { SimulationDetailsModal } from '@/pages/Simulations/components/SimulationDetailsModal';
+import { SensorRegistrationDialog } from '@/pages/Monitoring/components/SensorRegistrationDialog';
 import type {
   BimCategory,
   BimFileDto,
@@ -38,6 +40,7 @@ import type {
   BimStoreyDto,
 } from '@/types/api/bim';
 import type { SimulationFileDto } from '@/types/api/simulations';
+import type { RegisteredSensorDto } from '@/types/api/sensors';
 
 function getStatusVariant(status: string | null) {
   if (status === 'failed') {
@@ -65,6 +68,9 @@ export function BIMDetailsDialog({
   const [storeys, setStoreys] = useState<BimStoreyDto[]>([]);
   const [spaces, setSpaces] = useState<BimSpaceDto[]>([]);
   const [simulations, setSimulations] = useState<SimulationFileDto[]>([]);
+  const [sensors, setSensors] = useState<RegisteredSensorDto[]>([]);
+  const [sensorsLoading, setSensorsLoading] = useState(true);
+  const [sensorsError, setSensorsError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [uploadMessage, setUploadMessage] = useState<string | null>(null);
@@ -77,6 +83,22 @@ export function BIMDetailsDialog({
   );
   const [categorySaving, setCategorySaving] = useState(false);
   const [categoryError, setCategoryError] = useState<string | null>(null);
+
+  const loadSensors = useCallback(async () => {
+    try {
+      setSensorsLoading(true);
+      setSensorsError(null);
+      setSensors(await listRegisteredSensors({ bimDatasetId: file.id }));
+    } catch {
+      setSensorsError('Connected sensors could not be loaded.');
+    } finally {
+      setSensorsLoading(false);
+    }
+  }, [file.id]);
+
+  useEffect(() => {
+    void loadSensors();
+  }, [loadSensors]);
 
   useEffect(() => {
     let cancelled = false;
@@ -376,6 +398,70 @@ export function BIMDetailsDialog({
               />
               {uploadMessage && (
                 <div className="text-sm text-muted-foreground">{uploadMessage}</div>
+              )}
+            </CardContent>
+          </Card>
+
+          <Card className="shadow-none">
+            <CardHeader className="pb-4">
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                <div>
+                  <CardTitle className="text-sm font-medium">
+                    Sensors for {file.filename}
+                  </CardTitle>
+                  <DialogDescription className="mt-1 text-left">
+                    Registered monitoring sources connected to this BIM model.
+                  </DialogDescription>
+                </div>
+                <SensorRegistrationDialog
+                  initialBimId={file.id}
+                  buttonLabel="Connect Sensors"
+                  onRegistered={loadSensors}
+                />
+              </div>
+            </CardHeader>
+            <CardContent>
+              {sensorsError ? (
+                <div className="text-sm text-destructive">{sensorsError}</div>
+              ) : sensorsLoading ? (
+                <div className="text-sm text-muted-foreground">Loading sensors…</div>
+              ) : sensors.length ? (
+                <div className="rounded-md border">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Sensor</TableHead>
+                        <TableHead>Provider</TableHead>
+                        <TableHead>Location</TableHead>
+                        <TableHead>Space</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {sensors.map((sensor) => (
+                        <TableRow key={sensor.id}>
+                          <TableCell>
+                            <div className="font-medium">{sensor.name}</div>
+                            <div className="text-xs text-muted-foreground">
+                              {sensor.external_id}
+                            </div>
+                          </TableCell>
+                          <TableCell>
+                            <Badge variant="secondary">
+                              {sensor.sensor_family === 'ham' ? 'HAM' : 'OpenMeteo'}
+                            </Badge>
+                          </TableCell>
+                          <TableCell>{sensor.location ?? '—'}</TableCell>
+                          <TableCell>{sensor.space ?? '—'}</TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+              ) : (
+                <div className="flex items-center gap-3 rounded-lg border border-dashed p-4 text-sm text-muted-foreground">
+                  <RadioTower className="h-5 w-5" />
+                  No sensors are connected to this BIM yet.
+                </div>
               )}
             </CardContent>
           </Card>

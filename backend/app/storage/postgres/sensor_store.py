@@ -101,6 +101,28 @@ class SensorStore:
         with self._session_factory() as session:
             return [dict(row) for row in session.execute(statement).mappings()]
 
+    def list_registered(
+        self,
+        *,
+        sensor_family: str | None = None,
+        bim_dataset_id: uuid.UUID | None = None,
+    ) -> List[Dict[str, Any]]:
+        """Return registered sensors without contacting their external providers."""
+        statement = select(
+            Sensor.id, Sensor.sensor_family, Sensor.external_id, Sensor.name,
+            Sensor.location, Sensor.space, Sensor.starting_date, Sensor.bim_dataset_id,
+        ).where(
+            Sensor.sensor_family.in_(("ham", "openmeteo")),
+            Sensor.external_id.is_not(None),
+        )
+        if sensor_family is not None:
+            statement = statement.where(Sensor.sensor_family == sensor_family)
+        if bim_dataset_id is not None:
+            statement = statement.where(Sensor.bim_dataset_id == bim_dataset_id)
+        statement = statement.order_by(Sensor.name, Sensor.external_id)
+        with self._session_factory() as session:
+            return [dict(row) for row in session.execute(statement).mappings()]
+
     def update_registration_fields(
         self, sensor_family: str, selections: List[Dict[str, Any]]
     ) -> None:
