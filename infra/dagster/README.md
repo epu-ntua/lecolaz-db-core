@@ -1,6 +1,6 @@
 # LeColaz Dagster
 
-Self-hosted Dagster runs in the development Compose stack at
+Self-hosted Dagster runs in both Compose stacks, with its UI bound to
 [localhost:3000](http://localhost:3000). Backend models and Alembic own the application schema.
 
 ## Setup
@@ -9,11 +9,11 @@ Follow [environment setup](../../docs/development.md#environment-files).
 Compose's `POSTGRES_*` settings must point to the backend's application database.
 Dagster and the backend share the MinIO settings in `backend/.env`.
 
-From `infra/`, start dependencies and migrate before loading definitions:
+From `infra/`, start dependencies before loading definitions. The backend applies
+Alembic migrations automatically before its health check passes:
 
 ```bash
 docker compose up -d --build --wait postgres minio backend
-docker compose exec backend alembic upgrade head
 docker compose up -d --build dagster-code dagster-webserver dagster-daemon
 ```
 
@@ -29,9 +29,11 @@ attempting the other family; the hook exits with an error if either failed.
 
 ## Shared behavior
 
-Sensors are discovered from PostgreSQL when the code location loads. Reload
-**Deployment → Code locations → lecolaz** after registering sensors or editing
-names/starting dates. Database/schema errors fail loading rather than hiding assets.
+Sensors are discovered from PostgreSQL when the code location loads. The
+[registration API](../../docs/development.md#sensor-listing-and-registration-api)
+reloads it automatically. After a manual Dagster registration job or direct database
+edit, reload **Deployment → Code locations → lecolaz**. Database/schema errors fail
+loading rather than hiding assets.
 
 Each observation asset owns one sensor's rows and has UTC daily partitions.
 The first day is clipped to `starting_date`; historical days require explicit
@@ -59,16 +61,19 @@ docker compose exec postgres sh /docker-entrypoint-initdb.d/020-init-dagster.sh
 For code, YAML or dependency changes, rebuild all three Dagster services using the
 last command in Setup. Recreate services after environment changes. A code-location
 reload alone does not update files baked into the image.
+Shared backend integrations/stores also require a backend rebuild in production.
 
 Before upgrading Dagster, stop active work, back up its database, update pinned
-versions, and run `dagster instance migrate` with writers stopped. Back up the
+versions (including `dagster-graphql` in `backend/requirements.txt`), and run
+`dagster instance migrate` with writers stopped. Back up the
 application database and retain `dagster_storage` too. Avoid `docker compose down -v`
 unless you intend to delete persistent data.
 
 ## Development
 
 - `definitions.py`: resource wiring and database-derived asset catalog.
-- `ham/`, `openmeteo/`: each family’s definitions, API client, workflows and mappings.
+- `ham/`, `openmeteo/`: each family’s definitions, ingestion clients and workflows.
+- `backend/app/integrations/`: shared catalog validation, mapping and OpenMeteo defaults.
 - `object_storage.py`: partitioned byte IO using the backend's `MinioStore`.
 - `backend/app/storage/postgres/`: shared stores; callers own transactions.
 

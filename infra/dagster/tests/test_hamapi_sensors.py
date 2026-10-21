@@ -98,7 +98,7 @@ class SensorPostgresTests(PostgresTestCase):
         after = self.stored()
         for field in ("id", "location", "space", "created_at", "starting_date"):
             self.assertEqual(after[0][field], before[0][field])
-        self.assertEqual(after[0]["name"], "Renamed")
+        self.assertEqual(after[0]["name"], "Room")
         self.assertEqual(after[0]["sensor_metadata"], {"reading": 2})
         self.assertEqual(after[1], before[1])
 

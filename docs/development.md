@@ -2,7 +2,7 @@
 
 ## Prerequisites
 
-- Docker with Docker Compose
+- Docker with Docker Compose 2.30+
 - Node.js and npm for the frontend
 
 ## Environment Files
@@ -116,8 +116,9 @@ application schema is ready before Dagster loads its asset definitions. If the
 schema is already current, Alembic makes no changes.
 
 
-Set `HAMAPI_API_KEY` in `infra/.env` before starting Dagster; recreate its services
-if already running. HAM registration and daily ingestion start automatically.
+Set `HAMAPI_API_KEY` in `infra/.env`; recreate the backend and Dagster services
+after changing it. Startup initializes missing reference assets, and daily ingestion
+is enabled by default.
 
 Review sensor `starting_date` values in PostgreSQL and reload the `lecolaz` code
 location if you change them. Backfill historical days from each asset’s partition
@@ -144,7 +145,53 @@ npm run typecheck
 npm run format:check
 ```
 
-Note: `frontend/.env.example` defines `VITE_API_BASE_URL`, but the current frontend API client is implemented in `frontend/src/api/client.ts`. Check that file when changing API base URL behavior.
+`frontend/src/api/client.ts` uses `http://localhost:8000` in development and `/api`
+in production. The example `VITE_API_BASE_URL` variable is currently unused.
+
+## Sensor listing and registration API
+
+- `POST /sensors/list/ham`: devices accessible with the server's `HAMAPI_API_KEY`.
+- `POST /sensors/list/openmeteo`: timeseries in the shared
+  [OpenMeteo catalog](../backend/app/integrations/openmeteo_registration.yaml).
+
+Both accept `{}` or an empty body and return eligible sensors with their registration
+status. Submit selected external IDs to `POST /sensors/register`:
+
+```json
+{
+  "sensor_family": "openmeteo",
+  "sensors": [
+    {
+      "external_id": "1334/564/232",
+      "settings": {
+        "starting_date": "2026-01-01T00:00:00Z",
+        "bim_dataset_id": null
+      }
+    }
+  ]
+}
+```
+
+Each sensor accepts an optional `settings` object containing `starting_date`,
+`bim_dataset_id`, `name`, `location`, and `space` (a free-text label).
+Omitting `settings`, passing `{}`, or omitting individual fields preserves existing
+values. Unknown fields are rejected. Dates require a timezone and cannot be null;
+new sensors default to `2026-01-01T00:00:00Z`. Explicit `bim_dataset_id: null` clears
+the link. BIM IDs refer to `bim_datasets.id`.
+The provider seeds name/location on first registration. Thereafter these columns
+are locally managed: provider refreshes preserve them even if they were never
+customized. `name` must be nonblank and cannot be null; `location` and `space` may
+be cleared with null. Blank text is rejected. Listing/registration responses include
+the stored name, location, and space. Metadata remains exclusively provider-controlled.
+
+Registration verifies eligibility, saves sensors and observation types atomically,
+and reloads Dagster. Retries preserve UUIDs. The response includes saved `sensors`
+and `dagster.status` (`reloaded` or `failed`); a failed reload does not undo the save.
+Historical ingestion requires an explicit Dagster backfill.
+
+Compose shares `HAMAPI_API_KEY` from `infra/.env` with the backend and Dagster.
+The backend uses `DAGSTER_GRAPHQL_URL` and `DAGSTER_CODE_LOCATION` for reloads.
+See `/docs` for request/response schemas.
 
 ## Database Migrations
 

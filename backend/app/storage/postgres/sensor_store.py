@@ -1,7 +1,7 @@
 import uuid
 from typing import Any, Dict, List, Optional
 
-from sqlalchemy import or_, select
+from sqlalchemy import select, update
 from sqlalchemy.dialects.postgresql import insert
 
 from app.db.models.sensor import Sensor
@@ -26,16 +26,19 @@ class SensorStore:
         *,
         source_location: bool = False,
     ) -> Dict[str, int]:
-        """Preserve local fields and IDs; opt in when the source owns location.
+        """Seed name/location on insert; refresh only provider metadata thereafter.
 
-        HAM locations are locally managed, so the default never writes them.
-        OpenMeteo opts in because its station supplies the location. The caller
-        chooses ownership; this store does not branch on sensor_family.
-        starting_date and space remain local regardless of this option.
+        source_location opts into seeding location (e.g. from OpenMeteo's station).
+        Without override flags we cannot distinguish customized fields, so all
+        existing names/locations stay local, even if the provider changes them.
+        starting_date, space, and BIM links also remain local.
         """
         if not rows:
             return {"selected": 0, "inserted_or_updated": 0, "verified": 0}
 
+        # Match lock ordering across UI and Dagster writers to avoid deadlocks
+        # when concurrent batches contain the same sensors in different orders.
+        rows = sorted(rows, key=lambda row: row["external_id"])
         records = [
             {
                 "sensor_family": sensor_family,
@@ -49,18 +52,10 @@ class SensorStore:
             for record, row in zip(records, rows):
                 record["location"] = row.get("location")
         statement = insert(Sensor).values(records)
-        fields = ["name", "sensor_metadata"] + (["location"] if source_location else [])
         statement = statement.on_conflict_do_update(
             index_elements=[Sensor.sensor_family, Sensor.external_id],
-            set_={field: getattr(statement.excluded, field) for field in fields},
-            where=or_(
-                *[
-                    getattr(Sensor, field).is_distinct_from(
-                        getattr(statement.excluded, field)
-                    )
-                    for field in fields
-                ]
-            ),
+            set_={"sensor_metadata": statement.excluded.sensor_metadata},
+            where=Sensor.sensor_metadata.is_distinct_from(statement.excluded.sensor_metadata),
         ).returning(Sensor.external_id)
         with self._session_factory() as session:
             changed = len(session.execute(statement).scalars().all())
@@ -97,6 +92,35 @@ class SensorStore:
         )
         with self._session_factory() as session:
             return [dict(row) for row in session.execute(statement).mappings()]
+
+    def list_registration_fields(self, sensor_family: str) -> List[Dict[str, Any]]:
+        statement = select(
+            Sensor.id, Sensor.sensor_family, Sensor.external_id, Sensor.name,
+            Sensor.location, Sensor.space, Sensor.starting_date, Sensor.bim_dataset_id,
+        ).where(Sensor.sensor_family == sensor_family).order_by(Sensor.external_id)
+        with self._session_factory() as session:
+            return [dict(row) for row in session.execute(statement).mappings()]
+
+    def update_registration_fields(
+        self, sensor_family: str, selections: List[Dict[str, Any]]
+    ) -> None:
+        """Only explicitly supplied local fields change on repeated registration."""
+        with self._session_factory() as session:
+            # Use the same sensor lock order as the source-field upsert above.
+            for selection in sorted(selections, key=lambda row: row["external_id"]):
+                fields = {
+                    key: selection[key]
+                    for key in ("starting_date", "bim_dataset_id", "name", "location", "space")
+                    if key in selection
+                }
+                if fields:
+                    session.execute(
+                        update(Sensor).where(
+                            Sensor.sensor_family == sensor_family,
+                            Sensor.external_id == selection["external_id"],
+                        ).values(**fields)
+                    )
+            session.commit()
 
     def get_by_id_and_sensor_family(
         self, sensor_id: uuid.UUID, sensor_family: str
