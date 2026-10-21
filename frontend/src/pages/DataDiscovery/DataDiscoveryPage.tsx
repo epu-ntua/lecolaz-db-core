@@ -4,6 +4,8 @@ import { usePendingDatasetPolling } from '@/hooks/usePendingDatasetPolling';
 import type { DatasetDto } from '@/types/api/datasets';
 import { FileUpload } from '@/pages/DataDiscovery/components/FileUpload';
 import { FilesTable } from '@/pages/DataDiscovery/components/FilesTable';
+import { PageContainer } from '@/components/layout/PageContainer';
+import { PageHeader } from '@/components/layout/PageHeader';
 
 export default function DataDiscoveryPage() {
   const [files, setFiles] = useState<DatasetDto[]>([]);
@@ -53,13 +55,12 @@ export default function DataDiscoveryPage() {
   }, [clearResolvedRows, resolvedRows]);
 
   return (
-    <div className="space-y-6">
-      <header className="border-b border-border pb-4">
-        <h1 className="text-2xl font-bold tracking-tight">Uploaded files</h1>
-        <p className="text-sm text-muted-foreground">
-          Manage and monitor your platform assets.
-        </p>
-      </header>
+    <PageContainer className="space-y-8">
+      <PageHeader
+        eyebrow="Workspace"
+        title="Data Explorer"
+        description="Manage uploaded files and follow their processing status."
+      />
 
       <section className="bg-card p-4 rounded-lg border border-border shadow-sm">
         <FileUpload
@@ -79,6 +80,6 @@ export default function DataDiscoveryPage() {
       <section>
         <FilesTable files={files} loading={loading} />
       </section>
-    </div>
+    </PageContainer>
   );
 }

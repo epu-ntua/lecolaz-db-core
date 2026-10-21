@@ -1,99 +1,160 @@
 import { useState } from 'react';
 import { NavLink } from 'react-router-dom';
-import { Button } from '@/components/ui/button';
-import { cn } from '@/lib/utils';
 import {
-  LayoutDashboard,
-  Database,
-  Search,
-  Box,
-  Bell,
-  FileText,
-  Settings,
+  Activity,
+  Blocks,
+  Building2,
   ChevronLeft,
   ChevronRight,
-  Activity,
+  Database,
+  FileBarChart,
+  LayoutDashboard,
+  Settings,
+  X,
 } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { cn } from '@/lib/utils';
 
-const modules = [
-  { title: 'Dashboard', url: '/dashboard', icon: LayoutDashboard },
-  { title: 'Data Discovery', url: '/data-discovery', icon: Database },
-  { title: 'Querying & Analytics', url: '/querying-analytics', icon: Search },
-  { title: 'BIM & Assets', url: '/bim', icon: Box },
-  { title: 'Simulations', url: '/simulations', icon: Activity },
-  { title: 'Alerts & Events', url: '/alerts', icon: Bell },
-  { title: 'Governance & Reporting', url: '/governance-reporting', icon: FileText },
-  { title: 'Admin Panel', url: '/admin', icon: Settings },
+const primaryNavigation = [
+  { title: 'Overview', url: '/overview', icon: LayoutDashboard },
+  { title: 'Buildings & Pilots', url: '/buildings', icon: Building2 },
+  { title: 'Components', url: '/components', icon: Blocks },
+  { title: 'Monitoring', url: '/monitoring', icon: Activity },
+  { title: 'Scenarios', url: '/scenarios', icon: FileBarChart },
+  { title: 'Data Explorer', url: '/data', icon: Database },
 ];
 
-export default function PlatformSidebar() {
+const secondaryNavigation = [
+  { title: 'Reports', url: '/reports', icon: FileBarChart },
+  { title: 'Administration', url: '/administration', icon: Settings },
+];
+
+type SidebarProps = {
+  mobileOpen: boolean;
+  onMobileOpenChange: (open: boolean) => void;
+};
+
+export default function PlatformSidebar({
+  mobileOpen,
+  onMobileOpenChange,
+}: SidebarProps) {
   const [collapsed, setCollapsed] = useState(false);
 
+  const renderNavigation = (items: typeof primaryNavigation) => (
+    <ul className="space-y-1">
+      {items.map((item) => (
+        <li key={item.url}>
+          <NavLink
+            to={item.url}
+            onClick={() => onMobileOpenChange(false)}
+            className={({ isActive }) =>
+              cn(
+                'flex min-h-11 items-center gap-3 rounded-xl px-3 text-sm font-medium text-sidebar-muted transition-colors hover:bg-sidebar-accent hover:text-sidebar-accent-foreground',
+                collapsed && 'lg:justify-center lg:px-2',
+                isActive &&
+                  'bg-sidebar-primary text-sidebar-primary-foreground hover:bg-sidebar-primary hover:text-sidebar-primary-foreground',
+              )
+            }
+          >
+            <item.icon className="h-[18px] w-[18px] shrink-0" />
+            <span className={cn('truncate', collapsed && 'lg:hidden')}>{item.title}</span>
+          </NavLink>
+        </li>
+      ))}
+    </ul>
+  );
+
   return (
-    <aside
-      className={cn(
-        'h-screen flex flex-col border-r transition-all duration-300 ease-in-out bg-sidebar-background text-sidebar-foreground border-sidebar-border',
-        collapsed ? 'w-20' : 'w-72',
+    <>
+      {mobileOpen && (
+        <button
+          type="button"
+          aria-label="Close navigation"
+          className="fixed inset-0 z-40 bg-foreground/35 backdrop-blur-sm lg:hidden"
+          onClick={() => onMobileOpenChange(false)}
+        />
       )}
-    >
-      {/* Logo */}
-      <div className="h-16 flex items-center px-3 border-b border-sidebar-border">
-        <div className="w-full overflow-hidden flex justify-center">
-          <div className="rounded-md bg-card p-1.5">
+      <aside
+        className={cn(
+          'fixed inset-y-0 left-0 z-50 flex h-screen w-72 -translate-x-full flex-col border-r border-sidebar-border bg-sidebar-background text-sidebar-foreground transition-all duration-300 lg:static lg:translate-x-0',
+          mobileOpen && 'translate-x-0',
+          collapsed && 'lg:w-20',
+        )}
+      >
+        <div className="flex h-20 shrink-0 items-center border-b border-sidebar-border px-4">
+          <div
+            className={cn(
+              'flex min-w-0 flex-1 items-center gap-3',
+              collapsed && 'lg:justify-center',
+            )}
+          >
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-sidebar-primary text-sm font-semibold text-sidebar-primary-foreground">
+              {"L'C"}
+            </div>
             <img
-              src="/logo_green_transparent.png"
-              alt="LeColaz logo"
-              className={cn('object-contain', collapsed ? 'w-8 h-8' : 'w-36 h-8')}
+              src="/logo_white_black.png"
+              alt="Le'Colaz"
+              className={cn(
+                'h-9 w-40 object-contain object-left',
+                collapsed && 'lg:hidden',
+              )}
             />
           </div>
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon"
+            className="text-sidebar-muted hover:bg-sidebar-accent hover:text-sidebar-foreground lg:hidden"
+            onClick={() => onMobileOpenChange(false)}
+          >
+            <X className="h-5 w-5" />
+          </Button>
         </div>
-      </div>
 
-      {/* Navigation */}
-      <nav className="flex-1 py-4 overflow-y-auto scrollbar-thin">
-        <ul className="space-y-1 px-2">
-          {modules.map((module) => (
-            <li key={module.url}>
-              <NavLink
-                to={module.url}
-                end={module.url === '/dashboard'}
-                className={({ isActive }) =>
-                  cn(
-                    'flex items-center gap-3 px-3 py-2.5 rounded-md transition-all duration-200 text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground',
-                    collapsed && 'justify-center px-2',
-                    isActive &&
-                      'bg-sidebar-primary text-sidebar-primary-foreground font-medium shadow-sm',
-                  )
-                }
-              >
-                <module.icon className="w-5 h-5 flex-shrink-0" />
+        <nav className="flex-1 space-y-7 overflow-y-auto px-3 py-6">
+          <div>
+            <p
+              className={cn(
+                'mb-2 px-3 text-[10px] font-semibold uppercase tracking-[0.18em] text-sidebar-muted/70',
+                collapsed && 'lg:hidden',
+              )}
+            >
+              Workspace
+            </p>
+            {renderNavigation(primaryNavigation)}
+          </div>
+          <div>
+            <p
+              className={cn(
+                'mb-2 px-3 text-[10px] font-semibold uppercase tracking-[0.18em] text-sidebar-muted/70',
+                collapsed && 'lg:hidden',
+              )}
+            >
+              Management
+            </p>
+            {renderNavigation(secondaryNavigation)}
+          </div>
+        </nav>
 
-                {!collapsed && <span className="text-sm truncate">{module.title}</span>}
-              </NavLink>
-            </li>
-          ))}
-        </ul>
-      </nav>
-
-      {/* Collapse Toggle */}
-      <div className="p-3 border-t border-sidebar-border">
-        <Button
-          type="button"
-          variant="ghost"
-          size="sm"
-          onClick={() => setCollapsed(!collapsed)}
-          className="w-full justify-center gap-2 text-sidebar-muted hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
-        >
-          {collapsed ? (
-            <ChevronRight className="w-4 h-4" />
-          ) : (
-            <>
-              <ChevronLeft className="w-4 h-4" />
-              <span className="text-xs">Collapse</span>
-            </>
-          )}
-        </Button>
-      </div>
-    </aside>
+        <div className="border-t border-sidebar-border p-3">
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            onClick={() => setCollapsed(!collapsed)}
+            className="hidden w-full justify-center text-sidebar-muted hover:bg-sidebar-accent hover:text-sidebar-accent-foreground lg:flex"
+          >
+            {collapsed ? (
+              <ChevronRight className="h-4 w-4" />
+            ) : (
+              <>
+                <ChevronLeft className="h-4 w-4" />
+                <span>Collapse navigation</span>
+              </>
+            )}
+          </Button>
+        </div>
+      </aside>
+    </>
   );
 }

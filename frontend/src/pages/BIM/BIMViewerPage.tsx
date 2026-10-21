@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { fetchBimMetadata, listBimSpaces, listBimStoreys } from '@/api/bim_files';
+import { ArrowLeft } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import type { BimMetadataDto, BimSpaceDto, BimStoreyDto } from '@/types/api/bim';
 import { BIMStructureSidebar } from './components/BIMStructureSidebar';
@@ -82,12 +83,22 @@ export default function BIMViewerPage() {
   if (!id) return null;
 
   return (
-    <div className="h-screen flex flex-col">
-      <div className="p-4 border-b">
-        <Button variant="link" className="px-0" onClick={() => navigate('/bim')}>
-          Back
+    <div className="flex h-full min-h-[640px] flex-col bg-card">
+      <div className="flex items-center gap-4 border-b px-5 py-4">
+        <Button
+          variant="ghost"
+          size="icon"
+          aria-label="Back to buildings"
+          onClick={() => navigate('/buildings')}
+        >
+          <ArrowLeft className="h-5 w-5" />
         </Button>
-        <h1 className="mt-2 text-lg font-semibold">Displaying: {bim?.filename ?? id}</h1>
+        <div>
+          <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
+            BIM viewer
+          </p>
+          <h1 className="text-lg font-semibold">{bim?.filename ?? id}</h1>
+        </div>
       </div>
 
       <div className="flex min-h-0 flex-1">

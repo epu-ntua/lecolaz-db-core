@@ -8,6 +8,8 @@ import { usePendingDatasetPolling } from '@/hooks/usePendingDatasetPolling';
 import type { SimulationFileDto } from '@/types/api/simulations';
 import { FileUpload } from '@/pages/DataDiscovery/components/FileUpload';
 import { SimulationsFilesTable } from '@/pages/Simulations/components/SimulationsFilesTable';
+import { PageContainer } from '@/components/layout/PageContainer';
+import { PageHeader } from '@/components/layout/PageHeader';
 
 export default function SimulationsPage() {
   const [files, setFiles] = useState<SimulationFileDto[]>([]);
@@ -62,13 +64,12 @@ export default function SimulationsPage() {
   }, [clearResolvedRows, resolvedRows]);
 
   return (
-    <div className="space-y-6">
-      <header className="border-b border-border pb-4">
-        <h1 className="text-2xl font-bold tracking-tight">Simulation files</h1>
-        <p className="text-sm text-muted-foreground">
-          Simulation records linked to uploaded files.
-        </p>
-      </header>
+    <PageContainer className="space-y-8">
+      <PageHeader
+        eyebrow="Scenarios"
+        title="Simulation files"
+        description="Manage simulation records and inspect their processed outputs."
+      />
 
       <section className="bg-card p-4 rounded-lg border border-border shadow-sm">
         <FileUpload
@@ -89,6 +90,6 @@ export default function SimulationsPage() {
       <section>
         <SimulationsFilesTable files={files} loading={loading} />
       </section>
-    </div>
+    </PageContainer>
   );
 }

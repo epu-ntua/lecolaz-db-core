@@ -1,5 +1,4 @@
-/* Optional font (can self-host later) */
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Manrope:wght@500;600;700&display=swap');
 
 @tailwind base;
 @tailwind components;
@@ -7,114 +6,75 @@
 
 @layer base {
   :root {
-    /* Le' Colaz – Warm Forest Theme (Merged with Lovable) */
-    /* Background: Warm Sand rgb(231, 225, 216) */
-    --background: 39 21% 88%;
-    --foreground: 222.2 84% 4.9%;
-
+    --background: 42 27% 96%;
+    --foreground: 150 15% 13%;
     --card: 0 0% 100%;
-    --card-foreground: 222.2 84% 4.9%;
-
+    --card-foreground: 150 15% 13%;
     --popover: 0 0% 100%;
-    --popover-foreground: 222.2 84% 4.9%;
-
-    /* Primary: Forest Green */
-    --primary: 222.2 47.4% 11.2%;
-    --primary-foreground: 210 40% 98%;
-
-    /* Secondary: Slate Grey / Deep Sand */
-    --secondary: 210 40% 96.1%;
-    --secondary-foreground: 222.2 47.4% 11.2%;
-
-    --muted: 210 40% 96.1%;
-    --muted-foreground: 215.4 16.3% 46.9%;
-
-    /* Brand Accent: Sage green */
-    --accent: 210 40% 96.1%;
-    --accent-foreground: 222.2 47.4% 11.2%;
-
-    --destructive: 0 84.2% 60.2%;
-    --destructive-foreground: 210 40% 98%;
-
-    --border: 214.3 31.8% 91.4%;
-    --input: 214.3 31.8% 91.4%;
-    --ring: 222.2 84% 4.9%;
-
-    --radius: 0.5rem;
-
-    /* Sidebar – Deep Forest sub-theme */
-    --sidebar-background: 112 12% 25%;
-    --sidebar-foreground: 34 18% 93%;
-    --sidebar-muted: 34 12% 76%;
-    --sidebar-primary: 140 30% 45%;
-    --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 112 10% 30%;
-    --sidebar-accent-foreground: 34 18% 93%;
-    --sidebar-border: 112 8% 20%;
-    --sidebar-ring: 140 30% 45%;
-
-    /* Status Colors */
-    --success: 140 30% 40%;
+    --popover-foreground: 150 15% 13%;
+    --primary: 143 31% 29%;
+    --primary-foreground: 42 33% 98%;
+    --secondary: 41 24% 91%;
+    --secondary-foreground: 148 18% 20%;
+    --muted: 42 20% 92%;
+    --muted-foreground: 145 8% 43%;
+    --accent: 119 20% 88%;
+    --accent-foreground: 145 25% 22%;
+    --destructive: 0 72% 51%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 42 15% 84%;
+    --input: 42 15% 84%;
+    --ring: 143 31% 29%;
+    --radius: 0.8rem;
+    --sidebar-background: 148 19% 14%;
+    --sidebar-foreground: 42 23% 93%;
+    --sidebar-muted: 41 12% 67%;
+    --sidebar-primary: 105 33% 57%;
+    --sidebar-primary-foreground: 148 24% 12%;
+    --sidebar-accent: 148 17% 20%;
+    --sidebar-accent-foreground: 42 25% 96%;
+    --sidebar-border: 147 13% 24%;
+    --sidebar-ring: 105 33% 57%;
+    --success: 142 38% 38%;
     --warning: 38 75% 50%;
     --info: 200 40% 48%;
-    --chart-1: 12 76% 61%;
-    --chart-2: 173 58% 39%;
-    --chart-3: 197 37% 24%;
-    --chart-4: 43 74% 66%;
-    --chart-5: 27 87% 67%;
+    --chart-1: 143 31% 29%;
+    --chart-2: 105 33% 57%;
+    --chart-3: 37 44% 58%;
+    --chart-4: 173 31% 43%;
+    --chart-5: 24 55% 59%;
   }
 
   .dark {
-    /* Inverting for Dark Mode */
-    --background: 222.2 84% 4.9%;
-    --foreground: 210 40% 98%;
-
-    --card: 222.2 84% 4.9%;
-    --card-foreground: 210 40% 98%;
-
-    --popover: 222.2 84% 4.9%;
-    --popover-foreground: 210 40% 98%;
-
-    --primary: 210 40% 98%;
-    --primary-foreground: 222.2 47.4% 11.2%;
-
-    --secondary: 217.2 32.6% 17.5%;
-    --secondary-foreground: 210 40% 98%;
-
-    --muted: 217.2 32.6% 17.5%;
-    --muted-foreground: 215 20.2% 65.1%;
-
-    --accent: 217.2 32.6% 17.5%;
-    --accent-foreground: 210 40% 98%;
-
-    --destructive: 0 62.8% 30.6%;
-    --destructive-foreground: 210 40% 98%;
-
-    --border: 217.2 32.6% 17.5%;
-    --input: 217.2 32.6% 17.5%;
-    --ring: 212.7 26.8% 83.9%;
-
-    --sidebar-background: 112 12% 12%;
-    --sidebar-foreground: 34 12% 90%;
-    --sidebar-muted: 34 10% 70%;
-    --sidebar-primary: 140 30% 45%;
-    --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 112 10% 18%;
-    --sidebar-accent-foreground: 34 12% 90%;
-    --sidebar-border: 112 8% 14%;
-    --sidebar-ring: 140 30% 45%;
-    --chart-1: 220 70% 50%;
-    --chart-2: 160 60% 45%;
-    --chart-3: 30 80% 55%;
-    --chart-4: 280 65% 60%;
-    --chart-5: 340 75% 55%;
+    --background: 150 17% 9%;
+    --foreground: 42 23% 93%;
+    --card: 148 16% 13%;
+    --card-foreground: 42 23% 93%;
+    --popover: 148 16% 13%;
+    --popover-foreground: 42 23% 93%;
+    --primary: 105 33% 57%;
+    --primary-foreground: 148 24% 12%;
+    --secondary: 148 13% 19%;
+    --secondary-foreground: 42 23% 93%;
+    --muted: 148 13% 19%;
+    --muted-foreground: 41 12% 67%;
+    --accent: 148 17% 22%;
+    --accent-foreground: 42 25% 96%;
+    --destructive: 0 62% 40%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 147 13% 24%;
+    --input: 147 13% 24%;
+    --ring: 105 33% 57%;
   }
-}
 
-@layer base {
-  /* Universal border reset – fixes UI consistency */
   * {
     @apply border-border;
+  }
+
+  html,
+  body,
+  #root {
+    min-height: 100%;
   }
 
   body {
@@ -125,13 +85,15 @@
       -apple-system,
       sans-serif;
   }
-}
 
-@layer base {
-  * {
-    @apply border-border;
+  h1,
+  h2,
+  h3,
+  h4 {
+    font-family: 'Manrope', 'Inter', system-ui, sans-serif;
   }
-  body {
-    @apply bg-background text-foreground;
+
+  ::selection {
+    @apply bg-primary/20 text-foreground;
   }
 }
