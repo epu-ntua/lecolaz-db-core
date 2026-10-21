@@ -7,6 +7,7 @@ validated, and easy to import from one place.
 """
 
 from app.schemas.bim import (
+    BimCategoryUpdate,
     BimFileResponse,
     BimMetadataResponse,
     BimSpaceResponse,
@@ -21,6 +22,7 @@ from app.schemas.simulations import (
 )
 
 __all__ = [
+    "BimCategoryUpdate",
     "BimFileResponse",
     "BimMetadataResponse",
     "BimSpaceResponse",

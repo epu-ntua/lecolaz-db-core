@@ -1,8 +1,11 @@
+export type BimCategory = 'archetype' | 'pilot';
+
 export type BimFileDto = {
   id: string;
   dataset_id: string;
   filename: string;
   format: string;
+  category: BimCategory | null;
   status: string | null;
   schema: string | null;
   stats: {

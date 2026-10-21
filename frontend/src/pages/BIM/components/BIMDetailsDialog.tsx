@@ -7,6 +7,7 @@ import {
   listBimSpaces,
   listBimSimulations,
   listBimStoreys,
+  updateBimCategory,
 } from '@/api/bim_files';
 import { uploadSimulationFile } from '@/api/simulation_files';
 import { Badge } from '@/components/ui/badge';
@@ -29,7 +30,13 @@ import {
 } from '@/components/ui/table';
 import { FileUpload } from '@/pages/DataDiscovery/components/FileUpload';
 import { SimulationDetailsModal } from '@/pages/Simulations/components/SimulationDetailsModal';
-import type { BimFileDto, BimMetadataDto, BimSpaceDto, BimStoreyDto } from '@/types/api/bim';
+import type {
+  BimCategory,
+  BimFileDto,
+  BimMetadataDto,
+  BimSpaceDto,
+  BimStoreyDto,
+} from '@/types/api/bim';
 import type { SimulationFileDto } from '@/types/api/simulations';
 
 function getStatusVariant(status: string | null) {
@@ -47,9 +54,11 @@ function getStatusVariant(status: string | null) {
 export function BIMDetailsDialog({
   file,
   onClose,
+  onCategoryChanged,
 }: {
   file: BimFileDto;
   onClose: () => void;
+  onCategoryChanged?: (file: BimFileDto) => void;
 }) {
   const navigate = useNavigate();
   const [metadata, setMetadata] = useState<BimMetadataDto | null>(null);
@@ -59,7 +68,15 @@ export function BIMDetailsDialog({
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [uploadMessage, setUploadMessage] = useState<string | null>(null);
-  const [selectedSimulation, setSelectedSimulation] = useState<SimulationFileDto | null>(null);
+  const [selectedSimulation, setSelectedSimulation] = useState<SimulationFileDto | null>(
+    null,
+  );
+  const [category, setCategory] = useState<BimCategory | ''>(file.category ?? '');
+  const [persistedCategory, setPersistedCategory] = useState<BimCategory | null>(
+    file.category,
+  );
+  const [categorySaving, setCategorySaving] = useState(false);
+  const [categoryError, setCategoryError] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -102,6 +119,11 @@ export function BIMDetailsDialog({
     };
   }, [file.id]);
 
+  useEffect(() => {
+    setCategory(file.category ?? '');
+    setPersistedCategory(file.category);
+  }, [file.category]);
+
   const storeyNameById = useMemo(
     () =>
       new Map(
@@ -117,7 +139,9 @@ export function BIMDetailsDialog({
           <div className="flex items-start justify-between gap-4 pr-8">
             <div className="space-y-2">
               <DialogTitle className="text-xl">{file.filename}</DialogTitle>
-              <DialogDescription>BIM dataset details and extracted structure</DialogDescription>
+              <DialogDescription>
+                BIM dataset details and extracted structure
+              </DialogDescription>
             </div>
             <div className="flex items-center gap-2">
               <Badge variant={getStatusVariant(file.status)} className="capitalize">
@@ -160,7 +184,9 @@ export function BIMDetailsDialog({
                 </CardTitle>
               </CardHeader>
               <CardContent className="text-lg font-semibold">
-                {typeof file.stats?.storeys === 'number' ? file.stats.storeys : storeys.length}
+                {typeof file.stats?.storeys === 'number'
+                  ? file.stats.storeys
+                  : storeys.length}
               </CardContent>
             </Card>
             <Card className="shadow-none">
@@ -170,7 +196,9 @@ export function BIMDetailsDialog({
                 </CardTitle>
               </CardHeader>
               <CardContent className="text-lg font-semibold">
-                {typeof file.stats?.spaces === 'number' ? file.stats.spaces : spaces.length}
+                {typeof file.stats?.spaces === 'number'
+                  ? file.stats.spaces
+                  : spaces.length}
               </CardContent>
             </Card>
           </section>
@@ -180,6 +208,60 @@ export function BIMDetailsDialog({
               {error}
             </section>
           )}
+
+          <Card className="shadow-none">
+            <CardHeader className="pb-3">
+              <CardTitle className="text-sm font-medium">Portfolio category</CardTitle>
+              <DialogDescription className="text-left">
+                Choose where this model appears on the Buildings & Pilots page.
+              </DialogDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
+                <label className="grid flex-1 gap-1.5 text-xs font-medium text-muted-foreground">
+                  Category
+                  <select
+                    value={category}
+                    onChange={(event) => {
+                      setCategory(event.target.value as BimCategory);
+                      setCategoryError(null);
+                    }}
+                    className="h-9 rounded-md border border-input bg-background px-3 text-sm text-foreground shadow-sm focus:outline-none focus:ring-1 focus:ring-ring"
+                  >
+                    <option value="" disabled>
+                      Select a category
+                    </option>
+                    <option value="archetype">Building Archetype</option>
+                    <option value="pilot">Living Lab / Pilot</option>
+                  </select>
+                </label>
+                <Button
+                  type="button"
+                  size="sm"
+                  disabled={!category || categorySaving || category === persistedCategory}
+                  onClick={async () => {
+                    if (!category) return;
+                    try {
+                      setCategorySaving(true);
+                      setCategoryError(null);
+                      const updated = await updateBimCategory(file.id, category);
+                      setPersistedCategory(updated.category);
+                      onCategoryChanged?.(updated);
+                    } catch {
+                      setCategoryError('Category could not be updated.');
+                    } finally {
+                      setCategorySaving(false);
+                    }
+                  }}
+                >
+                  {categorySaving ? 'Saving…' : 'Save category'}
+                </Button>
+              </div>
+              {categoryError && (
+                <p className="mt-2 text-sm text-destructive">{categoryError}</p>
+              )}
+            </CardContent>
+          </Card>
 
           <Card className="shadow-none">
             <CardHeader className="pb-4">
@@ -225,7 +307,9 @@ export function BIMDetailsDialog({
             </CardHeader>
             <CardContent className="space-y-3">
               {simulations.length === 0 ? (
-                <div className="text-sm text-muted-foreground">No linked simulations yet.</div>
+                <div className="text-sm text-muted-foreground">
+                  No linked simulations yet.
+                </div>
               ) : (
                 <div className="rounded-md border border-border bg-card">
                   <Table className="min-w-[640px] text-sm text-foreground">
@@ -265,7 +349,9 @@ export function BIMDetailsDialog({
                           </TableCell>
                           <TableCell className="px-3 py-2 text-muted-foreground">
                             {typeof simulation.metadata?.processed_at === 'string'
-                              ? new Date(simulation.metadata.processed_at).toLocaleString()
+                              ? new Date(
+                                  simulation.metadata.processed_at,
+                                ).toLocaleString()
                               : '--'}
                           </TableCell>
                         </TableRow>
@@ -280,7 +366,9 @@ export function BIMDetailsDialog({
                   const nextSimulations = await listBimSimulations(file.id);
                   setSimulations(nextSimulations);
                 }}
-                uploadAction={(uploadedFile) => uploadSimulationFile(uploadedFile, file.id)}
+                uploadAction={(uploadedFile) =>
+                  uploadSimulationFile(uploadedFile, file.id)
+                }
                 accept=".eso"
                 buttonLabel="Upload Another Simulation"
                 uploadingLabel="Uploading simulation..."
@@ -372,7 +460,9 @@ export function BIMDetailsDialog({
                     <TableBody>
                       {spaces.map((space) => (
                         <TableRow key={space.id} className="align-top">
-                          <TableCell className="px-3 py-2">{space.name ?? '--'}</TableCell>
+                          <TableCell className="px-3 py-2">
+                            {space.name ?? '--'}
+                          </TableCell>
                           <TableCell className="px-3 py-2 font-mono text-xs text-muted-foreground">
                             {space.global_id}
                           </TableCell>

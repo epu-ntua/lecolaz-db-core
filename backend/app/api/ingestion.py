@@ -1,4 +1,5 @@
 import uuid
+from typing import Literal
 
 from fastapi import APIRouter, BackgroundTasks, File, Form, HTTPException, UploadFile
 
@@ -53,7 +54,11 @@ async def upload_file(background_tasks: BackgroundTasks, file: UploadFile = File
 
 
 @router.post("/bim/upload", response_model=FileUploadResponse)
-async def upload_bim(background_tasks: BackgroundTasks, file: UploadFile = File(...)):
+async def upload_bim(
+    background_tasks: BackgroundTasks,
+    file: UploadFile = File(...),
+    category: Literal["archetype", "pilot"] = Form(...),
+):
     if not is_bim_filename(file.filename):
         raise HTTPException(400, "Only BIM files allowed")
 
@@ -64,6 +69,7 @@ async def upload_bim(background_tasks: BackgroundTasks, file: UploadFile = File(
             content_type=file.content_type,
             data=data,
             type="bim",
+            bim_category=category,
             background_tasks=background_tasks,
         )
     except ValueError as exc:

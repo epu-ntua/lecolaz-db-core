@@ -1,4 +1,4 @@
-from typing import Any
+from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -10,6 +10,7 @@ class BimFileResponse(BaseModel):
     dataset_id: str
     filename: str
     format: str
+    category: Literal["archetype", "pilot"] | None
     status: str | None
     bim_schema: str | None = Field(
         default=None,
@@ -20,6 +21,10 @@ class BimFileResponse(BaseModel):
     units: list[dict[str, Any]] | None
     created_at: str | None
     extra: dict[str, Any] | None
+
+
+class BimCategoryUpdate(BaseModel):
+    category: Literal["archetype", "pilot"]
 
 
 class BimMetadataResponse(BaseModel):
