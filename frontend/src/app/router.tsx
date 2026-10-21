@@ -1,6 +1,7 @@
 import { createBrowserRouter } from 'react-router-dom';
-import { Activity, Blocks, FileBarChart, Settings } from 'lucide-react';
+import { Activity, Blocks, FileBarChart } from 'lucide-react';
 import AppLayout from './layout/AppLayout';
+import AdministrationPage from '@/pages/Administration/AdministrationPage';
 import BIMPage from '@/pages/BIM/BIMpage';
 import BIMViewerPage from '@/pages/BIM/BIMViewerPage';
 import DataDiscoveryPage from '@/pages/DataDiscovery/DataDiscoveryPage';
@@ -57,14 +58,7 @@ export const router = createBrowserRouter([
       },
       {
         path: 'administration',
-        element: (
-          <PlaceholderPage
-            eyebrow="Management"
-            title="Administration"
-            description="Manage platform configuration and access from one place."
-            icon={Settings}
-          />
-        ),
+        element: <AdministrationPage />,
       },
       { path: '*', element: <NotFoundPage /> },
     ],
