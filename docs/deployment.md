@@ -67,7 +67,7 @@ when the previous step succeeds.
 In `infra/.env`, set `DAGSTER_POSTGRES_USER` and
 `DAGSTER_POSTGRES_DB` to names distinct from the application user/database, and set a strong
 `DAGSTER_POSTGRES_PASSWORD`; production Compose rejects an unset or empty value.
-Set `HAMAPI_API_KEY` to enable HAM registration;
+Set `HAMAPI_API_KEY`; Compose shares it with the backend and Dagster for HAM access.
 OpenMeteo needs no API key.
 
 Existing PostgreSQL volumes do not rerun initialization scripts. Run this sequence

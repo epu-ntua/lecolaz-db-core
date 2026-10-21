@@ -7,9 +7,11 @@ catalog discovery. Building this component itself performs no external I/O.
 import hashlib
 import json
 from dataclasses import dataclass
-from pathlib import Path
 
-import yaml
+from app.integrations.openmeteo import (
+    REGISTRATION_DEFAULTS_PATH,
+    load_registration_defaults as load_defaults,
+)
 from app.db.models.observation_type import ObservationType
 from app.db.models.observation_value import ObservationValue
 from app.db.models.sensor import Sensor
@@ -28,21 +30,13 @@ from infra.dagster.openmeteo.client import OpenMeteoApi, parse_external_id
 from infra.dagster.resources import LeColazDatabase
 
 RETRY_POLICY = dg.RetryPolicy(max_retries=3, delay=60, backoff=dg.Backoff.EXPONENTIAL)
-REGISTRATION_DEFAULTS_PATH = Path(__file__).with_name("registration.yaml")
 REGISTRATION_KEYS = tuple(
     dg.AssetKey([*REFERENCE_PREFIX, name]) for name in ("sensors", "observation_types")
 )
 
 
 def load_registration_defaults() -> list[str]:
-    """Keep the editable sensor list beside the integration, not in instance config."""
-    settings = yaml.safe_load(REGISTRATION_DEFAULTS_PATH.read_text(encoding="utf-8"))
-    external_ids = settings.get("external_ids") if isinstance(settings, dict) else None
-    if not isinstance(external_ids, list) or not external_ids:
-        raise ValueError("registration.yaml must contain a nonempty external_ids list")
-    for external_id in external_ids:
-        parse_external_id(external_id)
-    return external_ids
+    return load_defaults(REGISTRATION_DEFAULTS_PATH)
 
 
 class RegistrationConfig(dg.Config):

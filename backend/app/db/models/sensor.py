@@ -3,6 +3,7 @@ import uuid
 from sqlalchemy import (
     Column,
     DateTime,
+    ForeignKey,
     String,
     Text,
     UniqueConstraint,
@@ -29,6 +30,13 @@ class Sensor(Base):
         primary_key=True,
         default=uuid.uuid4,
         server_default=text("gen_random_uuid()"),
+    )
+
+    bim_dataset_id = Column(
+        UUID(as_uuid=True),
+        ForeignKey("bim_datasets.id", ondelete="SET NULL"),
+        nullable=True,
+        index=True,
     )
 
     name = Column(

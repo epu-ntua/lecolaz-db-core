@@ -1,5 +1,5 @@
 from fastapi import FastAPI
-from app.api import health, bim, simulations, ingestion, datasets, ontology
+from app.api import health, bim, simulations, ingestion, datasets, ontology, sensors
 from fastapi.middleware.cors import CORSMiddleware
 
 app = FastAPI(title="LeColaz Platform")
@@ -20,3 +20,4 @@ app.include_router(datasets.router)
 app.include_router(bim.router)
 app.include_router(simulations.router)
 app.include_router(ontology.router)
+app.include_router(sensors.router)
