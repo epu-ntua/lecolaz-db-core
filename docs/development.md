@@ -111,7 +111,9 @@ curl -u admin:lecolaz http://localhost:3030/$/server
 ```
 
 ## Dagster workflows
-Apply alembic migrations first because Dagster reads the application’s `sensors` table when loading asset definitions. If the schema is already current, Alembic makes no changes.
+The backend runs `alembic upgrade head` before starting Uvicorn, so the
+application schema is ready before Dagster loads its asset definitions. If the
+schema is already current, Alembic makes no changes.
 
 
 Set `HAMAPI_API_KEY` in `infra/.env` before starting Dagster; recreate its services
@@ -146,13 +148,18 @@ Note: `frontend/.env.example` defines `VITE_API_BASE_URL`, but the current front
 
 ## Database Migrations
 
-Apply Alembic migrations to the local development database:
+Database migrations run automatically when the backend container starts:
 
 ```bash
-docker compose exec backend alembic upgrade head
+docker compose up -d --build
 ```
 
-This applies the database schema migrations in `backend/alembic/versions/`.
+This applies the migrations in `backend/alembic/versions/` before the backend
+becomes healthy. To inspect migration output, use:
+
+```bash
+docker compose logs backend
+```
 
 ## Stop Services
 
