@@ -7,7 +7,8 @@ import DataDiscoveryPage from '@/pages/DataDiscovery/DataDiscoveryPage';
 import NotFoundPage from '@/pages/NotFound/NotFoundPage';
 import OverviewPage from '@/pages/Overview/OverviewPage';
 import PlaceholderPage from '@/pages/Placeholder/PlaceholderPage';
-import SimulationsPage from '@/pages/Simulations/SimulationsPage';
+import ScenariosPage from '@/pages/Simulations/ScenariosPage';
+import SimulationDetailsPage from '@/pages/Simulations/SimulationDetailsPage';
 
 export const router = createBrowserRouter([
   {
@@ -40,9 +41,10 @@ export const router = createBrowserRouter([
       },
       {
         path: 'scenarios',
-        element: <SimulationsPage />,
+        element: <ScenariosPage />,
       },
       { path: 'data', element: <DataDiscoveryPage /> },
+      { path: 'data/simulations/:id', element: <SimulationDetailsPage /> },
       {
         path: 'reports',
         element: (

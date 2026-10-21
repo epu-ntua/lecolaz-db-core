@@ -1,14 +1,15 @@
-// NOTE:
-// This component owns both data fetching and rendering for file metadata.
-// If data logic (pagination, filtering, caching) grows,
-// extract a `useFiles` hook.
-// If rendering becomes complex (actions, expandable rows),
-// extract subcomponents for clarity.
-
 import { useState } from 'react';
+import { Download } from 'lucide-react';
+import { getDatasetDownloadUrl } from '@/api/datasets';
+import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import type { DatasetDto } from '@/types/api/datasets';
-import { SimulationDetailsModal } from '@/pages/Simulations/components/SimulationDetailsModal';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
 import {
   Table,
   TableBody,
@@ -17,6 +18,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
+import type { DatasetDto } from '@/types/api/datasets';
 
 export function FilesTable({
   files,
@@ -25,120 +27,85 @@ export function FilesTable({
   files: DatasetDto[];
   loading: boolean;
 }) {
-  const [selectedSimulation, setSelectedSimulation] = useState<DatasetDto | null>(null);
-
-  if (loading) {
-    return <div className="text-sm text-muted-foreground">Loading metadata...</div>;
-  }
+  const [selected, setSelected] = useState<DatasetDto | null>(null);
+  if (loading)
+    return (
+      <div className="rounded-xl border bg-card p-6 text-sm text-muted-foreground">
+        Loading datasets…
+      </div>
+    );
 
   return (
     <>
-      <div className="border border-border rounded-lg bg-card">
-        <div className="max-h-[65vh] overflow-auto">
-          <Table className="min-w-[1100px] text-sm text-foreground">
-            <TableHeader className="border-b border-border bg-muted">
-              <TableRow className="text-left hover:bg-transparent">
-                <TableHead className="sticky top-0 z-10 bg-muted px-3 py-2 font-medium text-muted-foreground">
-                  Dataset ID
-                </TableHead>
-                <TableHead className="sticky top-0 z-10 bg-muted px-3 py-2 font-medium text-muted-foreground">
-                  Type
-                </TableHead>
-                <TableHead className="sticky top-0 z-10 bg-muted px-3 py-2 font-medium text-muted-foreground">
-                  Subtype
-                </TableHead>
-                <TableHead className="sticky top-0 z-10 bg-muted px-3 py-2 font-medium text-muted-foreground">
-                  Filename
-                </TableHead>
-                <TableHead className="sticky top-0 z-10 bg-muted px-3 py-2 font-medium text-muted-foreground">
-                  Status
-                </TableHead>
-                <TableHead className="sticky top-0 z-10 bg-muted px-3 py-2 font-medium text-muted-foreground">
-                  Content type
-                </TableHead>
-                <TableHead className="sticky top-0 z-10 bg-muted px-3 py-2 font-medium text-muted-foreground">
-                  Size
-                </TableHead>
-                <TableHead className="sticky top-0 z-10 bg-muted px-3 py-2 font-medium text-muted-foreground">
-                  Uploaded
-                </TableHead>
-                <TableHead className="sticky top-0 z-10 bg-muted px-3 py-2 font-medium text-muted-foreground">
-                  Object key
-                </TableHead>
-                <TableHead className="sticky top-0 z-10 bg-muted px-3 py-2 font-medium text-muted-foreground">
-                  Metadata
-                </TableHead>
+      <div className="overflow-hidden rounded-xl border bg-card">
+        <div className="overflow-x-auto">
+          <Table className="min-w-[820px]">
+            <TableHeader className="bg-muted/50">
+              <TableRow className="hover:bg-transparent">
+                <TableHead>Filename</TableHead>
+                <TableHead>Type</TableHead>
+                <TableHead>Status</TableHead>
+                <TableHead>Size</TableHead>
+                <TableHead>Uploaded</TableHead>
+                <TableHead className="text-right">Actions</TableHead>
               </TableRow>
             </TableHeader>
-
             <TableBody>
-              {files.map((f) => (
-                <TableRow key={f.id} className="align-top">
-                  <TableCell className="px-3 py-2 font-mono text-xs text-muted-foreground">
-                    {f.id}
+              {files.map((file) => (
+                <TableRow key={file.id} className="h-14 hover:bg-muted/30">
+                  <TableCell className="max-w-xs">
+                    <Button
+                      variant="link"
+                      className="h-auto max-w-full justify-start truncate p-0"
+                      title={file.filename}
+                      onClick={() => setSelected(file)}
+                    >
+                      {file.filename}
+                    </Button>
                   </TableCell>
-                  <TableCell className="px-3 py-2 text-muted-foreground capitalize">
-                    {f.type}
+                  <TableCell className="capitalize text-muted-foreground">
+                    {file.type}
                   </TableCell>
-                  <TableCell className="px-3 py-2 text-muted-foreground">
-                    {f.subtype ?? '--'}
+                  <TableCell>
+                    <Badge
+                      variant={
+                        file.status === 'failed'
+                          ? 'destructive'
+                          : file.status === 'processed'
+                            ? 'default'
+                            : 'secondary'
+                      }
+                      className="capitalize"
+                    >
+                      {file.status}
+                    </Badge>
                   </TableCell>
-                  <TableCell className="px-3 py-2">
-                    {f.type === 'simulation' ? (
-                      <Button
-                        type="button"
-                        variant="link"
-                        className="h-auto p-0"
-                        onClick={() => setSelectedSimulation(f)}
+                  <TableCell className="text-muted-foreground">
+                    {file.size_bytes ? `${Math.round(file.size_bytes / 1024)} KB` : '—'}
+                  </TableCell>
+                  <TableCell className="text-muted-foreground">
+                    {file.created_at ? new Date(file.created_at).toLocaleString() : '—'}
+                  </TableCell>
+                  <TableCell className="text-right">
+                    <Button asChild variant="ghost" size="icon">
+                      <a
+                        href={getDatasetDownloadUrl(file.id)}
+                        download
+                        aria-label={`Download ${file.filename}`}
                       >
-                        {f.filename}
-                      </Button>
-                    ) : (
-                      f.filename
-                    )}
-                  </TableCell>
-
-                  <TableCell className="px-3 py-2">
-                    <span className="inline-flex rounded-full bg-muted px-2 py-1 text-xs font-medium capitalize text-foreground">
-                      {f.status}
-                    </span>
-                  </TableCell>
-
-                  <TableCell className="px-3 py-2 text-muted-foreground">
-                    {f.content_type ?? '--'}
-                  </TableCell>
-
-                  <TableCell className="px-3 py-2 text-muted-foreground">
-                    {f.size_bytes ? `${Math.round(f.size_bytes / 1024)} KB` : '--'}
-                  </TableCell>
-
-                  <TableCell className="px-3 py-2 text-muted-foreground">
-                    {f.created_at ? new Date(f.created_at).toLocaleString() : '--'}
-                  </TableCell>
-
-                  <TableCell className="px-3 py-2 font-mono text-xs text-muted-foreground">
-                    {f.object_key}
-                  </TableCell>
-
-                  <TableCell className="px-3 py-2">
-                    {f.metadata ? (
-                      <pre className="text-xs bg-muted rounded p-2 max-w-xs overflow-x-auto">
-                        {JSON.stringify(f.metadata, null, 2)}
-                      </pre>
-                    ) : (
-                      <span className="text-muted-foreground/60">--</span>
-                    )}
+                        <Download className="h-4 w-4" />
+                      </a>
+                    </Button>
                   </TableCell>
                 </TableRow>
               ))}
-
               {files.length === 0 && (
                 <TableRow>
                   <TableCell
-                    colSpan={10}
-                    className="px-4 py-6 text-center text-muted-foreground"
+                    colSpan={6}
+                    className="h-28 text-center text-muted-foreground"
                   >
-                    No metadata entries
+                    No datasets available.
                   </TableCell>
                 </TableRow>
               )}
@@ -146,20 +113,48 @@ export function FilesTable({
           </Table>
         </div>
       </div>
-      {selectedSimulation && (
-        <SimulationDetailsModal
-          file={{
-            id: selectedSimulation.id,
-            dataset_id: selectedSimulation.id,
-            bim_dataset_id: null,
-            filename: selectedSimulation.filename,
-            format: selectedSimulation.subtype ?? '--',
-            status: selectedSimulation.status,
-            created_at: selectedSimulation.created_at,
-            metadata: selectedSimulation.metadata,
-          }}
-          onClose={() => setSelectedSimulation(null)}
-        />
+      {selected && (
+        <Dialog open onOpenChange={(open) => !open && setSelected(null)}>
+          <DialogContent className="sm:max-w-2xl">
+            <DialogHeader>
+              <DialogTitle>{selected.filename}</DialogTitle>
+              <DialogDescription>
+                Dataset metadata and source information.
+              </DialogDescription>
+            </DialogHeader>
+            <dl className="grid gap-4 rounded-xl border bg-muted/20 p-4 text-sm sm:grid-cols-2">
+              <div>
+                <dt className="text-muted-foreground">Type</dt>
+                <dd className="mt-1 capitalize">{selected.type}</dd>
+              </div>
+              <div>
+                <dt className="text-muted-foreground">Subtype</dt>
+                <dd className="mt-1">{selected.subtype ?? '—'}</dd>
+              </div>
+              <div>
+                <dt className="text-muted-foreground">Content type</dt>
+                <dd className="mt-1">{selected.content_type ?? '—'}</dd>
+              </div>
+              <div>
+                <dt className="text-muted-foreground">Source</dt>
+                <dd className="mt-1">{selected.source ?? '—'}</dd>
+              </div>
+            </dl>
+            {selected.metadata && (
+              <pre className="max-h-64 overflow-auto rounded-xl bg-muted p-4 text-xs">
+                {JSON.stringify(selected.metadata, null, 2)}
+              </pre>
+            )}
+            <div className="flex justify-end">
+              <Button asChild>
+                <a href={getDatasetDownloadUrl(selected.id)} download>
+                  <Download className="h-4 w-4" />
+                  Download
+                </a>
+              </Button>
+            </div>
+          </DialogContent>
+        </Dialog>
       )}
     </>
   );

@@ -1,85 +1,254 @@
 import { useEffect, useState } from 'react';
+import { Link, useSearchParams } from 'react-router-dom';
+import { getBimFileByDataset, listBimFiles } from '@/api/bim_files';
 import { getDataset, listDatasets } from '@/api/datasets';
-import { usePendingDatasetPolling } from '@/hooks/usePendingDatasetPolling';
-import type { DatasetDto } from '@/types/api/datasets';
-import { FileUpload } from '@/pages/DataDiscovery/components/FileUpload';
-import { FilesTable } from '@/pages/DataDiscovery/components/FilesTable';
+import { getSimulationFileByDataset, listSimulationFiles } from '@/api/simulation_files';
 import { PageContainer } from '@/components/layout/PageContainer';
 import { PageHeader } from '@/components/layout/PageHeader';
+import { cn } from '@/lib/utils';
+import { usePendingDatasetPolling } from '@/hooks/usePendingDatasetPolling';
+import { BimUploadDialog } from '@/pages/BIM/components/BimUploadDialog';
+import { BimDatasetsTable } from './components/BimDatasetsTable';
+import { FilesTable } from './components/FilesTable';
+import { GenericUploadDialog } from './components/GenericUploadDialog';
+import { SimulationUploadDialog } from './components/SimulationUploadDialog';
+import { SimulationsFilesTable } from '@/pages/Simulations/components/SimulationsFilesTable';
+import type { BimFileDto } from '@/types/api/bim';
+import type { DatasetDto } from '@/types/api/datasets';
+import type { SimulationFileDto } from '@/types/api/simulations';
+
+const tabs = [
+  { value: 'all', label: 'All Datasets' },
+  { value: 'simulations', label: 'Simulation Datasets' },
+  { value: 'bim', label: 'BIM Datasets' },
+] as const;
+
+function SectionHeader({
+  title,
+  description,
+  action,
+}: {
+  title: string;
+  description: string;
+  action: React.ReactNode;
+}) {
+  return (
+    <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+      <div>
+        <h2 className="text-xl font-semibold tracking-tight">{title}</h2>
+        <p className="mt-1 text-sm text-muted-foreground">{description}</p>
+      </div>
+      {action}
+    </div>
+  );
+}
 
 export default function DataDiscoveryPage() {
-  const [files, setFiles] = useState<DatasetDto[]>([]);
-  const [loading, setLoading] = useState(true);
-  const { resolvedRows, clearResolvedRows, queueDatasetId } = usePendingDatasetPolling({
+  const [params] = useSearchParams();
+  const requestedTab = params.get('tab');
+  const activeTab = tabs.some((tab) => tab.value === requestedTab)
+    ? requestedTab!
+    : 'all';
+  const [datasets, setDatasets] = useState<DatasetDto[]>([]);
+  const [simulations, setSimulations] = useState<SimulationFileDto[]>([]);
+  const [bims, setBims] = useState<BimFileDto[]>([]);
+  const [loading, setLoading] = useState({ all: true, simulations: true, bim: true });
+  const [errors, setErrors] = useState({ all: false, simulations: false, bim: false });
+  const {
+    resolvedRows: resolvedDatasets,
+    clearResolvedRows: clearResolvedDatasets,
+    queueDatasetId: queueDataset,
+  } = usePendingDatasetPolling({
     fetchByDatasetId: getDataset,
     getStatus: (row) => row.status,
     getDatasetId: (row) => row.id,
   });
+  const {
+    resolvedRows: resolvedSimulations,
+    clearResolvedRows: clearResolvedSimulations,
+    queueDatasetId: queueSimulation,
+  } = usePendingDatasetPolling({
+    fetchByDatasetId: getSimulationFileByDataset,
+    getStatus: (row) => row.status,
+    getDatasetId: (row) => row.dataset_id,
+  });
+  const {
+    resolvedRows: resolvedBims,
+    clearResolvedRows: clearResolvedBims,
+    queueDatasetId: queueBim,
+  } = usePendingDatasetPolling({
+    fetchByDatasetId: getBimFileByDataset,
+    getStatus: (row) => row.status,
+    getDatasetId: (row) => row.dataset_id,
+  });
 
   useEffect(() => {
-    let cancelled = false;
-
     listDatasets()
-      .then((rows) => {
-        if (!cancelled) {
-          setFiles(rows);
-        }
-      })
-      .finally(() => {
-        if (!cancelled) {
-          setLoading(false);
-        }
-      });
-
-    return () => {
-      cancelled = true;
-    };
+      .then(setDatasets)
+      .catch(() => setErrors((state) => ({ ...state, all: true })))
+      .finally(() => setLoading((state) => ({ ...state, all: false })));
+    listSimulationFiles()
+      .then(setSimulations)
+      .catch(() => setErrors((state) => ({ ...state, simulations: true })))
+      .finally(() => setLoading((state) => ({ ...state, simulations: false })));
+    listBimFiles()
+      .then(setBims)
+      .catch(() => setErrors((state) => ({ ...state, bim: true })))
+      .finally(() => setLoading((state) => ({ ...state, bim: false })));
   }, []);
 
   useEffect(() => {
-    if (resolvedRows.length === 0) {
-      return;
-    }
+    if (!resolvedDatasets.length) return;
+    setDatasets((current) =>
+      current.map((row) => resolvedDatasets.find((next) => next.id === row.id) ?? row),
+    );
+    clearResolvedDatasets();
+  }, [resolvedDatasets, clearResolvedDatasets]);
 
-    setFiles((current) => {
-      const next = [...current];
-      resolvedRows.forEach((dataset) => {
-        const index = next.findIndex((row) => row.id === dataset.id);
-        if (index >= 0) {
-          next[index] = dataset;
-        }
-      });
-      return next;
-    });
-    clearResolvedRows();
-  }, [clearResolvedRows, resolvedRows]);
+  useEffect(() => {
+    if (!resolvedSimulations.length) return;
+    setSimulations((current) =>
+      current.map(
+        (row) =>
+          resolvedSimulations.find((next) => next.dataset_id === row.dataset_id) ?? row,
+      ),
+    );
+    clearResolvedSimulations();
+  }, [resolvedSimulations, clearResolvedSimulations]);
+
+  useEffect(() => {
+    if (!resolvedBims.length) return;
+    setBims((current) =>
+      current.map(
+        (row) => resolvedBims.find((next) => next.dataset_id === row.dataset_id) ?? row,
+      ),
+    );
+    clearResolvedBims();
+  }, [resolvedBims, clearResolvedBims]);
 
   return (
-    <PageContainer className="space-y-8">
+    <PageContainer size="wide" className="space-y-6">
       <PageHeader
-        eyebrow="Workspace"
         title="Data Explorer"
-        description="Manage uploaded files and follow their processing status."
+        description="Browse, manage and explore datasets available in the Le’Colaz platform."
       />
+      <nav aria-label="Dataset type" className="flex gap-6 border-b">
+        {tabs.map((tab) => (
+          <Link
+            key={tab.value}
+            to={`/data?tab=${tab.value}`}
+            className={cn(
+              'relative pb-3 text-sm font-medium text-muted-foreground transition-colors hover:text-foreground',
+              activeTab === tab.value &&
+                'text-primary after:absolute after:inset-x-0 after:-bottom-px after:h-0.5 after:bg-primary',
+            )}
+          >
+            {tab.label}
+          </Link>
+        ))}
+      </nav>
 
-      <section className="bg-card p-4 rounded-lg border border-border shadow-sm">
-        <FileUpload
-          onUploaded={async (result) => {
-            const dataset = await getDataset(result.dataset_id);
-            setFiles((current) => {
-              const next = current.filter((row) => row.id !== dataset.id);
-              return [dataset, ...next];
-            });
-            if (result.type === 'bim' || result.type === 'simulation') {
-              queueDatasetId(result.dataset_id);
-            }
-          }}
-        />
-      </section>
+      <div className="space-y-6 pt-0">
+        {activeTab === 'all' && (
+          <>
+            <SectionHeader
+              title="All Datasets"
+              description="Review uploaded files and their processing status."
+              action={
+                <GenericUploadDialog
+                  onUploaded={async (result) => {
+                    const dataset = await getDataset(result.dataset_id);
+                    setDatasets((current) => [
+                      dataset,
+                      ...current.filter((row) => row.id !== dataset.id),
+                    ]);
+                    queueDataset(result.dataset_id);
+                  }}
+                />
+              }
+            />
+            {errors.all ? (
+              <p className="rounded-xl border border-destructive/30 bg-destructive/10 p-4 text-sm text-destructive">
+                Datasets could not be loaded.
+              </p>
+            ) : (
+              <FilesTable files={datasets} loading={loading.all} />
+            )}
+          </>
+        )}
 
-      <section>
-        <FilesTable files={files} loading={loading} />
-      </section>
+        {activeTab === 'simulations' && (
+          <>
+            <SectionHeader
+              title="Simulation Datasets"
+              description="Manage imported simulation outputs and explore their available variables and results."
+              action={
+                <SimulationUploadDialog
+                  onUploaded={async (result) => {
+                    const simulation = await getSimulationFileByDataset(
+                      result.dataset_id,
+                    );
+                    const dataset = await getDataset(result.dataset_id);
+                    setSimulations((current) => [
+                      simulation,
+                      ...current.filter((row) => row.id !== simulation.id),
+                    ]);
+                    setDatasets((current) => [
+                      dataset,
+                      ...current.filter((row) => row.id !== dataset.id),
+                    ]);
+                    queueSimulation(result.dataset_id);
+                  }}
+                />
+              }
+            />
+            {errors.simulations ? (
+              <p className="rounded-xl border border-destructive/30 bg-destructive/10 p-4 text-sm text-destructive">
+                Simulation datasets could not be loaded.
+              </p>
+            ) : (
+              <SimulationsFilesTable
+                files={simulations}
+                bims={bims}
+                loading={loading.simulations}
+              />
+            )}
+          </>
+        )}
+
+        {activeTab === 'bim' && (
+          <>
+            <SectionHeader
+              title="BIM Datasets"
+              description="Access imported IFC models and their associated technical information."
+              action={
+                <BimUploadDialog
+                  onUploaded={async (result) => {
+                    const bim = await getBimFileByDataset(result.dataset_id);
+                    const dataset = await getDataset(result.dataset_id);
+                    setBims((current) => [
+                      bim,
+                      ...current.filter((row) => row.id !== bim.id),
+                    ]);
+                    setDatasets((current) => [
+                      dataset,
+                      ...current.filter((row) => row.id !== dataset.id),
+                    ]);
+                    queueBim(result.dataset_id);
+                  }}
+                />
+              }
+            />
+            {errors.bim ? (
+              <p className="rounded-xl border border-destructive/30 bg-destructive/10 p-4 text-sm text-destructive">
+                BIM datasets could not be loaded.
+              </p>
+            ) : (
+              <BimDatasetsTable files={bims} loading={loading.bim} />
+            )}
+          </>
+        )}
+      </div>
     </PageContainer>
   );
 }
