@@ -129,7 +129,7 @@ class ResourceTests(unittest.TestCase):
         for body in ("{}", "[]", "null"):
             with (
                 self.subTest(body=body),
-                patch("infra.dagster.ham.catalog.files") as files,
+                patch("app.integrations.ham.files") as files,
             ):
                 files.return_value.joinpath.return_value.read_text.return_value = body
                 with self.assertRaisesRegex(ValueError, "nonempty object"):

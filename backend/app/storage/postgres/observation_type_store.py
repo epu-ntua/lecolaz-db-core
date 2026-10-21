@@ -20,6 +20,9 @@ class ObservationTypeStore:
         """Upsert and verify selected types, preserving IDs and absent types."""
         if not rows:
             raise ValueError("Refusing to load an empty observation-type batch")
+        # Overlapping UI/Dagster batches must acquire unique-key locks in the same
+        # order; opposite input orders can otherwise deadlock concurrent upserts.
+        rows = sorted(rows, key=lambda row: row["key"])
         records = [
             {
                 "sensor_family": sensor_family,

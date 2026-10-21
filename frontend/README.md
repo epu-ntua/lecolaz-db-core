@@ -34,7 +34,7 @@ Before major changes:
 npm run typecheck
 ```
 
-(Type checking runs `tsc --noEmit`.)
+(Type checking runs `tsc -b --noEmit`.)
 
 Purpose:
 

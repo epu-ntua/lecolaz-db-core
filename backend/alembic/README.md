@@ -32,7 +32,7 @@ docker compose exec backend alembic revision --autogenerate -m "short descriptio
 This creates a file in:
 
 ```
-alembic/versions/
+backend/alembic/versions/  # repository path; /app/alembic/versions in the container
 ```
 
 ## Always Review The Migration
@@ -45,7 +45,9 @@ Before applying:
 
 ## Applying Migrations
 
-From the `infra` folder:
+Both Compose configurations run `alembic upgrade head` before starting the
+backend. To apply a new migration to an already-running development container,
+run from `infra`:
 
 ```sh
 docker compose exec backend alembic upgrade head
@@ -58,18 +60,18 @@ This applies all pending migrations and brings the local database schema to the 
 The development command above uses `infra/compose.yaml`, so it only updates the
 development database. It does not update production.
 
-After the application code and its new migration file have been deployed to the
-production checkout/image, run this from the `infra` directory on the production
-environment:
+Deploy the application code and migration file together and rebuild/recreate the
+production backend. Its startup command applies pending migrations before Uvicorn
+starts; a migration failure prevents startup. To apply migrations explicitly to
+an already-running production container, run from `infra`:
 
 ```sh
 docker compose -f compose.prod.yaml exec backend alembic upgrade head
 ```
 
 This connects using `POSTGRES_DSN` from the production backend container and
-updates the PostgreSQL database in the production Compose project. Migrations
-are not run automatically when the backend starts, so this command (or an
-equivalent deployment step) must be run once per release containing migrations.
+updates the PostgreSQL database in the production Compose project. Standalone
+backend runs outside Compose must apply migrations explicitly.
 
 ### Dev-to-Production Workflow
 
@@ -88,7 +90,7 @@ equivalent deployment step) must be run once per release containing migrations.
 
 4. Commit the model changes and the generated `alembic/versions/*.py` file
    together, then deploy that commit/image to production.
-5. Run the production command above once, then verify the revision if needed:
+5. After the production backend starts and applies migrations, verify the revision:
 
    ```sh
    docker compose -f compose.prod.yaml exec backend alembic current

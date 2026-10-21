@@ -16,6 +16,11 @@ class Settings:
     # Postgres
     POSTGRES_DSN: str = os.getenv("POSTGRES_DSN")
 
+    # Sensor catalogs and post-registration asset discovery.
+    HAMAPI_API_KEY: str = os.getenv("HAMAPI_API_KEY", "")
+    DAGSTER_GRAPHQL_URL: str = os.getenv("DAGSTER_GRAPHQL_URL", "http://localhost:3000/graphql")
+    DAGSTER_CODE_LOCATION: str = os.getenv("DAGSTER_CODE_LOCATION", "lecolaz")
+
     # MinIO
     MINIO_INTERNAL_ENDPOINT: str = os.getenv("MINIO_INTERNAL_ENDPOINT")
     MINIO_PUBLIC_ENDPOINT: str = os.getenv("MINIO_PUBLIC_ENDPOINT")
