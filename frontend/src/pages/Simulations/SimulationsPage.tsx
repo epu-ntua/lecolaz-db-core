@@ -66,7 +66,7 @@ export default function SimulationsPage() {
   return (
     <PageContainer className="space-y-8">
       <PageHeader
-        eyebrow="Scenarios"
+        eyebrow="Scenarios & Performance"
         title="Simulation files"
         description="Manage simulation records and inspect their processed outputs."
       />

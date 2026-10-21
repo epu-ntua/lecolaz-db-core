@@ -19,13 +19,13 @@ const primaryNavigation = [
   { title: 'Overview', url: '/overview', icon: LayoutDashboard },
   { title: 'Buildings & Pilots', url: '/buildings', icon: Building2 },
   { title: 'Components', url: '/components', icon: Blocks },
-  { title: 'Monitoring', url: '/monitoring', icon: Activity },
-  { title: 'Scenarios', url: '/scenarios', icon: FileBarChart },
+  { title: 'Monitoring & Insights', url: '/monitoring', icon: Activity },
+  { title: 'Scenarios & Performance', url: '/scenarios', icon: FileBarChart },
   { title: 'Data Explorer', url: '/data', icon: Database },
 ];
 
 const secondaryNavigation = [
-  { title: 'Reports', url: '/reports', icon: FileBarChart },
+  { title: 'Validation & Reports', url: '/reports', icon: FileBarChart },
   { title: 'Administration', url: '/administration', icon: Settings },
 ];
 
@@ -81,22 +81,19 @@ export default function PlatformSidebar({
           collapsed && 'lg:w-20',
         )}
       >
-        <div className="flex h-20 shrink-0 items-center border-b border-sidebar-border px-4">
+        <div className="relative flex h-24 shrink-0 items-center justify-center border-b border-sidebar-border px-3">
           <div
             className={cn(
-              'flex min-w-0 flex-1 items-center gap-3',
-              collapsed && 'lg:justify-center',
+              'flex h-16 w-44 items-center justify-center rounded-xl bg-white px-4 shadow-sm transition-all duration-300 lg:w-52',
+              collapsed && 'lg:h-14 lg:w-14 lg:px-1.5',
             )}
           >
-            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-sidebar-primary text-sm font-semibold text-sidebar-primary-foreground">
-              {"L'C"}
-            </div>
             <img
-              src="/logo_white_black.png"
+              src="/logo_green_transparent.png"
               alt="Le'Colaz"
               className={cn(
-                'h-9 w-40 object-contain object-left',
-                collapsed && 'lg:hidden',
+                'h-auto w-36 object-contain object-center transition-all duration-300 lg:w-44',
+                collapsed && 'lg:w-12',
               )}
             />
           </div>
@@ -104,7 +101,7 @@ export default function PlatformSidebar({
             type="button"
             variant="ghost"
             size="icon"
-            className="text-sidebar-muted hover:bg-sidebar-accent hover:text-sidebar-foreground lg:hidden"
+            className="absolute right-2 text-sidebar-muted hover:bg-sidebar-accent hover:text-sidebar-foreground lg:hidden"
             onClick={() => onMobileOpenChange(false)}
           >
             <X className="h-5 w-5" />

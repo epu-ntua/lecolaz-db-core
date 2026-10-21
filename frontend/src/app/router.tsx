@@ -32,7 +32,7 @@ export const router = createBrowserRouter([
         path: 'monitoring',
         element: (
           <PlaceholderPage
-            title="Monitoring"
+            title="Monitoring & Insights"
             description="A future home for live building status, signals and alerts."
             icon={Activity}
           />
@@ -47,7 +47,7 @@ export const router = createBrowserRouter([
         path: 'reports',
         element: (
           <PlaceholderPage
-            title="Reports"
+            title="Validation & Reports"
             description="Prepare clear summaries of building and portfolio performance."
             icon={FileBarChart}
           />

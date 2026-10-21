@@ -27,7 +27,7 @@ export default function PlaceholderPage({
       <EmptyState
         icon={icon}
         title={emptyTitle ?? `${title} is ready for the next phase`}
-        description="This area is intentionally lightweight in Phase 1 while the building experience and application foundation are established."
+        description="This workspace is being prepared while the building experience and application foundation are established."
         action={action}
       />
     </PageContainer>
