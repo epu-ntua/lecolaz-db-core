@@ -7,7 +7,7 @@ export default function ScenariosPage() {
   return (
     <PageContainer className="space-y-8">
       <PageHeader
-        title="Scenarios & Performance"
+        title="Scenarios & Insights"
         description="Explore building configurations, simulation scenarios and performance assessments."
       />
       <section className="flex min-h-[360px] flex-col items-center justify-center rounded-2xl border border-dashed bg-card/70 px-6 py-14 text-center">

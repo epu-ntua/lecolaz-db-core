@@ -19,8 +19,8 @@ const primaryNavigation = [
   { title: 'Overview', url: '/overview', icon: LayoutDashboard },
   { title: 'Buildings & Pilots', url: '/buildings', icon: Building2 },
   { title: 'Components', url: '/components', icon: Blocks },
-  { title: 'Monitoring & Insights', url: '/monitoring', icon: Activity },
-  { title: 'Scenarios & Performance', url: '/scenarios', icon: FileBarChart },
+  { title: 'Monitoring & Performance', url: '/monitoring', icon: Activity },
+  { title: 'Scenarios & Insights', url: '/scenarios', icon: FileBarChart },
   { title: 'Data Explorer', url: '/data', icon: Database },
 ];
 

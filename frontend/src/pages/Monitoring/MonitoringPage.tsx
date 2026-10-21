@@ -54,7 +54,7 @@ export default function MonitoringPage() {
     <PageContainer size="wide" className="space-y-8">
       <PageHeader
         eyebrow="Operations"
-        title="Monitoring & Insights"
+        title="Monitoring & Performance"
         description="Register environmental data sources, connect them to buildings and prepare their observations for ingestion."
         actions={<SensorRegistrationDialog onRegistered={load} />}
       />
