@@ -1,0 +1,15 @@
+lecolaz.epu.ntua.gr {
+    redir /portainer /portainer/ 308
+
+    handle_path /portainer/* {
+        reverse_proxy portainer:9000
+    }
+
+    handle_path /api/* {
+        reverse_proxy backend:8000
+    }
+
+    handle {
+        reverse_proxy frontend:80
+    }
+}
