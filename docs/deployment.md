@@ -85,31 +85,20 @@ docker compose -f infra/compose.prod.yaml up -d --wait postgres
 docker compose -f infra/compose.prod.yaml exec -T postgres \
   sh /docker-entrypoint-initdb.d/020-init-dagster.sh
 
-# Build the backend and migrate before starting Dagster.
-docker compose -f infra/compose.prod.yaml build backend
-docker compose -f infra/compose.prod.yaml run --rm --no-deps backend \
-  alembic upgrade head
-
-# Start the complete stack.
+# The backend applies Alembic migrations before it starts; Dagster waits for
+# the backend health check.
 docker compose -f infra/compose.prod.yaml up -d --build --wait
 ```
 
 ### Routine deployments
 
-When there are no new application database migrations, only run:
+Run the same command for every deployment. The backend automatically runs
+`alembic upgrade head` before starting Uvicorn; if a migration fails, the
+backend does not start and Compose reports the error.
 
 ```bash
 git pull origin main
 docker compose -f infra/compose.prod.yaml up -d --build --wait
-```
-
-**Only when the release includes new Alembic migrations**, insert these commands
-between `git pull` and `up`:
-
-```bash
-docker compose -f infra/compose.prod.yaml build backend
-docker compose -f infra/compose.prod.yaml run --rm --no-deps backend \
-  alembic upgrade head
 ```
 
 Useful production Compose checks:
@@ -165,7 +154,7 @@ This repository currently maintains separate Compose files:
 
 The development file exposes PostgreSQL, MinIO, the MinIO console, and the backend for local work. It also runs the backend with reload and a source bind mount.
 
-The production file runs PostgreSQL/TimescaleDB, MinIO, Fuseki, and the backend with `restart: unless-stopped`. Fuseki is not exposed on a host port. A `post_start` hook of the `fuseki` service loads the ontology schema from `resources/ontology/` each time Compose starts the container; this needs Docker Compose 2.30 or newer on the server. A failed load does not stop the deploy and `up -d` does not report it, so after each deploy, and after a `git pull` that changes the schema, run `curl -X POST http://127.0.0.1:8080/ontology/schema/reload` on the server: it reloads the schema from `resources/ontology/` (mounted read-only into the backend) and returns the triple count or the reason it failed. Production `infra/.env` must set `FUSEKI_ADMIN_PASSWORD`, with the same value as in `backend/.env`. Compose refuses to start if it is missing. The Fuseki image writes the password into `shiro.ini` inside the `fuseki_data` volume on first start; changing `FUSEKI_ADMIN_PASSWORD` afterwards has no effect until the `admin=` line in `/fuseki/shiro.ini` is updated and Fuseki is restarted. It does not run the React frontend; production frontend serving is handled by system Nginx.
+The production file runs PostgreSQL/TimescaleDB, MinIO, Fuseki, and the backend with `restart: unless-stopped`. The backend runs `alembic upgrade head` before Uvicorn and exposes its health check only after migrations have completed; Dagster waits for that health check. Fuseki is not exposed on a host port. A `post_start` hook of the `fuseki` service loads the ontology schema from `resources/ontology/` each time Compose starts the container; this needs Docker Compose 2.30 or newer on the server. A failed load does not stop the deploy and `up -d` does not report it, so after each deploy, and after a `git pull` that changes the schema, run `curl -X POST http://127.0.0.1:8080/ontology/schema/reload` on the server: it reloads the schema from `resources/ontology/` (mounted read-only into the backend) and returns the triple count or the reason it failed. Production `infra/.env` must set `FUSEKI_ADMIN_PASSWORD`, with the same value as in `backend/.env`. Compose refuses to start if it is missing. The Fuseki image writes the password into `shiro.ini` inside the `fuseki_data` volume on first start; changing `FUSEKI_ADMIN_PASSWORD` afterwards has no effect until the `admin=` line in `/fuseki/shiro.ini` is updated and Fuseki is restarted. It does not run the React frontend; production frontend serving is handled by system Nginx.
 
 Shared Dagster service changes apply to both environments; other architectural or
 service changes must be reflected in both Compose files.

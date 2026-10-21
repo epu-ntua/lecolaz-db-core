@@ -70,17 +70,30 @@ services:
     env_file:
       - ../backend/.env
     depends_on:
-      - postgres
-      - minio
-      - fuseki
+      postgres:
+        condition: service_healthy
+      minio:
+        condition: service_started
+      fuseki:
+        condition: service_started
     ports:
       - "${BACKEND_PORT:-8080}:8000"
+    command: >
+      sh -c "alembic upgrade head &&
+             uvicorn app.main:app --host 0.0.0.0 --port 8000"
     volumes:
       # Read-only data: lets POST /ontology/schema/reload see the schema
       - ../resources/ontology:/resources/ontology:ro
+    healthcheck:
+      test: ["CMD", "python", "-c", "from urllib.request import urlopen; urlopen('http://localhost:8000/health', timeout=3)"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 20s
     restart: unless-stopped
 
-  # Migrate the application database before starting Dagster.
+  # The backend applies database migrations before becoming healthy; Dagster
+  # waits for that health check before starting.
   dagster-code:
     extends:
       file: compose.yaml
