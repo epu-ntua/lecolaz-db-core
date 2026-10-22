@@ -42,11 +42,9 @@ export function BIMStructureSidebar({
   }
 
   return (
-    <aside className="flex h-full w-96 flex-col border-l border-border bg-card">
+    <aside className="flex h-full w-full flex-col border-l border-border bg-card">
       <div className="border-b border-border px-4 py-4">
-        <h2 className="text-sm font-semibold uppercase tracking-wide text-foreground">
-          Building Structure
-        </h2>
+        <h2 className="text-sm font-semibold text-foreground">Building Structure</h2>
         <p className="mt-1 text-sm text-muted-foreground">Storeys and spaces</p>
       </div>
 
@@ -71,13 +69,12 @@ export function BIMStructureSidebar({
                 >
                   <button
                     type="button"
+                    aria-expanded={isExpanded}
                     onClick={() => {
                       toggleStorey(storey.global_id);
-                      const spaceGlobalIds = storey.spaces.map((space) => space.global_id);
-                      console.log('[BIMStructureSidebar] storey click', {
-                        storeyGlobalId: storey.global_id,
-                        spaceGlobalIds,
-                      });
+                      const spaceGlobalIds = storey.spaces.map(
+                        (space) => space.global_id,
+                      );
                       onStoreyClick(spaceGlobalIds);
                     }}
                     className="flex w-full items-start justify-between gap-3 px-3 py-3 text-left"
@@ -123,9 +120,6 @@ export function BIMStructureSidebar({
                                 )}
                                 onClick={() => {
                                   setSelectedSpaceGlobalId(space.global_id);
-                                  console.log('[BIMStructureSidebar] space click', {
-                                    spaceGlobalId: space.global_id,
-                                  });
                                   onSpaceClick(space.global_id);
                                 }}
                               >
@@ -134,7 +128,8 @@ export function BIMStructureSidebar({
                                     {space.name ?? space.raw_name ?? space.global_id}
                                   </div>
                                   <div className="truncate text-xs opacity-80">
-                                    Area {space.area ?? '--'} | Volume {space.volume ?? '--'}
+                                    Area {space.area ?? '--'} | Volume{' '}
+                                    {space.volume ?? '--'}
                                   </div>
                                 </div>
                               </Button>

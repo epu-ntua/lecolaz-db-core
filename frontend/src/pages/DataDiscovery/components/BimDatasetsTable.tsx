@@ -1,7 +1,7 @@
 import { Link } from 'react-router-dom';
 import { Download } from 'lucide-react';
 import { getDatasetDownloadUrl } from '@/api/datasets';
-import { Badge } from '@/components/ui/badge';
+import { StatusBadge } from '@/components/ui/status-badge';
 import { Button } from '@/components/ui/button';
 import {
   Table,
@@ -60,18 +60,7 @@ export function BimDatasetsTable({
                     : 'Living Lab / Pilot'}
                 </TableCell>
                 <TableCell>
-                  <Badge
-                    variant={
-                      file.status === 'failed'
-                        ? 'destructive'
-                        : file.status === 'processed'
-                          ? 'default'
-                          : 'secondary'
-                    }
-                    className="capitalize"
-                  >
-                    {file.status ?? 'Unknown'}
-                  </Badge>
+                  <StatusBadge status={file.status} />
                 </TableCell>
                 <TableCell className="text-muted-foreground">
                   {file.schema ?? '—'}
@@ -95,7 +84,7 @@ export function BimDatasetsTable({
             {files.length === 0 && (
               <TableRow>
                 <TableCell colSpan={6} className="h-28 text-center text-muted-foreground">
-                  No BIM datasets available.
+                  No BIM datasets to display. Add a building or adjust your filters.
                 </TableCell>
               </TableRow>
             )}

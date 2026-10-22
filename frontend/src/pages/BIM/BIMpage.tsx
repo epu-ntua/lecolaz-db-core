@@ -7,6 +7,8 @@ import type { BimFileDto } from '@/types/api/bim';
 import { BIMDetailsDialog } from './components/BIMDetailsDialog';
 import { BimUploadDialog } from './components/BimUploadDialog';
 import { BuildingCard } from './components/BuildingCard';
+import { SearchInput } from '@/components/ui/search-input';
+import { ErrorNotice } from '@/components/layout/Feedback';
 
 type BuildingSectionProps = {
   title: string;
@@ -20,7 +22,7 @@ function BuildingSection({ title, description, files, onDetails }: BuildingSecti
     <section className="space-y-5">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
         <div>
-          <h2 className="text-2xl font-semibold tracking-tight">{title}</h2>
+          <h2 className="text-lg font-semibold tracking-tight">{title}</h2>
           <p className="mt-1 max-w-2xl text-sm leading-6 text-muted-foreground">
             {description}
           </p>
@@ -42,7 +44,7 @@ function BuildingSection({ title, description, files, onDetails }: BuildingSecti
         </div>
       ) : (
         <div className="rounded-2xl border border-dashed bg-card/50 px-6 py-8 text-sm text-muted-foreground">
-          No models in this category yet.
+          No models to display in this category.
         </div>
       )}
     </section>
@@ -54,6 +56,9 @@ export default function BIMPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [selectedFile, setSelectedFile] = useState<BimFileDto | null>(null);
+  const [query, setQuery] = useState('');
+  const [sort, setSort] = useState('newest');
+  const [retry, setRetry] = useState(0);
   const { resolvedRows, clearResolvedRows, queueDatasetId } = usePendingDatasetPolling({
     fetchByDatasetId: getBimFileByDataset,
     getStatus: (row) => row.status,
@@ -62,6 +67,8 @@ export default function BIMPage() {
 
   useEffect(() => {
     let cancelled = false;
+    setLoading(true);
+    setError(null);
     listBimFiles()
       .then((rows) => {
         if (!cancelled) setFiles(rows);
@@ -75,7 +82,7 @@ export default function BIMPage() {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [retry]);
 
   useEffect(() => {
     if (resolvedRows.length === 0) return;
@@ -90,8 +97,15 @@ export default function BIMPage() {
     clearResolvedRows();
   }, [clearResolvedRows, resolvedRows]);
 
-  const archetypes = files.filter((file) => file.category === 'archetype');
-  const pilots = files.filter((file) => file.category !== 'archetype');
+  const visible = files
+    .filter((file) => file.filename.toLowerCase().includes(query.toLowerCase()))
+    .sort((a, b) =>
+      sort === 'name'
+        ? a.filename.localeCompare(b.filename)
+        : new Date(b.created_at ?? 0).getTime() - new Date(a.created_at ?? 0).getTime(),
+    );
+  const archetypes = visible.filter((file) => file.category === 'archetype');
+  const pilots = visible.filter((file) => file.category !== 'archetype');
 
   const replaceFile = (updated: BimFileDto) => {
     setFiles((current) =>
@@ -100,7 +114,7 @@ export default function BIMPage() {
   };
 
   return (
-    <PageContainer size="wide" className="space-y-10">
+    <PageContainer size="wide" className="space-y-7">
       <PageHeader
         eyebrow="Portfolio"
         title="Buildings & Pilots"
@@ -116,10 +130,24 @@ export default function BIMPage() {
         }
       />
 
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <SearchInput
+          value={query}
+          onChange={setQuery}
+          placeholder="Search building models…"
+        />
+        <select
+          aria-label="Sort building models"
+          value={sort}
+          onChange={(event) => setSort(event.target.value)}
+          className="field sm:w-44"
+        >
+          <option value="newest">Newest first</option>
+          <option value="name">Name A–Z</option>
+        </select>
+      </div>
       {error && (
-        <div className="rounded-xl border border-destructive/30 bg-destructive/10 p-4 text-sm text-destructive">
-          {error}
-        </div>
+        <ErrorNotice message={error} onRetry={() => setRetry((value) => value + 1)} />
       )}
 
       {loading ? (
@@ -132,7 +160,7 @@ export default function BIMPage() {
           ))}
         </div>
       ) : (
-        <div className="space-y-12">
+        <div className="space-y-9">
           <BuildingSection
             title="Building Archetypes"
             description="Digital reference models for design, renovation and performance studies."

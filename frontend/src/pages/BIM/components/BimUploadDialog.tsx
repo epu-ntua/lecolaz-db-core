@@ -1,6 +1,7 @@
 import { useState } from 'react';
-import { Loader2, Plus, Upload } from 'lucide-react';
+import { Loader2, Plus } from 'lucide-react';
 import { uploadBimFile } from '@/api/bim_files';
+import { FilePicker } from '@/components/ui/file-picker';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -38,7 +39,15 @@ export function BimUploadDialog({ onUploaded }: BimUploadDialogProps) {
       setUploading(true);
       setError(null);
       const result = await uploadBimFile(file, category);
-      await onUploaded(result);
+      setFile(null);
+      try {
+        await onUploaded(result);
+      } catch {
+        setError(
+          'Upload accepted, but the portfolio could not refresh. Close this dialog and reload the page; do not upload the same file again.',
+        );
+        return;
+      }
       setOpen(false);
       reset();
     } catch {
@@ -72,31 +81,23 @@ export function BimUploadDialog({ onUploaded }: BimUploadDialogProps) {
         </DialogHeader>
 
         <div className="space-y-5 py-2">
-          <label className="grid gap-2 text-sm font-medium">
-            BIM file
-            <div className="rounded-xl border border-dashed bg-muted/40 p-4">
-              <div className="mb-3 flex items-center gap-3 text-muted-foreground">
-                <div className="rounded-lg bg-accent p-2 text-accent-foreground">
-                  <Upload className="h-4 w-4" />
-                </div>
-                <span className="text-xs">IFC, IFCZIP or IFCXML</span>
-              </div>
-              <input
-                type="file"
-                accept=".ifc,.ifczip,.ifcxml"
-                onChange={(event) => setFile(event.target.files?.[0] ?? null)}
-                className="w-full cursor-pointer text-sm file:mr-4 file:rounded-md file:border-0 file:bg-primary/10 file:px-4 file:py-2 file:text-sm file:font-semibold file:text-primary hover:file:bg-primary/20"
-              />
-            </div>
-          </label>
+          <FilePicker
+            label="Choose a BIM model"
+            file={file}
+            onChange={setFile}
+            accept=".ifc,.ifczip,.ifcxml"
+            disabled={uploading}
+          />
 
           <label className="grid gap-2 text-sm font-medium">
             Category
             <select
+              aria-label="Building category"
+              disabled={uploading}
               required
               value={category}
               onChange={(event) => setCategory(event.target.value as BimCategory | '')}
-              className="h-10 rounded-md border border-input bg-background px-3 text-sm text-foreground shadow-sm focus:outline-none focus:ring-1 focus:ring-ring"
+              className="field"
             >
               <option value="" disabled>
                 Select a category
@@ -106,7 +107,11 @@ export function BimUploadDialog({ onUploaded }: BimUploadDialogProps) {
             </select>
           </label>
 
-          {error && <p className="text-sm text-destructive">{error}</p>}
+          {error && (
+            <p role="alert" className="text-sm text-destructive">
+              {error}
+            </p>
+          )}
         </div>
 
         <DialogFooter>
@@ -114,7 +119,10 @@ export function BimUploadDialog({ onUploaded }: BimUploadDialogProps) {
             type="button"
             variant="outline"
             disabled={uploading}
-            onClick={() => setOpen(false)}
+            onClick={() => {
+              setOpen(false);
+              reset();
+            }}
           >
             Cancel
           </Button>

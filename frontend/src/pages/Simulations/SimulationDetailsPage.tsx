@@ -5,7 +5,9 @@ import { getBimFile, listBimSpaces } from '@/api/bim_files';
 import { getDatasetDownloadUrl } from '@/api/datasets';
 import { listSimulationFiles } from '@/api/simulation_files';
 import { PageContainer } from '@/components/layout/PageContainer';
-import { Badge } from '@/components/ui/badge';
+import { StatusBadge } from '@/components/ui/status-badge';
+import { SearchInput } from '@/components/ui/search-input';
+import { ErrorNotice, LoadingState } from '@/components/layout/Feedback';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import {
@@ -23,6 +25,9 @@ import type { SimulationFileDto, SimulationVariableDto } from '@/types/api/simul
 
 export default function SimulationDetailsPage() {
   const { id } = useParams();
+  const [query, setQuery] = useState('');
+  const [error, setError] = useState<string | null>(null);
+  const [retry, setRetry] = useState(0);
   const [file, setFile] = useState<SimulationFileDto | null>(null);
   const [linkedBim, setLinkedBim] = useState<BimFileDto | null>(null);
   const [spaces, setSpaces] = useState<BimSpaceDto[]>([]);
@@ -38,10 +43,23 @@ export default function SimulationDetailsPage() {
 
   useEffect(() => {
     if (!id) return;
+    let cancelled = false;
+    setLoading(true);
+    setError(null);
     listSimulationFiles()
-      .then((rows) => setFile(rows.find((row) => row.id === id) ?? null))
-      .finally(() => setLoading(false));
-  }, [id]);
+      .then((rows) => {
+        if (!cancelled) setFile(rows.find((row) => row.id === id) ?? null);
+      })
+      .catch(() => {
+        if (!cancelled) setError('Simulation could not be loaded.');
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [id, retry]);
 
   useEffect(() => {
     if (!file?.bim_dataset_id) {
@@ -64,19 +82,37 @@ export default function SimulationDetailsPage() {
   if (loading)
     return (
       <PageContainer>
-        <p className="text-sm text-muted-foreground">Loading simulation…</p>
+        <LoadingState label="Loading simulation…" />
+      </PageContainer>
+    );
+  if (error)
+    return (
+      <PageContainer>
+        <ErrorNotice message={error} onRetry={() => setRetry((value) => value + 1)} />
       </PageContainer>
     );
   if (!file)
     return (
       <PageContainer>
-        <p className="text-sm text-destructive">Simulation not found.</p>
+        <p className="mb-4 text-sm text-muted-foreground">Simulation not found.</p>
+        <Button asChild variant="outline">
+          <Link to="/data?tab=simulations">Back to simulations</Link>
+        </Button>
       </PageContainer>
     );
 
   const spaceNames = new Map(
     spaces.map((space) => [space.id, space.name ?? space.global_id]),
   );
+  const visibleVariables = variables.filter((variable) =>
+    [
+      variable.variable_name,
+      variable.unit,
+      variable.key,
+      variable.bim_space_id ? spaceNames.get(variable.bim_space_id) : '',
+    ].some((value) => value?.toLowerCase().includes(query.toLowerCase())),
+  );
+
   return (
     <PageContainer size="wide" className="space-y-8">
       <div>
@@ -91,7 +127,7 @@ export default function SimulationDetailsPage() {
             <p className="text-xs font-semibold uppercase tracking-[0.18em] text-primary">
               Simulation dataset
             </p>
-            <h1 className="mt-2 text-3xl font-semibold tracking-tight">
+            <h1 className="mt-2 break-all text-2xl font-semibold tracking-tight">
               {file.filename}
             </h1>
             <p className="mt-2 text-sm text-muted-foreground">
@@ -99,18 +135,7 @@ export default function SimulationDetailsPage() {
             </p>
           </div>
           <div className="flex items-center gap-2">
-            <Badge
-              className="capitalize"
-              variant={
-                file.status === 'failed'
-                  ? 'destructive'
-                  : file.status === 'processed'
-                    ? 'default'
-                    : 'secondary'
-              }
-            >
-              {file.status ?? 'Unknown'}
-            </Badge>
+            <StatusBadge status={file.status} />
             <Button asChild variant="outline">
               <a href={getDatasetDownloadUrl(file.dataset_id)} download>
                 <Download className="h-4 w-4" />
@@ -159,8 +184,10 @@ export default function SimulationDetailsPage() {
               >
                 {linkedBim.filename}
               </Link>
+            ) : file.bim_dataset_id ? (
+              'Linked BIM unavailable'
             ) : (
-              'None'
+              'Standalone simulation'
             )}
           </CardContent>
         </Card>
@@ -171,6 +198,16 @@ export default function SimulationDetailsPage() {
           <p className="mt-1 text-sm text-muted-foreground">
             Select a variable to open its full time-series chart.
           </p>
+        </div>
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+          <SearchInput
+            value={query}
+            onChange={setQuery}
+            placeholder="Search variable, unit or space…"
+          />
+          <span className="text-xs text-muted-foreground">
+            {variables.length} available variables
+          </span>
         </div>
         <div className="overflow-hidden rounded-xl border bg-card">
           <div className="overflow-x-auto">
@@ -184,12 +221,12 @@ export default function SimulationDetailsPage() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {variables.map((variable) => (
+                {visibleVariables.map((variable) => (
                   <TableRow key={variable.id} className="h-14">
                     <TableCell>
                       <Button
                         variant="link"
-                        className="h-auto p-0"
+                        className="h-auto whitespace-normal p-0 text-left"
                         onClick={() => setSelectedVariable(variable)}
                       >
                         {variable.variable_name}
@@ -221,16 +258,20 @@ export default function SimulationDetailsPage() {
                     </TableCell>
                   </TableRow>
                 )}
-                {!variablesLoading && !variablesError && variables.length === 0 && (
-                  <TableRow>
-                    <TableCell
-                      colSpan={4}
-                      className="h-24 text-center text-muted-foreground"
-                    >
-                      No variables found.
-                    </TableCell>
-                  </TableRow>
-                )}
+                {!variablesLoading &&
+                  !variablesError &&
+                  visibleVariables.length === 0 && (
+                    <TableRow>
+                      <TableCell
+                        colSpan={4}
+                        className="h-24 text-center text-muted-foreground"
+                      >
+                        {variables.length
+                          ? 'No variables match your search.'
+                          : 'No variables found.'}
+                      </TableCell>
+                    </TableRow>
+                  )}
               </TableBody>
             </Table>
           </div>

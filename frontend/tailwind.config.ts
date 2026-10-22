@@ -15,6 +15,7 @@ const config: Config = {
     },
     extend: {
       colors: {
+        'brand-surface': 'hsl(var(--brand-surface))',
         background: 'hsl(var(--background))',
         foreground: 'hsl(var(--foreground))',
         card: {

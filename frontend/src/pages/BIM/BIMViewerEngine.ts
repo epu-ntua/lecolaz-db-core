@@ -115,10 +115,17 @@ export class BIMViewerEngine {
     }
     const buffer = new Uint8Array(arrayBuffer);
     await this.ifcLoader.load(buffer, false, name);
+    await this.fitModel();
     console.log('[BIMViewerEngine] loadIFCFromArrayBuffer complete', {
       name,
       bytes: arrayBuffer.byteLength,
     });
+  }
+
+  async fitModel() {
+    await this.fragments?.resetHighlight();
+    await this.camera.fitToItems();
+    await this.camera.setOrbitToItems();
   }
 
   async highlightByGlobalIds(globalIds: string[]) {

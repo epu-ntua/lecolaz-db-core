@@ -38,6 +38,8 @@ export default defineConfig([
     rules: {
       // React 17+ / Vite: no need to import React
       'react/react-in-jsx-scope': 'off',
+      // Component props are checked by TypeScript, including forwarded DOM props.
+      'react/prop-types': 'off',
 
       // During scaffolding: warn, don’t block
       '@typescript-eslint/no-unused-vars': ['warn', { argsIgnorePattern: '^_' }],

@@ -9,8 +9,8 @@ import type {
 
 async function readError(response: Response, fallback: string) {
   try {
-    const body = (await response.json()) as { detail?: string };
-    return body.detail ?? fallback;
+    const body = (await response.json()) as { detail?: unknown };
+    return typeof body.detail === 'string' ? body.detail : fallback;
   } catch {
     return fallback;
   }

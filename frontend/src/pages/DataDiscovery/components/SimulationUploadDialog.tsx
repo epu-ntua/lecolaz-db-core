@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { Loader2, Plus } from 'lucide-react';
 import { listBimFiles } from '@/api/bim_files';
 import { uploadSimulationFile } from '@/api/simulation_files';
+import { FilePicker } from '@/components/ui/file-picker';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -24,14 +25,22 @@ export function SimulationUploadDialog({
   const [file, setFile] = useState<File | null>(null);
   const [bimId, setBimId] = useState('');
   const [bims, setBims] = useState<BimFileDto[]>([]);
+  const [bimError, setBimError] = useState(false);
+  const [bimLoading, setBimLoading] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!open) return;
+    setBimLoading(true);
+    setBimError(false);
     listBimFiles()
       .then(setBims)
-      .catch(() => setBims([]));
+      .catch(() => {
+        setBims([]);
+        setBimError(true);
+      })
+      .finally(() => setBimLoading(false));
   }, [open]);
 
   const reset = () => {
@@ -46,7 +55,15 @@ export function SimulationUploadDialog({
       setUploading(true);
       setError(null);
       const result = await uploadSimulationFile(file, bimId || undefined);
-      await onUploaded(result);
+      setFile(null);
+      try {
+        await onUploaded(result);
+      } catch {
+        setError(
+          'Upload accepted, but the list could not refresh. Close this dialog and reload the page; do not upload the same file again.',
+        );
+        return;
+      }
       setOpen(false);
       reset();
     } catch {
@@ -80,21 +97,21 @@ export function SimulationUploadDialog({
           </DialogDescription>
         </DialogHeader>
         <div className="space-y-5 py-2">
-          <label className="grid gap-2 text-sm font-medium">
-            Simulation file
-            <input
-              type="file"
-              accept=".eso"
-              onChange={(event) => setFile(event.target.files?.[0] ?? null)}
-              className="w-full cursor-pointer rounded-xl border border-dashed bg-muted/30 p-4 text-sm file:mr-4 file:rounded-md file:border-0 file:bg-primary/10 file:px-4 file:py-2 file:font-semibold file:text-primary"
-            />
-          </label>
+          <FilePicker
+            label="Choose an EnergyPlus output"
+            file={file}
+            onChange={setFile}
+            accept=".eso"
+            disabled={uploading}
+          />
           <label className="grid gap-2 text-sm font-medium">
             Associated BIM model
             <select
+              aria-label="Associated BIM model"
+              disabled={uploading || bimLoading || bimError}
               value={bimId}
               onChange={(event) => setBimId(event.target.value)}
-              className="h-10 rounded-md border border-input bg-background px-3 text-sm shadow-sm focus:outline-none focus:ring-1 focus:ring-ring"
+              className="field"
             >
               <option value="">No associated BIM</option>
               {bims.map((bim) => (
@@ -104,10 +121,32 @@ export function SimulationUploadDialog({
               ))}
             </select>
           </label>
-          {error && <p className="text-sm text-destructive">{error}</p>}
+          {bimLoading && (
+            <p role="status" className="text-xs text-muted-foreground">
+              Loading building models…
+            </p>
+          )}
+          {bimError && (
+            <p role="alert" className="text-xs text-destructive">
+              Building models could not be loaded. Reopen this dialog to retry before
+              linking a simulation.
+            </p>
+          )}
+          {error && (
+            <p role="alert" className="text-sm text-destructive">
+              {error}
+            </p>
+          )}
         </div>
         <DialogFooter>
-          <Button variant="outline" disabled={uploading} onClick={() => setOpen(false)}>
+          <Button
+            variant="outline"
+            disabled={uploading}
+            onClick={() => {
+              setOpen(false);
+              reset();
+            }}
+          >
             Cancel
           </Button>
           <Button disabled={!file || uploading} onClick={submit}>

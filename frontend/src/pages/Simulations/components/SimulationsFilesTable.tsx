@@ -1,7 +1,7 @@
 import { Link } from 'react-router-dom';
 import { Download } from 'lucide-react';
 import { getDatasetDownloadUrl } from '@/api/datasets';
-import { Badge } from '@/components/ui/badge';
+import { StatusBadge } from '@/components/ui/status-badge';
 import { Button } from '@/components/ui/button';
 import {
   Table,
@@ -69,18 +69,7 @@ export function SimulationsFilesTable({
                     : '—'}
                 </TableCell>
                 <TableCell>
-                  <Badge
-                    variant={
-                      file.status === 'failed'
-                        ? 'destructive'
-                        : file.status === 'processed'
-                          ? 'default'
-                          : 'secondary'
-                    }
-                    className="capitalize"
-                  >
-                    {file.status ?? 'Unknown'}
-                  </Badge>
+                  <StatusBadge status={file.status} />
                 </TableCell>
                 <TableCell className="text-muted-foreground">
                   {file.created_at ? new Date(file.created_at).toLocaleString() : '—'}
@@ -106,7 +95,8 @@ export function SimulationsFilesTable({
             {files.length === 0 && (
               <TableRow>
                 <TableCell colSpan={6} className="h-28 text-center text-muted-foreground">
-                  No simulation datasets available.
+                  No simulation datasets to display. Upload an output or adjust your
+                  filters.
                 </TableCell>
               </TableRow>
             )}

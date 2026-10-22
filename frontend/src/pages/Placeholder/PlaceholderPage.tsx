@@ -1,3 +1,5 @@
+import { Link } from 'react-router-dom';
+import { Button } from '@/components/ui/button';
 import type { LucideIcon } from 'lucide-react';
 import type { ReactNode } from 'react';
 import { EmptyState } from '@/components/layout/EmptyState';
@@ -26,9 +28,20 @@ export default function PlaceholderPage({
       <PageHeader eyebrow={eyebrow} title={title} description={description} />
       <EmptyState
         icon={icon}
-        title={emptyTitle ?? `${title} is ready for the next phase`}
-        description="This workspace is being prepared while the building experience and application foundation are established."
-        action={action}
+        title={emptyTitle ?? `${title} is not available yet`}
+        description="This workspace is under development. You can continue exploring building models and their datasets in the available workspaces."
+        action={
+          action ?? (
+            <div className="flex flex-wrap justify-center gap-3">
+              <Button asChild variant="outline">
+                <Link to="/buildings">Explore buildings</Link>
+              </Button>
+              <Button asChild variant="ghost">
+                <Link to="/data">Open data explorer</Link>
+              </Button>
+            </div>
+          )
+        }
       />
     </PageContainer>
   );
