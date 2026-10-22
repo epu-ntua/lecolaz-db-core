@@ -9,6 +9,10 @@
 # normal restart              restart unless-stopped
 # name: ${COMPOSE_PROJECT_NAME:-lecolaz-prod}
 
+# Le'Colaz — Production Docker Compose
+# Caddy currently configured for local HTTP testing on localhost:8082.
+# Public HTTPS will be configured during production migration.
+
 services:
   postgres:
     image: timescale/timescaledb:latest-pg16
@@ -55,9 +59,6 @@ services:
       - fuseki_data:/fuseki
       - ./fuseki/load-schema.sh:/init/load-schema.sh:ro
       - ../resources/ontology:/init/schema:ro
-    # Loads the ontology schema each time Compose starts this container.
-    # `|| echo` keeps a failed load from marking fuseki as failed, which would
-    # stop Compose from starting the backend (depends_on: fuseki).
     post_start:
       - command:
           - bash
@@ -66,9 +67,14 @@ services:
     restart: unless-stopped
 
   backend:
-    build: ../backend
+    build:
+      context: ../backend
+      dockerfile: Dockerfile
     env_file:
       - ../backend/.env
+    environment:
+      HAMAPI_API_KEY: ${HAMAPI_API_KEY:-}
+      DAGSTER_GRAPHQL_URL: http://dagster-webserver:3000/graphql
     depends_on:
       postgres:
         condition: service_healthy
@@ -77,12 +83,11 @@ services:
       fuseki:
         condition: service_started
     ports:
-      - "${BACKEND_PORT:-8080}:8000"
+      - "127.0.0.1:${BACKEND_PORT:-8080}:8000"
     command: >
       sh -c "alembic upgrade head &&
              uvicorn app.main:app --host 0.0.0.0 --port 8000"
     volumes:
-      # Read-only data: lets POST /ontology/schema/reload see the schema
       - ../resources/ontology:/resources/ontology:ro
     healthcheck:
       test: ["CMD", "python", "-c", "from urllib.request import urlopen; urlopen('http://localhost:8000/health', timeout=3)"]
@@ -92,8 +97,42 @@ services:
       start_period: 20s
     restart: unless-stopped
 
-  # The backend applies database migrations before becoming healthy; Dagster
-  # waits for that health check before starting.
+  frontend:
+    build:
+      context: ../frontend
+      dockerfile: Dockerfile
+    restart: unless-stopped
+
+  caddy:
+    image: caddy:2-alpine
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    volumes:
+      - ./caddy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      - frontend
+      - backend
+      - portainer
+    restart: unless-stopped
+
+  portainer:
+    image: portainer/portainer-ce:sts
+    command:
+      - -H
+      - unix:///var/run/docker.sock
+      - --base-url=/portainer
+      - --http-enabled
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - portainer_data:/data
+    ports:
+      - "127.0.0.1:9443:9443"
+    restart: unless-stopped
+
   dagster-code:
     extends:
       file: compose.yaml
@@ -120,3 +159,6 @@ volumes:
   minio_data:
   fuseki_data:
   dagster_storage:
+  portainer_data:
+  caddy_data:
+  caddy_config:

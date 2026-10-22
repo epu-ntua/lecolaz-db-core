@@ -7,6 +7,7 @@ from fastapi import APIRouter, HTTPException
 from fastapi.responses import StreamingResponse
 
 from app.schemas import (
+    BimCategoryUpdate,
     BimFileResponse,
     BimMetadataResponse,
     BimSpaceResponse,
@@ -38,6 +39,19 @@ def get_bim_by_dataset(dataset_id: str):
         raise HTTPException(400, "Invalid dataset id")
 
     bim = bs.get_bim_by_dataset_id(dataset_uuid)
+    if not bim:
+        raise HTTPException(404, "BIM not found")
+    return bim
+
+
+@router.patch("/{bim_id}/category", response_model=BimFileResponse)
+def update_bim_category(bim_id: str, payload: BimCategoryUpdate):
+    try:
+        bim_uuid = uuid.UUID(bim_id)
+    except ValueError:
+        raise HTTPException(400, "Invalid BIM id")
+
+    bim = BimStore().update_category(bim_uuid, payload.category)
     if not bim:
         raise HTTPException(404, "BIM not found")
     return bim

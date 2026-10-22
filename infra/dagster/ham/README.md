@@ -4,6 +4,10 @@
 
 ## Register
 
+The [backend API](../../../docs/development.md#sensor-listing-and-registration-api)
+lists accessible devices and registers a selected subset, then reloads Dagster.
+The startup and manual jobs below register all accessible devices.
+
 Set `HAMAPI_API_KEY` in `infra/.env` and recreate Dagster services. The startup
 hook runs `register_hamapi_sensors` unless both reference assets are already
 materialized, then reloads the code location. Missing credentials skip HAM;
@@ -13,11 +17,15 @@ The job fetches accessible devices from HAM and loads reading definitions from t
 installed `hamapi` package's `readings.json` and `models.json`. Catalogs follow the
 pinned package version. You can run the job manually or
 materialize either reference asset separately; observation types need no API key.
-New devices, changed credentials or extra-reading settings require a manual run.
+New devices can be registered through the API or a manual job run. After changing
+the API key, recreate the backend and Dagster services. Extra-reading settings
+require a manual run.
 The package supplies only these JSON catalogs. HTTP fetching and datalog parsing
 are implemented in this repository.
 
-Imports preserve UUIDs, locally managed location/space and `starting_date`.
+Dagster imports seed names on insert and refresh provider metadata, preserving
+existing names, location/space, UUIDs, `starting_date`, and BIM links. The API can
+explicitly change these local settings; provider name changes are not propagated.
 Devices absent from an API response are retained. Review starting dates, then
 reload the `lecolaz` code location after manual registration to discover new assets.
 

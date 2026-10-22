@@ -1,11 +1,8 @@
-import { useState } from 'react';
-import { Badge } from '@/components/ui/badge';
+import { Link } from 'react-router-dom';
+import { Download } from 'lucide-react';
+import { getDatasetDownloadUrl } from '@/api/datasets';
+import { StatusBadge } from '@/components/ui/status-badge';
 import { Button } from '@/components/ui/button';
-import type {
-  SimulationFileDto,
-  SimulationProcessingSummary,
-} from '@/types/api/simulations';
-import { SimulationDetailsModal } from '@/pages/Simulations/components/SimulationDetailsModal';
 import {
   Table,
   TableBody,
@@ -14,197 +11,98 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-
-function getProcessingSummary(
-  extra: Record<string, unknown> | null,
-): SimulationProcessingSummary | null {
-  if (!extra) {
-    return null;
-  }
-
-  return {
-    metadata: {
-      variable_count:
-        typeof extra.variable_count === 'number' ? extra.variable_count : null,
-      timestep_count:
-        typeof extra.timestep_count === 'number' ? extra.timestep_count : null,
-      skipped_values:
-        typeof extra.skipped_values === 'number' ? extra.skipped_values : null,
-      processed_at: typeof extra.processed_at === 'string' ? extra.processed_at : null,
-    },
-  };
-}
-
-function getProcessingError(metadata: Record<string, unknown> | null) {
-  return typeof metadata?.processing_error === 'string'
-    ? metadata.processing_error
-    : null;
-}
-
-function getStatusVariant(status: string | null) {
-  if (status === 'failed') {
-    return 'destructive' as const;
-  }
-
-  if (status === 'processed') {
-    return 'default' as const;
-  }
-
-  return 'secondary' as const;
-}
-
-function renderMetadataSummary(metadata: Record<string, unknown> | null) {
-  if (!metadata) {
-    return <span className="text-muted-foreground/60">--</span>;
-  }
-
-  const processingError = getProcessingError(metadata);
-  const processingSummary = getProcessingSummary(metadata);
-
-  const variableCount =
-    typeof processingSummary?.metadata.variable_count === 'number'
-      ? processingSummary.metadata.variable_count
-      : null;
-  const timestepCount =
-    typeof processingSummary?.metadata.timestep_count === 'number'
-      ? processingSummary.metadata.timestep_count
-      : null;
-  const skippedValues =
-    typeof processingSummary?.metadata.skipped_values === 'number'
-      ? processingSummary.metadata.skipped_values
-      : null;
-
-  if (
-    !processingError &&
-    variableCount === null &&
-    timestepCount === null &&
-    skippedValues === null
-  ) {
-    return <span className="text-muted-foreground/60">--</span>;
-  }
-
-  return (
-    <div className="space-y-1 text-xs">
-      {variableCount !== null && (
-        <div className="text-muted-foreground">Variables: {variableCount}</div>
-      )}
-      {timestepCount !== null && (
-        <div className="text-muted-foreground">Timesteps: {timestepCount}</div>
-      )}
-      {skippedValues !== null && (
-        <div className="text-muted-foreground">Skipped values: {skippedValues}</div>
-      )}
-      {processingError && (
-        <div className="text-destructive break-words">Error: {processingError}</div>
-      )}
-    </div>
-  );
-}
+import type { BimFileDto } from '@/types/api/bim';
+import type { SimulationFileDto } from '@/types/api/simulations';
 
 export function SimulationsFilesTable({
   files,
+  bims,
   loading,
 }: {
   files: SimulationFileDto[];
+  bims: BimFileDto[];
   loading: boolean;
 }) {
-  const [selectedFile, setSelectedFile] = useState<SimulationFileDto | null>(null);
-  const activeSelectedFile = selectedFile
-    ? (files.find((file) => file.id === selectedFile.id) ?? null)
-    : null;
-
-  if (loading) {
+  const bimNames = new Map(bims.map((bim) => [bim.id, bim.filename]));
+  if (loading)
     return (
-      <div className="text-sm text-muted-foreground">Loading simulation metadata...</div>
-    );
-  }
-
-  return (
-    <>
-      <div className="border border-border rounded-lg bg-card">
-        <div className="max-h-[65vh] overflow-auto">
-          <Table className="min-w-[900px] text-sm text-foreground">
-            <TableHeader className="border-b border-border bg-muted">
-              <TableRow className="text-left hover:bg-transparent">
-                <TableHead className="sticky top-0 z-10 bg-muted px-3 py-2 font-medium text-muted-foreground">
-                  Simulation ID
-                </TableHead>
-                <TableHead className="sticky top-0 z-10 bg-muted px-3 py-2 font-medium text-muted-foreground">
-                  Dataset ID
-                </TableHead>
-                <TableHead className="sticky top-0 z-10 bg-muted px-3 py-2 font-medium text-muted-foreground">
-                  Filename
-                </TableHead>
-                <TableHead className="sticky top-0 z-10 bg-muted px-3 py-2 font-medium text-muted-foreground">
-                  Format
-                </TableHead>
-                <TableHead className="sticky top-0 z-10 bg-muted px-3 py-2 font-medium text-muted-foreground">
-                  Status
-                </TableHead>
-                <TableHead className="sticky top-0 z-10 bg-muted px-3 py-2 font-medium text-muted-foreground">
-                  Metadata
-                </TableHead>
-              </TableRow>
-            </TableHeader>
-
-            <TableBody>
-              {files.map((f, index) => (
-                <TableRow key={f.id ?? `${index}`} className="align-top">
-                  <TableCell className="px-3 py-2 font-mono text-xs text-muted-foreground">
-                    {f.id}
-                  </TableCell>
-
-                  <TableCell className="px-3 py-2 font-mono text-xs text-muted-foreground">
-                    {f.dataset_id}
-                  </TableCell>
-
-                  <TableCell className="px-3 py-2">
-                    <Button
-                      type="button"
-                      variant="link"
-                      className="h-auto p-0"
-                      onClick={() => setSelectedFile(f)}
-                    >
-                      {f.filename ?? '--'}
-                    </Button>
-                  </TableCell>
-
-                  <TableCell className="px-3 py-2 text-muted-foreground">
-                    {f.format ?? '--'}
-                  </TableCell>
-
-                  <TableCell className="px-3 py-2">
-                    <Badge variant={getStatusVariant(f.status)} className="capitalize">
-                      {f.status ?? '--'}
-                    </Badge>
-                  </TableCell>
-
-                  <TableCell className="px-3 py-2">
-                    {renderMetadataSummary(f.metadata)}
-                  </TableCell>
-                </TableRow>
-              ))}
-
-              {files.length === 0 && (
-                <TableRow>
-                  <TableCell
-                    colSpan={6}
-                    className="px-4 py-6 text-center text-muted-foreground"
-                  >
-                    No simulation metadata entries
-                  </TableCell>
-                </TableRow>
-              )}
-            </TableBody>
-          </Table>
-        </div>
+      <div className="rounded-xl border bg-card p-6 text-sm text-muted-foreground">
+        Loading simulation datasets…
       </div>
-      {activeSelectedFile && (
-        <SimulationDetailsModal
-          file={activeSelectedFile}
-          onClose={() => setSelectedFile(null)}
-        />
-      )}
-    </>
+    );
+  return (
+    <div className="overflow-hidden rounded-xl border bg-card">
+      <div className="overflow-x-auto">
+        <Table className="min-w-[820px]">
+          <TableHeader className="bg-muted/50">
+            <TableRow className="hover:bg-transparent">
+              <TableHead>Filename</TableHead>
+              <TableHead>Associated BIM</TableHead>
+              <TableHead>Status</TableHead>
+              <TableHead>Uploaded</TableHead>
+              <TableHead>Variables</TableHead>
+              <TableHead className="text-right">Actions</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {files.map((file) => (
+              <TableRow key={file.id} className="h-14 hover:bg-muted/30">
+                <TableCell className="max-w-xs">
+                  <Button
+                    asChild
+                    variant="link"
+                    className="h-auto max-w-full justify-start truncate p-0"
+                  >
+                    <Link to={`/data/simulations/${file.id}`} title={file.filename}>
+                      {file.filename}
+                    </Link>
+                  </Button>
+                </TableCell>
+                <TableCell
+                  className="max-w-xs truncate text-muted-foreground"
+                  title={
+                    file.bim_dataset_id ? bimNames.get(file.bim_dataset_id) : undefined
+                  }
+                >
+                  {file.bim_dataset_id
+                    ? (bimNames.get(file.bim_dataset_id) ?? 'Linked BIM')
+                    : '—'}
+                </TableCell>
+                <TableCell>
+                  <StatusBadge status={file.status} />
+                </TableCell>
+                <TableCell className="text-muted-foreground">
+                  {file.created_at ? new Date(file.created_at).toLocaleString() : '—'}
+                </TableCell>
+                <TableCell className="text-muted-foreground">
+                  {typeof file.metadata?.variable_count === 'number'
+                    ? file.metadata.variable_count
+                    : '—'}
+                </TableCell>
+                <TableCell className="text-right">
+                  <Button asChild variant="ghost" size="icon">
+                    <a
+                      href={getDatasetDownloadUrl(file.dataset_id)}
+                      download
+                      aria-label={`Download ${file.filename}`}
+                    >
+                      <Download className="h-4 w-4" />
+                    </a>
+                  </Button>
+                </TableCell>
+              </TableRow>
+            ))}
+            {files.length === 0 && (
+              <TableRow>
+                <TableCell colSpan={6} className="h-28 text-center text-muted-foreground">
+                  No simulation datasets to display. Upload an output or adjust your
+                  filters.
+                </TableCell>
+              </TableRow>
+            )}
+          </TableBody>
+        </Table>
+      </div>
+    </div>
   );
 }

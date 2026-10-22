@@ -78,6 +78,7 @@ def ingest_upload(
     content_type: Optional[str],
     data: bytes,
     type: str | None = None,
+    bim_category: str | None = None,
     bim_dataset_id: uuid.UUID | None = None,
     metadata: Optional[dict] = None,
     background_tasks: Optional[BackgroundTasks] = None,
@@ -98,6 +99,10 @@ def ingest_upload(
     simulation_store = SimulationStore()
 
     dataset_type, subtype = resolve_dataset_classification(filename, type)
+    if bim_category is not None and bim_category not in ("archetype", "pilot"):
+        raise ValueError("Unsupported BIM category")
+    if bim_category is not None and dataset_type != "bim":
+        raise ValueError("bim_category is only supported for BIM uploads")
     if bim_dataset_id is not None and dataset_type != "simulation":
         raise ValueError("bim_dataset_id is only supported for simulation uploads")
     dataset_id = uuid.uuid4()
@@ -133,6 +138,7 @@ def ingest_upload(
                 dataset_id=dataset_id,
                 filename=normalized_filename,
                 format=subtype or "ifc",
+                category=bim_category,
                 schema=None,
                 extra=None,
             )

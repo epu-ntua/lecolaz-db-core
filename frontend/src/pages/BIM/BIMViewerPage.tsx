@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { fetchBimMetadata, listBimSpaces, listBimStoreys } from '@/api/bim_files';
+import { ArrowLeft, Layers3 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import type { BimMetadataDto, BimSpaceDto, BimStoreyDto } from '@/types/api/bim';
 import { BIMStructureSidebar } from './components/BIMStructureSidebar';
@@ -8,6 +9,7 @@ import BimViewer, { type BIMViewerHandle } from './components/BIMViewer';
 
 export default function BIMViewerPage() {
   const { id } = useParams();
+  const [showStructure, setShowStructure] = useState(false);
   const navigate = useNavigate();
   const [bim, setBim] = useState<BimMetadataDto | null>(null);
   const [storeys, setStoreys] = useState<BimStoreyDto[]>([]);
@@ -82,37 +84,56 @@ export default function BIMViewerPage() {
   if (!id) return null;
 
   return (
-    <div className="h-screen flex flex-col">
-      <div className="p-4 border-b">
-        <Button variant="link" className="px-0" onClick={() => navigate('/bim')}>
-          Back
+    <div className="flex h-full min-h-[480px] flex-col bg-card">
+      <div className="flex items-center gap-3 border-b px-4 py-3">
+        <Button
+          variant="ghost"
+          size="icon"
+          aria-label="Back to buildings"
+          onClick={() => navigate('/buildings')}
+        >
+          <ArrowLeft className="h-5 w-5" />
         </Button>
-        <h1 className="mt-2 text-lg font-semibold">Displaying: {bim?.filename ?? id}</h1>
+        <div className="min-w-0 flex-1">
+          <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
+            BIM viewer
+          </p>
+          <h1 className="truncate text-base font-semibold">{bim?.filename ?? id}</h1>
+        </div>
+        <Button
+          variant="outline"
+          size="sm"
+          className="xl:hidden"
+          aria-expanded={showStructure}
+          onClick={() => setShowStructure(!showStructure)}
+        >
+          <Layers3 className="h-4 w-4" /> Structure
+        </Button>
       </div>
 
-      <div className="flex min-h-0 flex-1">
+      <div className="relative flex min-h-0 flex-1">
         <div className="min-w-0 flex-1">
           <BimViewer ref={viewerRef} bimId={id} />
         </div>
-        <BIMStructureSidebar
-          storeys={structuredStoreys}
-          loading={structureLoading}
-          error={structureError}
-          onSpaceClick={(globalId) => {
-            console.log('[BIMViewerPage] forwarding space highlight', {
-              globalId,
-              hasViewerRef: Boolean(viewerRef.current),
-            });
-            void viewerRef.current?.highlightByGlobalIds([globalId]);
-          }}
-          onStoreyClick={(globalIds) => {
-            console.log('[BIMViewerPage] forwarding storey highlight', {
-              globalIds,
-              hasViewerRef: Boolean(viewerRef.current),
-            });
-            void viewerRef.current?.highlightByGlobalIds(globalIds);
-          }}
-        />
+        <div
+          className={
+            showStructure
+              ? 'absolute inset-y-0 right-0 z-10 w-[min(320px,100%)] shadow-xl xl:static xl:shadow-none'
+              : 'hidden w-80 xl:block'
+          }
+        >
+          <BIMStructureSidebar
+            storeys={structuredStoreys}
+            loading={structureLoading}
+            error={structureError}
+            onSpaceClick={(globalId) => {
+              void viewerRef.current?.highlightByGlobalIds([globalId]);
+            }}
+            onStoreyClick={(globalIds) => {
+              void viewerRef.current?.highlightByGlobalIds(globalIds);
+            }}
+          />
+        </div>
       </div>
     </div>
   );

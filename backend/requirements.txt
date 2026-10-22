@@ -11,3 +11,7 @@ ifcopenshell
 
 rdflib==7.1.1
 httpx==0.27.2
+hamapi==0.1.15
+PyYAML==6.0.3
+# Match the deployed Dagster services.
+dagster-graphql==1.13.23

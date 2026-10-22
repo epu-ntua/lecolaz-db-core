@@ -464,15 +464,19 @@ class OpenMeteoPostgresTests(PostgresTestCase):
         local_start = START + timedelta(hours=1)
         with self.engine.begin() as conn:
             conn.execute(
-                update(Sensor).values(starting_date=local_start, space="local")
+                update(Sensor).values(starting_date=local_start, space="local", name="Custom", location="Custom location")
             )
+        sensor_rows[0]["name"] = "Provider renamed"
+        sensor_rows[0]["location"] = "Provider moved"
         summary = catalog.persist_registration(self.engine, sensor_rows, type_rows)
         self.assertEqual(summary["sensors"]["inserted_or_updated"], 0)
         self.assertEqual(summary["observation_types"]["inserted_or_updated"], 0)
         with self.engine.connect() as conn:
             stored = conn.execute(select(Sensor)).mappings().one()
         self.assertEqual(stored["id"], sensor["id"])
-        self.assertEqual(stored["location"], sensor_rows[0]["location"])
+        self.assertEqual(stored["name"], "Custom")
+        self.assertEqual(stored["location"], "Custom location")
+        self.assertEqual(catalog.load_sensor_catalog(self.engine)[0]["name"], "Custom")
         self.assertEqual(stored["space"], "local")
         self.assertEqual(stored["starting_date"], local_start)
         rows, _ = observations.prepare_rows(

@@ -1,188 +1,166 @@
 # Development
 
+## Development model
+
+Le’Colaz is developed locally with **Vite running directly on the host** for fast React hot module replacement, and **FastAPI running in Docker with `--reload`**. PostgreSQL/TimescaleDB, MinIO, Fuseki, and all three Dagster services also run in Docker.
+
+The local setup does **not** need Caddy, a containerized production frontend, or Portainer. These are production services in `infra/compose.prod.yaml`.
+
 ## Prerequisites
 
-- Docker with Docker Compose
-- Node.js and npm for the frontend
+- Docker with Docker Compose **2.30+** (required by Fuseki `post_start`).
+- Node.js 22 and npm (matching the frontend Docker build).
+- Git and a terminal (Windows PowerShell works).
 
-## Environment Files
+## Environment files
 
-From the repository root:
+From the repository root, create local `.env` files from the tracked examples if they do not already exist:
+
+**PowerShell:**
+
+```powershell
+Copy-Item infra/.env.example infra/.env
+Copy-Item backend/.env.example backend/.env
+Copy-Item frontend/.env.example frontend/.env
+```
+
+**Bash:**
 
 ```bash
+cp infra/.env.example infra/.env
 cp backend/.env.example backend/.env
 cp frontend/.env.example frontend/.env
-cp infra/.env.example infra/.env
 ```
 
-Responsibilities:
+Do not overwrite existing `.env` files that already contain working settings.
 
-- `backend/.env`: FastAPI, database, and object-storage configuration.
-- `frontend/.env`: Vite frontend variables such as `VITE_API_BASE_URL`.
-- `infra/.env`: Docker Compose infrastructure settings and local credentials.
+| File | Purpose |
+|---|---|
+| `infra/.env` | Compose project `lecolaz-local`, infrastructure credentials/ports, Dagster and ingestion settings |
+| `backend/.env` | FastAPI configuration and internal Docker service endpoints |
+| `frontend/.env` | Vite build/dev-time variables and optional admin-page links |
 
-```sql
-Never commit real .env files or production credentials.
+The `.env.example` files are the shared, tracked reference for local and production, with comments identifying differences. Keep actual `.env` files out of Git. Credentials must agree across files, particularly PostgreSQL, MinIO and Fuseki.
+
+Typical backend Docker hostnames: `postgres:5432`, `minio:9000`, `fuseki:3030`, `dagster-webserver:3000`. These work **inside containers**; direct host-side processes use forwarded localhost ports instead.
+
+`frontend/src/api/client.ts` currently uses `http://localhost:8000` in development and `/api` in production. The example `VITE_API_BASE_URL` setting is currently unused by this API client.
+
+## Start local development
+
+Run commands from the **repository root** in VS Code / PowerShell.
+
+**Terminal 1 — Docker backend and services:**
+
+```powershell
+docker compose --env-file infra/.env -f infra/compose.yaml up -d --build
 ```
 
-## Start Docker Services
+For subsequent ordinary starts (without rebuilding images):
 
-Local Docker Compose commands are run from the `infra` directory. `compose.yaml` is the default development configuration, so no `-f` argument is required.
-
-For an existing PostgreSQL volume without Dagster metadata, first follow
-[existing-volume setup](../infra/dagster/README.md#storage-and-maintenance).
-
-```bash
-cd infra
-docker compose up -d --build
+```powershell
+docker compose --env-file infra/.env -f infra/compose.yaml up -d
 ```
 
-The development Compose file runs:
+FastAPI runs with `--reload` and a bind mount of the local `backend/` folder, so most Python source edits take effect automatically without rebuilding the image. Dependency or Dockerfile changes may still require `--build`.
 
-- `postgres`: TimescaleDB/PostgreSQL on host port `5432` by default
-- `minio`: MinIO API on host port `9000` by default
-- `minio`: MinIO console on host port `9001` by default
-- `fuseki`: Apache Jena Fuseki (RDF triple store) on host port `3030` by default
-- `backend`: FastAPI on host port `8000` by default
-- `dagster-webserver`: Dagster UI on localhost port `3000` by default
-- `dagster-daemon`: automation evaluation and queued-run coordination
-- `dagster-code`: asset definitions and run execution
+**Terminal 2 — React/Vite frontend:**
 
-The backend development container runs Uvicorn with `--reload` and bind-mounts `backend/` into `/app`, so backend source changes are picked up without rebuilding the image in most cases.
-
-Useful local URLs:
-
-- Frontend dev server: `http://localhost:5173`
-- FastAPI: `http://localhost:8000`
-- FastAPI docs: `http://localhost:8000/docs`
-- Backend health check: `http://localhost:8000/health`
-- MinIO console: `http://localhost:9001`
-- Fuseki UI: `http://localhost:3030/#/`
-- Dagster UI: `http://localhost:3000`
-
-## Fuseki
-
-The `fuseki` service hosts the `lecolaz` dataset. Access is split:
-
-- Queries (`/lecolaz/query`, `/lecolaz/sparql`) are open.
-- The admin UI data (`/$/**`) and writes (`/lecolaz/update`, `/lecolaz/data`) require HTTP Basic Auth.
-
-Credentials: user `admin`, password `FUSEKI_ADMIN_PASSWORD` from `infra/.env` (`lecolaz` by default).
-
-The backend writes to Fuseki with the same credentials, so `FUSEKI_ADMIN_PASSWORD` must be identical in `infra/.env` and `backend/.env`.
-
-### Ontology schema
-
-The ontology schema lives in `resources/ontology/` and is versioned in git. A `post_start` hook of the `fuseki` service (`infra/fuseki/load-schema.sh`) loads it into the named graph `https://w3id.org/lecolaz/graph/schema` each time Compose starts the `fuseki` container. This needs Docker Compose 2.30 or newer.
-
-The hook may fire before Fuseki is ready, so the script first waits until the `lecolaz` dataset answers on `/$/datasets/lecolaz` (server up and dataset created), then uploads.
-
-The load is an HTTP PUT, so it replaces the schema graph wholesale and does not touch the BIM graphs written by the backend. Changes made to the schema graph through the Fuseki UI are overwritten on the next load: edit the file in git instead.
-
-The hook does not run again on `docker compose up` while `fuseki` is already running. To load a changed schema without restarting anything, call the backend endpoint (also available in Swagger at `http://localhost:8000/docs`):
-
-```bash
-curl -X POST http://localhost:8000/ontology/schema/reload
-```
-
-It reads the same file (mounted read-only into the backend at `/resources/ontology/`, see `LECO_SCHEMA_PATH`), checks that it exists, is not empty and parses as Turtle, and PUTs it into the schema graph. It returns `{"graph_uri": ..., "triple_count": ...}` on success, 500 if the file is missing, empty or invalid, and 502 if Fuseki rejects the PUT or is unreachable. The same load can also be run inside the Fuseki container with `docker compose exec fuseki bash /init/load-schema.sh`.
-
-To publish a new schema version, edit `resources/ontology/le_colaz_ontology_schema.ttl` (keep the same filename; the version lives in `owl:versionInfo` and git history), commit it, and call the endpoint above.
-
-A failed load does not stop the stack: the hook always reports success, so Fuseki and the backend start normally, possibly with an old or missing schema. The script's messages are printed only when `up` runs in the foreground (without `-d`); they do not appear in `docker compose logs`. After `up -d`, check that the schema loaded by calling the endpoint above: it returns the triple count or the reason it failed. Requests Fuseki rejected (e.g. a Turtle syntax error with its line number) also show in `docker compose logs fuseki`.
-
-### Logging in to the UI
-
-The UI page itself loads without a password, but the dataset list is fetched from the protected `/$/` endpoints. If the browser does not show a login prompt, the UI spins forever.
-
-To log in reliably:
-
-1. Open `http://localhost:3030/$/server` first. The browser shows a login prompt.
-2. Enter `admin` and the password above.
-3. Open `http://localhost:3030/#/`. The browser remembers the credentials until it is fully closed.
-
-If `/$/server` shows "This site can't be reached" instead of a login prompt, the browser has cached a cancelled or wrong login for `localhost:3030`. Fully close the browser (including background processes) and try again, or use a private/incognito window.
-
-Check that Fuseki is up without a browser:
-
-```bash
-curl http://localhost:3030/$/ping
-curl -u admin:lecolaz http://localhost:3030/$/server
-```
-
-## Dagster workflows
-The backend runs `alembic upgrade head` before starting Uvicorn, so the
-application schema is ready before Dagster loads its asset definitions. If the
-schema is already current, Alembic makes no changes.
-
-
-Set `HAMAPI_API_KEY` in `infra/.env` before starting Dagster; recreate its services
-if already running. HAM registration and daily ingestion start automatically.
-
-Review sensor `starting_date` values in PostgreSQL and reload the `lecolaz` code
-location if you change them. Backfill historical days from each asset’s partition
-view at <http://localhost:3000>.
-
-See the [Dagster guide](../infra/dagster/README.md) for details.
-
-## Frontend
-
-Run the frontend locally in a separate terminal. From the repository root:
-
-```bash
+```powershell
 cd frontend
-npm install
+npm ci
 npm run dev
 ```
 
-Useful frontend commands:
+`npm ci` is primarily needed on first setup or when dependencies change. For daily work, `npm run dev` is sufficient.
 
-```bash
+If Vite reports that port 5173 is occupied and uses 5174, check for another running Vite/Node server. The backend CORS setup is currently intended for `http://localhost:5173`, so prefer keeping that port rather than silently using a different one.
+
+## Local services and URLs
+
+| Service | URL / port |
+|---|---|
+| React / Vite | http://localhost:5173 |
+| FastAPI | http://localhost:8000 |
+| Swagger API docs | http://localhost:8000/docs |
+| Backend health | http://localhost:8000/health |
+| PostgreSQL / TimescaleDB | localhost:5432 |
+| MinIO API | http://localhost:9000 |
+| MinIO console | http://localhost:9001 |
+| Fuseki UI | http://localhost:3030/#/ |
+| Dagster UI | http://localhost:3000 |
+
+Docker services: `postgres`, `minio`, `fuseki`, `backend`, `dagster-code`, `dagster-webserver`, and `dagster-daemon`.
+
+## Fuseki and ontology schema
+
+Fuseki hosts the `lecolaz` dataset. Query endpoints (such as `/lecolaz/query` and `/lecolaz/sparql`) are open; administration (`/$/**`) and writes (`/lecolaz/update`, `/lecolaz/data`) require HTTP Basic authentication. The username is `admin`; the password comes from `FUSEKI_ADMIN_PASSWORD` in `infra/.env` and must match `backend/.env`.
+
+The ontology is versioned at `resources/ontology/le_colaz_ontology_schema.ttl`. The Fuseki service's `post_start` hook invokes `infra/fuseki/load-schema.sh`, waits for the dataset and uploads the schema via HTTP PUT to the named graph `https://w3id.org/lecolaz/graph/schema`. This replaces only the schema graph, **not** BIM graphs. Do not edit the schema manually in the Fuseki UI; edits can be overwritten by the next load.
+
+The hook does not rerun if Fuseki remains up. Reload ontology changes through the backend:
+
+```powershell
+curl.exe -X POST http://localhost:8000/ontology/schema/reload
+```
+
+The endpoint validates the Turtle file and reports the graph URI/triple count on success. A failed schema load does not prevent backend startup, so explicitly check this response after changes. Fuseki logs can also reveal parser/rejection errors.
+
+For the UI's protected dataset list, visit `http://localhost:3030/$/server` first and log in with `admin` and your configured password, then open `http://localhost:3030/#/`. If browser credentials are cached incorrectly, try a private window.
+
+## Dagster workflows
+
+The development Compose stack runs three Dagster services: `dagster-code` (definitions/execution), `dagster-webserver` (UI), and `dagster-daemon` (automation and run coordination). Dagster uses a separate database within the existing PostgreSQL instance, controlled by `DAGSTER_POSTGRES_USER`, `DAGSTER_POSTGRES_PASSWORD`, and `DAGSTER_POSTGRES_DB` in `infra/.env`.
+
+Fresh database volumes initialize Dagster's user/database through the bundled initialization script. For an **existing** PostgreSQL volume that predates Dagster, initialize them after PostgreSQL starts:
+
+```powershell
+docker compose --env-file infra/.env -f infra/compose.yaml exec -T postgres sh /docker-entrypoint-initdb.d/020-init-dagster.sh
+```
+
+FastAPI applies Alembic migrations before starting Uvicorn. Set `HAMAPI_API_KEY` in `infra/.env` for HAM-accessed data; Compose passes it to the backend and Dagster services. OpenMeteo ingestion does not require an API key. Changes to environment variables normally require recreating affected containers.
+
+Daily ingestion is enabled by default. Set sensor start dates during registration; use Dagster's partition views for historical backfills. See the [Dagster guide](../infra/dagster/README.md) for workflow details.
+
+## Database migrations
+
+The backend container runs `alembic upgrade head` before Uvicorn. If migrations fail, the backend will not start normally. Inspect:
+
+```powershell
+docker compose --env-file infra/.env -f infra/compose.yaml logs backend
+```
+
+## Everyday commands
+
+From the **repository root**:
+
+```powershell
+# Service status
+docker compose --env-file infra/.env -f infra/compose.yaml ps
+
+# Backend and other logs
+docker compose --env-file infra/.env -f infra/compose.yaml logs -f backend
+
+# Health check
+curl.exe http://localhost:8000/health
+
+# Stop local services, retain volumes
+docker compose --env-file infra/.env -f infra/compose.yaml down
+```
+
+To run frontend quality checks, from `frontend/`:
+
+```powershell
 npm run build
 npm run lint
 npm run typecheck
 npm run format:check
 ```
 
-Note: `frontend/.env.example` defines `VITE_API_BASE_URL`, but the current frontend API client is implemented in `frontend/src/api/client.ts`. Check that file when changing API base URL behavior.
+**Warning:** `docker compose ... down -v` deletes local project volumes, including PostgreSQL application/Dagster databases, `dagster_storage` artifacts, MinIO data, and any other Compose-defined volumes. Use only when you deliberately want to reset local data.
 
-## Database Migrations
+## Production separation and planned administration URLs
 
-Database migrations run automatically when the backend container starts:
+Local development remains unchanged: **Vite on the Windows host, FastAPI with reload in Docker, and supporting services in the local Compose project**. Do not start the production `caddy`, `frontend` or `portainer` containers during normal development.
 
-```bash
-docker compose up -d --build
-```
-
-This applies the migrations in `backend/alembic/versions/` before the backend
-becomes healthy. To inspect migration output, use:
-
-```bash
-docker compose logs backend
-```
-
-## Stop Services
-
-Stop local services without deleting persisted data:
-
-```bash
-docker compose down
-```
-
-Be careful with volumes:
-
-```bash
-docker compose down -v
-```
-
-`down -v` removes this Compose project’s volumes: `postgres_data` (both application
-and Dagster databases in one PostgreSQL instance), `dagster_storage` (logs/artifacts),
-and `minio_data`.
-
-## Practical Commands
-
-```bash
-docker compose ps
-docker compose logs backend
-curl http://localhost:8000/health
-```
+The production configuration serves the platform through Caddy at `https://lecolaz.epu.ntua.gr`, with Portainer at `/portainer/`. Dedicated service subdomains are planned but are not configured in the current Caddyfile. See the [Deployment guide](deployment.md).

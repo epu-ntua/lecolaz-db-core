@@ -1,7 +1,6 @@
 """Public Enhydris API access with bounded transient-error retries."""
 
 import json
-import re
 from datetime import datetime, timezone
 
 import urllib3
@@ -9,21 +8,7 @@ from pydantic import Field
 from urllib3.util import Retry, Timeout
 
 from dagster import ConfigurableResource
-
-
-def parse_external_id(value: str) -> tuple[int, int, int]:
-    if not isinstance(value, str) or not re.fullmatch(
-        r"[1-9][0-9]*/[1-9][0-9]*/[1-9][0-9]*", value
-    ):
-        raise ValueError(
-            "Expected external_id as station_id/timeseries_group_id/timeseries_id (positive integers)"
-        )
-    return tuple(map(int, value.split("/")))
-
-
-def timeseries_path(external_id: str) -> str:
-    station, group, series = parse_external_id(external_id)
-    return f"stations/{station}/timeseriesgroups/{group}/timeseries/{series}/"
+from app.integrations.openmeteo import parse_external_id, timeseries_path  # noqa: F401
 
 
 class OpenMeteoApi(ConfigurableResource):

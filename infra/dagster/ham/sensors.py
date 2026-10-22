@@ -8,43 +8,9 @@ from sqlalchemy.orm import sessionmaker
 
 from app.storage.postgres.sensor_store import SensorStore
 from infra.dagster.ham import SENSOR_FAMILY
+from app.integrations.ham import prepare_sensor_rows  # noqa: F401
 
 LOGGER = logging.getLogger(__name__)
-
-
-def prepare_sensor_rows(response: dict) -> list[dict]:
-    """Map device identities to columns and preserve all remaining device data."""
-    if not isinstance(response, dict) or response.get("error"):
-        raise ValueError("HAMAPI returned an invalid or error response")
-    devices = response.get("devices")
-    if not isinstance(devices, list):
-        raise ValueError("HAMAPI response must contain a devices list")
-
-    rows = []
-    seen_serials = set()
-    for index, device in enumerate(devices):
-        if not isinstance(device, dict):
-            raise ValueError(f"Device at index {index} must be an object")
-        metadata = device.copy()
-        name = metadata.pop("name", None)
-        serialno = metadata.pop("serialno", None)
-        if not isinstance(name, str) or not name.strip():
-            raise ValueError(f"Device at index {index} requires a nonempty name")
-        if not isinstance(serialno, str) or not serialno.strip():
-            raise ValueError(f"Device at index {index} requires a nonempty serialno")
-        if serialno in seen_serials:
-            raise ValueError(f"Duplicate serialno at device index {index}")
-        seen_serials.add(serialno)
-        rows.append(
-            {
-                "sensor_family": SENSOR_FAMILY,
-                "name": name,
-                "external_id": serialno,
-                "sensor_metadata": metadata,
-            }
-        )
-    LOGGER.info("Validated %d HAM sensors", len(rows))
-    return rows
 
 
 def persist_sensor_rows(engine: Engine, rows: list[dict]) -> dict:

@@ -3,7 +3,8 @@ import { Download } from 'lucide-react';
 import { getBimFile, listBimSpaces } from '@/api/bim_files';
 import { getDatasetDownloadUrl } from '@/api/datasets';
 import { getSimulationFileByDataset } from '@/api/simulation_files';
-import { Badge } from '@/components/ui/badge';
+import { StatusBadge } from '@/components/ui/status-badge';
+import { SearchInput } from '@/components/ui/search-input';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import {
@@ -58,18 +59,6 @@ function getProcessingError(metadata: Record<string, unknown> | null) {
     : null;
 }
 
-function getStatusVariant(status: string | null) {
-  if (status === 'failed') {
-    return 'destructive' as const;
-  }
-
-  if (status === 'processed') {
-    return 'default' as const;
-  }
-
-  return 'secondary' as const;
-}
-
 export function SimulationDetailsModal({
   file,
   onClose,
@@ -77,6 +66,7 @@ export function SimulationDetailsModal({
   file: SimulationFileDto;
   onClose: () => void;
 }) {
+  const [query, setQuery] = useState('');
   const [resolvedFile, setResolvedFile] = useState<SimulationFileDto>(file);
   const [selectedVariable, setSelectedVariable] = useState<SimulationVariableDto | null>(
     null,
@@ -147,26 +137,29 @@ export function SimulationDetailsModal({
   }, [resolvedFile.bim_dataset_id]);
 
   const spaceLabelById = new Map(
-    linkedBimSpaces.map((space) => [
-      space.id,
-      space.name || space.global_id,
-    ] as const),
+    linkedBimSpaces.map((space) => [space.id, space.name || space.global_id] as const),
+  );
+
+  const visibleVariables = variables.filter((variable) =>
+    [variable.variable_name, variable.unit, variable.key].some((value) =>
+      value?.toLowerCase().includes(query.toLowerCase()),
+    ),
   );
 
   return (
     <>
       <Dialog open onOpenChange={(open) => !open && onClose()}>
-        <DialogContent className="flex max-h-[90vh] w-full max-w-5xl flex-col gap-0 overflow-hidden p-0">
+        <DialogContent className="flex max-h-[90vh] w-[calc(100%-2rem)] max-w-5xl flex-col gap-0 overflow-hidden p-0">
           <DialogHeader className="border-b border-border px-6 py-4 text-left">
-            <div className="flex items-start justify-between gap-4 pr-8">
-              <div className="space-y-2">
-                <DialogTitle className="text-xl">{resolvedFile.filename}</DialogTitle>
+            <div className="flex flex-col gap-3 pr-5 sm:flex-row sm:items-start sm:justify-between">
+              <div className="min-w-0 space-y-2">
+                <DialogTitle className="break-all text-lg">
+                  {resolvedFile.filename}
+                </DialogTitle>
                 <DialogDescription>Parsed simulation output preview</DialogDescription>
               </div>
-              <div className="flex items-center gap-2">
-                <Badge variant={getStatusVariant(resolvedFile.status)} className="capitalize">
-                  {resolvedFile.status ?? '--'}
-                </Badge>
+              <div className="flex shrink-0 flex-wrap items-center gap-2">
+                <StatusBadge status={resolvedFile.status} />
                 <Button asChild variant="outline" size="sm">
                   <a href={getDatasetDownloadUrl(resolvedFile.dataset_id)} download>
                     <Download />
@@ -186,12 +179,7 @@ export function SimulationDetailsModal({
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <Badge
-                    variant={getStatusVariant(resolvedFile.status)}
-                    className="capitalize"
-                  >
-                    {resolvedFile.status ?? '--'}
-                  </Badge>
+                  <StatusBadge status={resolvedFile.status} />
                 </CardContent>
               </Card>
               <Card className="shadow-none">
@@ -246,7 +234,11 @@ export function SimulationDetailsModal({
                       Connected BIM file
                     </div>
                     <div className="text-sm text-muted-foreground">
-                      This simulation is linked to <span className="font-medium text-foreground">{linkedBim.filename}</span>.
+                      This simulation is linked to{' '}
+                      <span className="font-medium text-foreground">
+                        {linkedBim.filename}
+                      </span>
+                      .
                     </div>
                   </div>
                   <Button size="sm" onClick={() => setShowLinkedBimDialog(true)}>
@@ -258,18 +250,32 @@ export function SimulationDetailsModal({
 
             <Card className="shadow-none">
               <CardHeader className="pb-4">
-                <CardTitle className="text-sm font-medium">Simulation Variables</CardTitle>
+                <CardTitle className="text-sm font-medium">
+                  Simulation Variables
+                </CardTitle>
                 <DialogDescription className="text-left">
                   Select a variable to open its full timeseries chart.
                 </DialogDescription>
               </CardHeader>
               <CardContent>
+                <SearchInput
+                  value={query}
+                  onChange={setQuery}
+                  placeholder="Search variables…"
+                  className="mb-4"
+                />
                 {variablesLoading ? (
-                  <div className="text-sm text-muted-foreground">Loading variables...</div>
+                  <div className="text-sm text-muted-foreground">
+                    Loading variables...
+                  </div>
                 ) : variablesError ? (
                   <div className="text-sm text-destructive">{variablesError}</div>
-                ) : variables.length === 0 ? (
-                  <div className="text-sm text-muted-foreground">No variables found</div>
+                ) : visibleVariables.length === 0 ? (
+                  <div className="text-sm text-muted-foreground">
+                    {variables.length
+                      ? 'No variables match your search.'
+                      : 'No variables found'}
+                  </div>
                 ) : (
                   <div className="max-h-72 overflow-auto rounded-md border border-border bg-card">
                     <Table className="min-w-[720px] text-sm text-foreground">
@@ -290,7 +296,7 @@ export function SimulationDetailsModal({
                         </TableRow>
                       </TableHeader>
                       <TableBody>
-                        {variables.map((variable) => (
+                        {visibleVariables.map((variable) => (
                           <TableRow
                             key={variable.id}
                             className={cn(
@@ -316,7 +322,9 @@ export function SimulationDetailsModal({
                             </TableCell>
                             <TableCell className="px-3 py-2 text-muted-foreground">
                               {variable.bim_space_id
-                                ? (spaceLabelById.get(variable.bim_space_id) ?? variable.key ?? '--')
+                                ? (spaceLabelById.get(variable.bim_space_id) ??
+                                  variable.key ??
+                                  '--')
                                 : (variable.key ?? '--')}
                             </TableCell>
                           </TableRow>

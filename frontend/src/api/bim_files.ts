@@ -2,15 +2,20 @@ import { API_BASE } from './client';
 import type { DatasetUploadResult } from '@/types/api/datasets';
 import type {
   BimFileDto,
+  BimCategory,
   BimMetadataDto,
   BimSpaceDto,
   BimStoreyDto,
 } from '@/types/api/bim';
 import type { SimulationFileDto } from '@/types/api/simulations';
 
-export async function uploadBimFile(file: File): Promise<DatasetUploadResult> {
+export async function uploadBimFile(
+  file: File,
+  category: BimCategory,
+): Promise<DatasetUploadResult> {
   const form = new FormData();
   form.append('file', file);
+  form.append('category', category);
 
   const res = await fetch(`${API_BASE}/ingestion/bim/upload`, {
     method: 'POST',
@@ -19,6 +24,19 @@ export async function uploadBimFile(file: File): Promise<DatasetUploadResult> {
 
   if (!res.ok) throw new Error('Upload BIM file failed');
   return res.json() as Promise<DatasetUploadResult>;
+}
+
+export async function updateBimCategory(
+  bimId: string,
+  category: BimCategory,
+): Promise<BimFileDto> {
+  const res = await fetch(`${API_BASE}/bim/${bimId}/category`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ category }),
+  });
+  if (!res.ok) throw new Error('Update BIM category failed');
+  return res.json() as Promise<BimFileDto>;
 }
 
 export async function listBimFiles(): Promise<BimFileDto[]> {
@@ -55,25 +73,19 @@ export async function fetchBimMetadata(bimId: string): Promise<BimMetadataDto> {
   return res.json() as Promise<BimMetadataDto>;
 }
 
-export async function listBimStoreys(
-  bimId: string,
-): Promise<BimStoreyDto[]> {
+export async function listBimStoreys(bimId: string): Promise<BimStoreyDto[]> {
   const res = await fetch(`${API_BASE}/bim/${bimId}/storeys`);
   if (!res.ok) throw new Error('Failed to fetch BIM storeys');
   return res.json() as Promise<BimStoreyDto[]>;
 }
 
-export async function listBimSpaces(
-  bimId: string,
-): Promise<BimSpaceDto[]> {
+export async function listBimSpaces(bimId: string): Promise<BimSpaceDto[]> {
   const res = await fetch(`${API_BASE}/bim/${bimId}/spaces`);
   if (!res.ok) throw new Error('Failed to fetch BIM spaces');
   return res.json() as Promise<BimSpaceDto[]>;
 }
 
-export async function listBimSimulations(
-  bimId: string,
-): Promise<SimulationFileDto[]> {
+export async function listBimSimulations(bimId: string): Promise<SimulationFileDto[]> {
   const res = await fetch(`${API_BASE}/bim/${bimId}/simulations`);
   if (!res.ok) throw new Error('Failed to fetch BIM simulations');
   return res.json() as Promise<SimulationFileDto[]>;

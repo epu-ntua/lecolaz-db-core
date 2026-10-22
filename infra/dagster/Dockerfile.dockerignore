@@ -6,6 +6,8 @@
 !backend/app/core/config.py
 !backend/app/db/
 !backend/app/db/**
+!backend/app/integrations/
+!backend/app/integrations/**
 !backend/app/storage/
 !backend/app/storage/__init__.py
 !backend/app/storage/object/

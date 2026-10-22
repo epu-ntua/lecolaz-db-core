@@ -27,6 +27,7 @@ class BimStore:
         dataset_id: uuid.UUID,
         filename: str,
         format: str,
+        category: Optional[str] = None,
         schema: Optional[str] = None,
         extra: Optional[dict] = None,
     ) -> None:
@@ -36,6 +37,7 @@ class BimStore:
                 dataset_id=dataset_id,
                 filename=filename,
                 format=format,
+                category=category,
                 schema=schema,
                 extra=extra,
             )
@@ -52,6 +54,26 @@ class BimStore:
             )
             rows = session.execute(stmt).all()
             return [self._to_dict(bim, dataset_status) for bim, dataset_status in rows]
+
+    def update_category(
+        self,
+        bim_id: uuid.UUID,
+        category: str,
+    ) -> Optional[Dict[str, Any]]:
+        with self._session_factory() as session:
+            stmt = (
+                select(BimDataset, Dataset.status)
+                .join(Dataset, Dataset.id == BimDataset.dataset_id)
+                .where(BimDataset.id == bim_id)
+            )
+            row = session.execute(stmt).first()
+            if not row:
+                return None
+
+            row[0].category = category
+            session.commit()
+            session.refresh(row[0])
+            return self._to_dict(row[0], row[1])
 
     def get_bim_by_id(self, bim_id: uuid.UUID) -> Optional[Dict[str, Any]]:
         with self._session_factory() as session:
@@ -155,6 +177,7 @@ class BimStore:
             "dataset_id": str(obj.dataset_id),
             "filename": obj.filename,
             "format": obj.format,
+            "category": obj.category,
             "schema": obj.schema,
             "status": dataset_status,
             "stats": obj.stats,
