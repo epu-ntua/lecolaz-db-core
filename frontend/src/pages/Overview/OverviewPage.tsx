@@ -1,125 +1,210 @@
+import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { ArrowRight, Blocks, Building2, Database, LineChart } from 'lucide-react';
+import {
+  ArrowRight,
+  ArrowUpRight,
+  Building2,
+  Database,
+  Radio,
+  FileText,
+  ChartNoAxesCombined,
+} from 'lucide-react';
+import { listBimFiles } from '@/api/bim_files';
+import { listRegisteredSensors } from '@/api/sensors';
+import { listDatasets } from '@/api/datasets';
+import type { DatasetDto } from '@/types/api/datasets';
 import { Button } from '@/components/ui/button';
+import { StatusBadge } from '@/components/ui/status-badge';
 import { PageContainer } from '@/components/layout/PageContainer';
+import { PageHeader } from '@/components/layout/PageHeader';
+import { MetricCard } from '@/components/layout/MetricCard';
+import { BuildingIllustration } from '@/components/layout/BuildingIllustration';
 
 const workspaces = [
   {
     title: 'Building portfolio',
-    description: 'Explore BIM models through a visual, building-first catalogue.',
+    description: 'Explore archetypes and living labs in 3D.',
     icon: Building2,
     href: '/buildings',
-    action: 'Browse buildings',
   },
   {
-    title: 'Data explorer',
-    description: 'Review uploaded datasets and their current processing state.',
-    icon: Database,
-    href: '/data',
-    action: 'Explore data',
+    title: 'Operational data',
+    description: 'Discover sensors and connect them to buildings.',
+    icon: Radio,
+    href: '/monitoring',
   },
   {
-    title: 'Components',
-    description: 'A focused home for the systems and assets within each building.',
-    icon: Blocks,
-    href: '/components',
-    action: 'View workspace',
+    title: 'Simulation results',
+    description: 'Inspect variables and time-series outputs.',
+    icon: ChartNoAxesCombined,
+    href: '/data?tab=simulations',
   },
 ];
-
 export default function OverviewPage() {
+  const [counts, setCounts] = useState<(number | null)[]>([null, null, null]);
+  const [recent, setRecent] = useState<DatasetDto[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [dataError, setDataError] = useState(false);
+  useEffect(() => {
+    let cancelled = false;
+    Promise.allSettled([listBimFiles(), listRegisteredSensors(), listDatasets()]).then(
+      (results) => {
+        if (cancelled) return;
+        setCounts(
+          results.map((result) =>
+            result.status === 'fulfilled' ? result.value.length : null,
+          ),
+        );
+        const datasets = results[2];
+        if (datasets.status === 'fulfilled')
+          setRecent(
+            [...datasets.value]
+              .sort(
+                (a, b) =>
+                  new Date(b.created_at ?? 0).getTime() -
+                  new Date(a.created_at ?? 0).getTime(),
+              )
+              .slice(0, 4),
+          );
+        else setDataError(true);
+        setLoading(false);
+      },
+    );
+    return () => {
+      cancelled = true;
+    };
+  }, []);
   return (
-    <PageContainer size="wide" className="space-y-8 lg:space-y-10">
-      <section className="relative overflow-hidden rounded-[2rem] bg-sidebar-background text-sidebar-foreground shadow-sm">
-        <div className="relative z-10 grid min-h-[420px] gap-10 px-6 py-10 sm:px-10 sm:py-14 lg:grid-cols-[1.1fr_0.9fr] lg:items-center lg:px-14">
-          <div className="max-w-2xl">
-            <p className="mb-4 text-xs font-semibold uppercase tracking-[0.2em] text-sidebar-primary">
-              Building intelligence, clearly connected
-            </p>
-            <h1 className="text-4xl font-semibold leading-[1.08] tracking-[-0.045em] sm:text-5xl lg:text-6xl">
-              A clearer view of every building.
-            </h1>
-            <p className="mt-5 max-w-xl text-base leading-7 text-sidebar-muted sm:text-lg">
-              Navigate BIM models, operational data and simulation workflows from one
-              coherent workspace.
-            </p>
-            <div className="mt-8 flex flex-wrap gap-3">
-              <Button
-                asChild
-                size="lg"
-                className="bg-sidebar-primary text-sidebar-primary-foreground hover:bg-sidebar-primary/90"
-              >
-                <Link to="/buildings">
-                  Explore buildings <ArrowRight className="h-4 w-4" />
-                </Link>
-              </Button>
-              <Button
-                asChild
-                size="lg"
-                variant="outline"
-                className="border-sidebar-border bg-transparent text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-foreground"
-              >
-                <Link to="/data">Open data explorer</Link>
-              </Button>
-            </div>
-          </div>
-
-          <div className="relative mx-auto h-72 w-full max-w-lg" aria-hidden="true">
-            <div className="absolute inset-6 rounded-[2rem] border border-sidebar-border bg-sidebar-accent/50" />
-            <div className="absolute bottom-4 left-2 h-44 w-44 rounded-3xl border border-sidebar-border bg-sidebar-background/80 shadow-2xl sm:h-52 sm:w-52" />
-            <div className="absolute right-2 top-2 h-56 w-48 rounded-3xl border border-sidebar-border bg-sidebar-accent shadow-2xl sm:w-60">
-              <div className="grid h-full grid-cols-3 gap-3 p-6">
-                {Array.from({ length: 9 }).map((_, index) => (
-                  <span
-                    key={index}
-                    className="rounded-lg border border-sidebar-border bg-sidebar-primary/20"
-                  />
-                ))}
-              </div>
-            </div>
-            <div className="absolute bottom-9 left-10 flex h-16 w-16 items-center justify-center rounded-2xl bg-sidebar-primary text-sidebar-primary-foreground shadow-xl">
-              <Building2 className="h-8 w-8" />
-            </div>
-            <div className="absolute bottom-2 right-12 flex items-center gap-2 rounded-full border border-sidebar-border bg-sidebar-background px-4 py-2 text-xs text-sidebar-muted shadow-xl">
-              <LineChart className="h-4 w-4 text-sidebar-primary" /> Connected insights
-            </div>
-          </div>
-        </div>
-      </section>
-
-      <section>
-        <div className="mb-5 flex items-end justify-between gap-4">
-          <div>
-            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-primary">
-              Workspace
-            </p>
-            <h2 className="mt-2 text-2xl font-semibold tracking-tight sm:text-3xl">
-              Start where your work lives
-            </h2>
-          </div>
-        </div>
-        <div className="grid gap-4 md:grid-cols-3">
-          {workspaces.map((workspace) => (
-            <Link
-              key={workspace.title}
-              to={workspace.href}
-              className="group rounded-2xl border bg-card p-6 shadow-sm transition-all hover:-translate-y-0.5 hover:border-primary/30 hover:shadow-md"
-            >
-              <div className="mb-10 flex h-11 w-11 items-center justify-center rounded-xl bg-accent text-accent-foreground">
-                <workspace.icon className="h-5 w-5" />
-              </div>
-              <h3 className="text-lg font-semibold">{workspace.title}</h3>
-              <p className="mt-2 min-h-12 text-sm leading-6 text-muted-foreground">
-                {workspace.description}
-              </p>
-              <span className="mt-5 inline-flex items-center gap-2 text-sm font-semibold text-primary">
-                {workspace.action}
-                <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
-              </span>
+    <PageContainer size="wide" className="space-y-7">
+      <PageHeader
+        eyebrow="Your workspace"
+        title="Building intelligence, connected."
+        description="A shared view of your buildings, their data and their performance."
+      />
+      <section className="grid overflow-hidden rounded-2xl border bg-card shadow-sm md:grid-cols-[1.15fr_1fr]">
+        <div className="flex flex-col items-start justify-center p-7 lg:p-9">
+          <p className="section-label text-primary">Le’Colaz digital workspace</p>
+          <h2 className="mt-4 max-w-md text-3xl font-semibold leading-tight tracking-[-0.035em] lg:text-4xl">
+            From building models to better decisions.
+          </h2>
+          <p className="mt-4 max-w-md text-sm leading-6 text-muted-foreground">
+            Bring your physical and digital assets together. Start with a building,
+            connect its data, and explore what it tells you.
+          </p>
+          <Button asChild className="mt-6">
+            <Link to="/buildings">
+              Explore portfolio <ArrowRight className="h-4 w-4" />
             </Link>
-          ))}
+          </Button>
+        </div>
+        <div className="blueprint relative flex min-h-56 items-center justify-center border-t bg-accent/50 md:border-l md:border-t-0">
+          <BuildingIllustration className="w-full max-w-lg px-6" />
+          <p className="absolute bottom-5 text-[10px] uppercase tracking-[0.24em] text-primary/70">
+            Model · Connect · Understand
+          </p>
         </div>
       </section>
+      <section aria-label="Workspace summary" className="grid grid-cols-3 gap-3 sm:gap-4">
+        {[
+          {
+            label: 'Building models',
+            icon: Building2,
+            detail: 'Archetypes and living labs',
+          },
+          { label: 'Registered sensors', icon: Radio, detail: 'Connected data sources' },
+          {
+            label: 'Available datasets',
+            icon: Database,
+            detail: 'Files in the data explorer',
+          },
+        ].map((item, index) => (
+          <MetricCard
+            key={item.label}
+            label={item.label}
+            icon={item.icon}
+            value={counts[index] ?? '—'}
+            detail={
+              loading
+                ? 'Loading workspace…'
+                : counts[index] === null
+                  ? 'Unable to load this summary'
+                  : item.detail
+            }
+          />
+        ))}
+      </section>
+      <div className="grid gap-6 xl:grid-cols-[0.9fr_1.1fr]">
+        <section className="rounded-xl border bg-card">
+          <div className="border-b px-5 py-4">
+            <h2 className="text-sm font-semibold">Continue your work</h2>
+          </div>
+          <div className="p-2">
+            {workspaces.map((item) => (
+              <Link
+                key={item.href}
+                to={item.href}
+                className="group flex items-center gap-4 rounded-lg p-3 transition-colors hover:bg-muted"
+              >
+                <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border bg-background text-primary">
+                  <item.icon className="h-[18px] w-[18px]" />
+                </span>
+                <div className="min-w-0">
+                  <h3 className="text-sm font-medium">{item.title}</h3>
+                  <p className="mt-1 text-xs leading-5 text-muted-foreground">
+                    {item.description}
+                  </p>
+                </div>
+                <ArrowUpRight className="ml-auto h-4 w-4 shrink-0 text-muted-foreground group-hover:text-primary" />
+              </Link>
+            ))}
+          </div>
+        </section>
+        <section className="rounded-xl border bg-card">
+          <div className="flex items-center justify-between border-b px-5 py-4">
+            <h2 className="text-sm font-semibold">Recent uploads</h2>
+            <Link to="/data" className="text-xs font-medium text-primary hover:underline">
+              View all <span aria-hidden="true">↗</span>
+            </Link>
+          </div>
+          {loading || dataError || !recent.length ? (
+            <div className="flex min-h-48 flex-col items-center justify-center gap-3 p-6 text-center">
+              <Database className="h-6 w-6 text-muted-foreground/60" />
+              <p className="text-sm text-muted-foreground">
+                {loading
+                  ? 'Loading recent uploads…'
+                  : dataError
+                    ? 'Recent uploads are currently unavailable.'
+                    : 'Your uploaded datasets will appear here.'}
+              </p>
+            </div>
+          ) : (
+            <div className="divide-y">
+              {recent.map((file) => (
+                <Link
+                  key={file.id}
+                  to={`/data?tab=${file.type === 'bim' ? 'bim' : file.type === 'simulation' ? 'simulations' : 'all'}`}
+                  className="flex items-center gap-3 px-5 py-4 hover:bg-muted/50"
+                >
+                  <FileText className="h-4 w-4 shrink-0 text-muted-foreground" />
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-sm font-medium">{file.filename}</p>
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      {file.created_at
+                        ? new Date(file.created_at).toLocaleDateString(undefined, {
+                            month: 'short',
+                            day: 'numeric',
+                            year: 'numeric',
+                          })
+                        : 'Date unavailable'}
+                    </p>
+                  </div>
+                  <StatusBadge status={file.status} />
+                </Link>
+              ))}
+            </div>
+          )}
+        </section>
+      </div>
     </PageContainer>
   );
 }

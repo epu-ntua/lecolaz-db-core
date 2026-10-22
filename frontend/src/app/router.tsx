@@ -3,7 +3,7 @@ import { Blocks, FileBarChart } from 'lucide-react';
 import AppLayout from './layout/AppLayout';
 import AdministrationPage from '@/pages/Administration/AdministrationPage';
 import BIMPage from '@/pages/BIM/BIMpage';
-import BIMViewerPage from '@/pages/BIM/BIMViewerPage';
+
 import DataDiscoveryPage from '@/pages/DataDiscovery/DataDiscoveryPage';
 import NotFoundPage from '@/pages/NotFound/NotFoundPage';
 import OverviewPage from '@/pages/Overview/OverviewPage';
@@ -20,7 +20,12 @@ export const router = createBrowserRouter([
       { index: true, element: <OverviewPage /> },
       { path: 'overview', element: <OverviewPage /> },
       { path: 'buildings', element: <BIMPage /> },
-      { path: 'buildings/:id', element: <BIMViewerPage /> },
+      {
+        path: 'buildings/:id',
+        lazy: async () => ({
+          Component: (await import('@/pages/BIM/BIMViewerPage')).default,
+        }),
+      },
       {
         path: 'components',
         element: (

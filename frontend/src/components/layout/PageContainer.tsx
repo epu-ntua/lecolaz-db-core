@@ -15,7 +15,7 @@ export function PageContainer({
   return (
     <div
       className={cn(
-        'mx-auto w-full px-4 py-6 sm:px-6 sm:py-8 lg:px-10',
+        'mx-auto w-full px-4 py-6 sm:px-7 sm:py-8 lg:px-9',
         size === 'wide' ? 'max-w-[1520px]' : 'max-w-7xl',
         className,
       )}

@@ -18,9 +18,15 @@ export function GenericUploadDialog({
   onUploaded: (result: DatasetUploadResult) => void | Promise<void>;
 }) {
   const [open, setOpen] = useState(false);
+  const [uploading, setUploading] = useState(false);
 
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
+    <Dialog
+      open={open}
+      onOpenChange={(next) => {
+        if (!uploading) setOpen(next);
+      }}
+    >
       <DialogTrigger asChild>
         <Button size="lg">
           <Plus className="h-4 w-4" />
@@ -34,8 +40,9 @@ export function GenericUploadDialog({
             Add a file using the platform’s generic ingestion flow.
           </DialogDescription>
         </DialogHeader>
-        <div className="rounded-xl border border-dashed bg-muted/30 p-4">
+        <div>
           <FileUpload
+            onBusyChange={setUploading}
             onUploaded={async (result) => {
               await onUploaded(result);
               setOpen(false);

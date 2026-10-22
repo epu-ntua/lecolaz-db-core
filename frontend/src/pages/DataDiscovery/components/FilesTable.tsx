@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Download } from 'lucide-react';
 import { getDatasetDownloadUrl } from '@/api/datasets';
-import { Badge } from '@/components/ui/badge';
+import { StatusBadge } from '@/components/ui/status-badge';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -67,18 +67,7 @@ export function FilesTable({
                     {file.type}
                   </TableCell>
                   <TableCell>
-                    <Badge
-                      variant={
-                        file.status === 'failed'
-                          ? 'destructive'
-                          : file.status === 'processed'
-                            ? 'default'
-                            : 'secondary'
-                      }
-                      className="capitalize"
-                    >
-                      {file.status}
-                    </Badge>
+                    <StatusBadge status={file.status} />
                   </TableCell>
                   <TableCell className="text-muted-foreground">
                     {file.size_bytes ? `${Math.round(file.size_bytes / 1024)} KB` : '—'}
@@ -105,7 +94,7 @@ export function FilesTable({
                     colSpan={6}
                     className="h-28 text-center text-muted-foreground"
                   >
-                    No datasets available.
+                    No datasets to display. Upload a file or adjust your filters.
                   </TableCell>
                 </TableRow>
               )}

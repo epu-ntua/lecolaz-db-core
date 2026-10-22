@@ -2,6 +2,8 @@ import { useEffect, useMemo, useState } from 'react';
 import { Loader2, Plus, RadioTower } from 'lucide-react';
 import { listBimFiles } from '@/api/bim_files';
 import { listEligibleSensors, registerSensors } from '@/api/sensors';
+import { SearchInput } from '@/components/ui/search-input';
+import { ErrorNotice } from '@/components/layout/Feedback';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
@@ -27,6 +29,9 @@ export function SensorRegistrationDialog({
   buttonLabel?: string;
   onRegistered: () => void | Promise<void>;
 }) {
+  const [query, setQuery] = useState('');
+  const [retry, setRetry] = useState(0);
+  const [discoveryFailed, setDiscoveryFailed] = useState(false);
   const [open, setOpen] = useState(false);
   const [family, setFamily] = useState<SensorFamily>('ham');
   const [sensors, setSensors] = useState<EligibleSensorDto[]>([]);
@@ -50,6 +55,8 @@ export function SensorRegistrationDialog({
     if (!open) return;
     let cancelled = false;
     setLoading(true);
+    setWarning(null);
+    setDiscoveryFailed(false);
     setError(null);
     setSelected(new Set());
     Promise.all([listEligibleSensors(family), listBimFiles()])
@@ -62,6 +69,7 @@ export function SensorRegistrationDialog({
       .catch((reason: unknown) => {
         if (!cancelled) {
           setSensors([]);
+          setDiscoveryFailed(true);
           setError(reason instanceof Error ? reason.message : 'Sensor discovery failed.');
         }
       })
@@ -71,9 +79,10 @@ export function SensorRegistrationDialog({
     return () => {
       cancelled = true;
     };
-  }, [family, open]);
+  }, [family, open, retry]);
 
   const reset = () => {
+    setQuery('');
     setFamily('ham');
     setSensors([]);
     setSelected(new Set());
@@ -103,7 +112,15 @@ export function SensorRegistrationDialog({
       if (startingDate) settings.starting_date = new Date(startingDate).toISOString();
 
       const result = await registerSensors(family, [...selected], settings);
-      await onRegistered();
+      setSelected(new Set());
+      try {
+        await onRegistered();
+      } catch {
+        setWarning(
+          'Sensors were saved. Close this dialog and refresh the registry to see them.',
+        );
+        return;
+      }
       if (result.dagster.status === 'failed') {
         setWarning(
           result.dagster.message ?? 'Sensors were saved, but ingestion reload failed.',
@@ -119,6 +136,13 @@ export function SensorRegistrationDialog({
     }
   };
 
+  const visible = sensors.filter((sensor) =>
+    [sensor.name, sensor.external_id].some((value) =>
+      value.toLowerCase().includes(query.toLowerCase()),
+    ),
+  );
+  const allVisibleSelected =
+    visible.length > 0 && visible.every((sensor) => selected.has(sensor.external_id));
   return (
     <Dialog
       open={open}
@@ -150,13 +174,24 @@ export function SensorRegistrationDialog({
                 key={value}
                 type="button"
                 variant={family === value ? 'default' : 'ghost'}
-                onClick={() => setFamily(value)}
+                disabled={saving}
+                aria-pressed={family === value}
+                onClick={() => {
+                  setFamily(value);
+                  setQuery('');
+                }}
               >
                 {value === 'ham' ? 'HAM' : 'OpenMeteo'}
               </Button>
             ))}
           </div>
 
+          <SearchInput
+            value={query}
+            onChange={setQuery}
+            placeholder="Find a sensor by name or ID…"
+            className="sm:max-w-none"
+          />
           <div className="rounded-xl border">
             <div className="flex items-center justify-between border-b px-4 py-3">
               <div>
@@ -165,20 +200,24 @@ export function SensorRegistrationDialog({
                   {selected.size} selected
                 </div>
               </div>
-              {!!sensors.length && (
+              {!!visible.length && !loading && (
                 <Button
                   type="button"
                   size="sm"
                   variant="ghost"
+                  disabled={saving}
                   onClick={() =>
-                    setSelected(
-                      selected.size === sensors.length
-                        ? new Set()
-                        : new Set(sensors.map((sensor) => sensor.external_id)),
-                    )
+                    setSelected((current) => {
+                      const next = new Set(current);
+                      visible.forEach((sensor) => {
+                        if (allVisibleSelected) next.delete(sensor.external_id);
+                        else if (next.size < 500) next.add(sensor.external_id);
+                      });
+                      return next;
+                    })
                   }
                 >
-                  {selected.size === sensors.length ? 'Clear all' : 'Select all'}
+                  {allVisibleSelected ? 'Clear visible' : 'Select visible'}
                 </Button>
               )}
             </div>
@@ -187,13 +226,24 @@ export function SensorRegistrationDialog({
                 <div className="flex items-center justify-center gap-2 p-10 text-sm text-muted-foreground">
                   <Loader2 className="animate-spin" /> Discovering sensors…
                 </div>
-              ) : sensors.length ? (
-                sensors.map((sensor) => (
+              ) : discoveryFailed ? (
+                <div className="p-4">
+                  <ErrorNotice
+                    message="Discovery failed. Check the connection and try again."
+                    onRetry={() => setRetry((value) => value + 1)}
+                  />
+                </div>
+              ) : visible.length ? (
+                visible.map((sensor) => (
                   <label
                     key={sensor.external_id}
                     className="flex cursor-pointer items-start gap-3 border-b px-4 py-3 last:border-0 hover:bg-muted/40"
                   >
                     <input
+                      disabled={
+                        saving ||
+                        (!selected.has(sensor.external_id) && selected.size >= 500)
+                      }
                       type="checkbox"
                       className="mt-1 h-4 w-4 accent-primary"
                       checked={selected.has(sensor.external_id)}
@@ -221,19 +271,29 @@ export function SensorRegistrationDialog({
                 ))
               ) : (
                 <div className="p-8 text-center text-sm text-muted-foreground">
-                  No eligible sensors were returned by this provider.
+                  {query
+                    ? 'No sensors match your search.'
+                    : 'No eligible sensors were returned by this provider.'}
                 </div>
               )}
             </div>
           </div>
 
-          <div className="grid gap-4 sm:grid-cols-2">
+          <div className="border-t pt-5">
+            <h3 className="text-sm font-semibold">Registration settings</h3>
+            <p className="mt-1 text-xs leading-5 text-muted-foreground">
+              Applied to every selected sensor (up to 500). Blank optional fields keep
+              existing settings.
+            </p>
+          </div>
+          <fieldset disabled={saving} className="grid gap-4 sm:grid-cols-2">
             <label className="grid gap-2 text-sm font-medium sm:col-span-2">
               Building model
               <select
+                aria-label="Building model"
                 value={bimId}
                 onChange={(event) => setBimId(event.target.value)}
-                className="h-10 rounded-md border border-input bg-background px-3 text-sm shadow-sm focus:outline-none focus:ring-1 focus:ring-ring"
+                className="field"
               >
                 {!initialBimId && (
                   <option value={PRESERVE_BIM}>Keep current assignment</option>
@@ -253,7 +313,7 @@ export function SensorRegistrationDialog({
                 value={location}
                 onChange={(event) => setLocation(event.target.value)}
                 placeholder="e.g. Athens pilot"
-                className="h-10 rounded-md border border-input bg-background px-3 text-sm shadow-sm focus:outline-none focus:ring-1 focus:ring-ring"
+                className="field"
               />
             </label>
             <label className="grid gap-2 text-sm font-medium">
@@ -263,7 +323,7 @@ export function SensorRegistrationDialog({
                 value={space}
                 onChange={(event) => setSpace(event.target.value)}
                 placeholder="e.g. Room 101"
-                className="h-10 rounded-md border border-input bg-background px-3 text-sm shadow-sm focus:outline-none focus:ring-1 focus:ring-ring"
+                className="field"
               />
             </label>
             <label className="grid gap-2 text-sm font-medium sm:col-span-2">
@@ -273,10 +333,10 @@ export function SensorRegistrationDialog({
                 type="datetime-local"
                 value={startingDate}
                 onChange={(event) => setStartingDate(event.target.value)}
-                className="h-10 rounded-md border border-input bg-background px-3 text-sm shadow-sm focus:outline-none focus:ring-1 focus:ring-ring"
+                className="field"
               />
             </label>
-          </div>
+          </fieldset>
 
           {error && (
             <div className="rounded-lg bg-destructive/10 p-3 text-sm text-destructive">
@@ -284,14 +344,24 @@ export function SensorRegistrationDialog({
             </div>
           )}
           {warning && (
-            <div className="rounded-lg border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900">
+            <div
+              role="status"
+              className="rounded-lg border bg-accent p-3 text-sm text-accent-foreground"
+            >
               {warning}
             </div>
           )}
         </div>
 
         <DialogFooter className="border-t px-6 py-4">
-          <Button variant="outline" disabled={saving} onClick={() => setOpen(false)}>
+          <Button
+            variant="outline"
+            disabled={saving}
+            onClick={() => {
+              setOpen(false);
+              reset();
+            }}
+          >
             Cancel
           </Button>
           <Button disabled={!selected.size || loading || saving} onClick={submit}>

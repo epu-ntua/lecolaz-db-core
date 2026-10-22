@@ -1,8 +1,9 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { ArrowUpRight, Building2, Layers3, Maximize2 } from 'lucide-react';
+import { ArrowUpRight, Layers3, Maximize2 } from 'lucide-react';
 import type { BimFileDto } from '@/types/api/bim';
-import { Badge } from '@/components/ui/badge';
+import { StatusBadge } from '@/components/ui/status-badge';
+import { BuildingIllustration } from '@/components/layout/BuildingIllustration';
 import { Button } from '@/components/ui/button';
 
 type BuildingCardProps = {
@@ -17,10 +18,9 @@ const buildingName = (filename: string) =>
 export function BuildingCard({ building, coverImageUrl, onDetails }: BuildingCardProps) {
   const [imageFailed, setImageFailed] = useState(false);
   const showImage = Boolean(coverImageUrl) && !imageFailed;
-  const isProcessed = building.status === 'processed';
 
   return (
-    <article className="group overflow-hidden rounded-2xl border bg-card shadow-sm transition-all hover:-translate-y-0.5 hover:border-primary/25 hover:shadow-lg">
+    <article className="group overflow-hidden rounded-2xl border bg-card shadow-sm transition-shadow hover:border-primary/30 hover:shadow-md">
       <div className="relative aspect-[16/10] overflow-hidden bg-muted">
         {showImage ? (
           <img
@@ -31,38 +31,28 @@ export function BuildingCard({ building, coverImageUrl, onDetails }: BuildingCar
           />
         ) : (
           <div
-            className="relative h-full overflow-hidden bg-gradient-to-br from-accent via-secondary to-muted"
+            className="blueprint flex h-full items-center justify-center bg-accent/60"
             aria-hidden="true"
           >
-            <div className="absolute -right-10 -top-10 h-40 w-40 rounded-full border border-primary/10" />
-            <div className="absolute bottom-[-18%] left-[12%] h-[82%] w-[68%] rotate-[-5deg] rounded-t-[2rem] border border-primary/15 bg-card/35 shadow-2xl" />
-            <div className="absolute bottom-[14%] left-[28%] grid h-[45%] w-[42%] grid-cols-3 gap-2 opacity-50">
-              {Array.from({ length: 9 }).map((_, index) => (
-                <span
-                  key={index}
-                  className="rounded-sm border border-primary/20 bg-primary/10"
-                />
-              ))}
-            </div>
-            <Building2 className="absolute bottom-5 right-5 h-8 w-8 text-primary/55" />
+            <BuildingIllustration className="h-full w-full p-5 transition-transform duration-300 group-hover:scale-[1.03]" />
+            <span className="absolute bottom-3 left-4 text-[10px] uppercase tracking-[0.18em] text-primary/70">
+              Digital building model
+            </span>
           </div>
         )}
-        <Badge
-          variant={isProcessed ? 'default' : 'secondary'}
-          className="absolute left-4 top-4 capitalize shadow-sm"
-        >
-          {building.status ?? 'Unknown'}
-        </Badge>
+        <div className="absolute left-4 top-4 rounded-full bg-card">
+          <StatusBadge status={building.status} />
+        </div>
       </div>
 
       <div className="p-5">
         <div className="min-w-0">
-          <h2
-            className="truncate text-xl font-semibold tracking-tight"
+          <h3
+            className="truncate text-lg font-semibold tracking-tight"
             title={buildingName(building.filename)}
           >
             {buildingName(building.filename)}
-          </h2>
+          </h3>
           <p
             className="mt-1 truncate text-xs text-muted-foreground"
             title={building.filename}
@@ -70,7 +60,7 @@ export function BuildingCard({ building, coverImageUrl, onDetails }: BuildingCar
             {building.filename}
           </p>
         </div>
-        <div className="mt-5 flex flex-wrap gap-4 text-sm text-muted-foreground">
+        <div className="mt-4 flex flex-wrap gap-4 text-xs text-muted-foreground">
           <span className="inline-flex items-center gap-1.5">
             <Layers3 className="h-4 w-4 text-primary" />
             {building.stats?.storeys ?? '—'} storeys

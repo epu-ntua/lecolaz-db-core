@@ -27,7 +27,8 @@ const services: InfrastructureService[] = [
   },
   {
     name: 'Dagster',
-    description: 'Monitor data ingestion pipelines, execution runs and processing failures.',
+    description:
+      'Monitor data ingestion pipelines, execution runs and processing failures.',
     action: 'Open Dagster',
     icon: Workflow,
     url: import.meta.env.VITE_DAGSTER_URL,
@@ -43,7 +44,9 @@ const services: InfrastructureService[] = [
 
 function ServiceAction({ service }: { service: InfrastructureService }) {
   if (!service.url) {
-    return <span className="text-sm font-medium text-muted-foreground">Not configured</span>;
+    return (
+      <span className="text-sm font-medium text-muted-foreground">Not configured</span>
+    );
   }
 
   return (
@@ -63,26 +66,29 @@ export default function AdministrationPage() {
   return (
     <PageContainer className="space-y-8">
       <PageHeader
+        eyebrow="Management"
         title="Administration"
         description="Access infrastructure services and platform management tools."
       />
 
       <section className="space-y-5">
         <div>
-          <h2 className="text-2xl font-semibold tracking-tight">Infrastructure Services</h2>
-          <p className="mt-2 text-sm leading-6 text-muted-foreground sm:text-base">
+          <h2 className="text-lg font-semibold tracking-tight">
+            Infrastructure Services
+          </h2>
+          <p className="mt-2 text-sm leading-6 text-muted-foreground">
             External tools used to operate and maintain the platform.
           </p>
         </div>
 
-        <div className="grid items-stretch gap-4 md:grid-cols-2 xl:grid-cols-3">
+        <div className="overflow-hidden rounded-xl border bg-card divide-y">
           {services.map((service) => {
             const Icon = service.icon;
 
             return (
               <article
                 key={service.name}
-                className="flex min-h-56 flex-col rounded-xl border bg-card p-5 text-card-foreground"
+                className="grid items-center gap-4 p-5 text-card-foreground sm:grid-cols-[1fr_1.2fr_auto]"
               >
                 <div className="flex items-start justify-between gap-4">
                   <div className="flex items-center gap-3">
@@ -97,11 +103,11 @@ export default function AdministrationPage() {
                   />
                 </div>
 
-                <p className="mt-6 max-w-sm text-sm leading-6 text-muted-foreground">
+                <p className="max-w-sm text-sm leading-6 text-muted-foreground">
                   {service.description}
                 </p>
 
-                <div className="mt-auto pt-8">
+                <div className="sm:pl-4">
                   <ServiceAction service={service} />
                 </div>
               </article>
