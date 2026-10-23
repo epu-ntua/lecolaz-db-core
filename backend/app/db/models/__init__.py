@@ -18,3 +18,4 @@ from .simulation_variable import SimulationVariable  # noqa: F401
 from .sensor import Sensor  # noqa: F401
 from .observation_type import ObservationType  # noqa: F401
 from .observation_value import ObservationValue  # noqa: F401
+from .modular_component import ModularComponent  # noqa: F401
