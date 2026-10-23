@@ -1,8 +1,9 @@
 import { createBrowserRouter } from 'react-router-dom';
-import { Blocks, FileBarChart } from 'lucide-react';
+import { FileBarChart } from 'lucide-react';
 import AppLayout from './layout/AppLayout';
 import AdministrationPage from '@/pages/Administration/AdministrationPage';
 import BIMPage from '@/pages/BIM/BIMpage';
+import ComponentsPage from '@/pages/Components/ComponentsPage';
 
 import DataDiscoveryPage from '@/pages/DataDiscovery/DataDiscoveryPage';
 import NotFoundPage from '@/pages/NotFound/NotFoundPage';
@@ -26,16 +27,7 @@ export const router = createBrowserRouter([
           Component: (await import('@/pages/BIM/BIMViewerPage')).default,
         }),
       },
-      {
-        path: 'components',
-        element: (
-          <PlaceholderPage
-            title="Components"
-            description="Browse the systems and assets that make up each building."
-            icon={Blocks}
-          />
-        ),
-      },
+      { path: 'components', element: <ComponentsPage /> },
       {
         path: 'monitoring',
         element: <MonitoringPage />,
