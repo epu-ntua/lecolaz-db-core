@@ -1,5 +1,7 @@
-from typing import Any, Dict
+import uuid
+from typing import Any, Dict, List, Optional
 
+from sqlalchemy import select
 from sqlalchemy.dialects.postgresql import insert
 
 from app.db.models.modular_component import ModularComponent
@@ -22,3 +24,30 @@ class ModularComponentStore:
         with self._session_factory() as session:
             session.execute(statement)
             session.commit()
+
+    def list_components(self, limit: int = 100) -> List[Dict[str, Any]]:
+        with self._session_factory() as session:
+            stmt = (
+                select(ModularComponent)
+                .order_by(ModularComponent.created_at.desc())
+                .limit(limit)
+            )
+            return [self._to_dict(obj) for obj in session.execute(stmt).scalars()]
+
+    def get_by_id(self, component_id: uuid.UUID) -> Optional[Dict[str, Any]]:
+        with self._session_factory() as session:
+            obj = session.get(ModularComponent, component_id)
+            return self._to_dict(obj) if obj else None
+
+    @staticmethod
+    def _to_dict(obj: ModularComponent) -> Dict[str, Any]:
+        return {
+            "id": str(obj.id),
+            "name": obj.name,
+            "component_class": obj.component_class,
+            "dpp": obj.dpp,
+            "photo_object_key": obj.photo_object_key,
+            "qr_object_key": obj.qr_object_key,
+            "ifc_object_key": obj.ifc_object_key,
+            "created_at": obj.created_at.isoformat() if obj.created_at else None,
+        }
