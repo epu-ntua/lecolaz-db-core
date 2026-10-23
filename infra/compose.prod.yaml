@@ -105,6 +105,9 @@ services:
 
   caddy:
     image: caddy:2-alpine
+    environment:
+      BASIC_AUTH_USERNAME: ${BASIC_AUTH_USERNAME:?BASIC_AUTH_USERNAME must be set}
+      BASIC_AUTH_PASSWORD_HASH: ${BASIC_AUTH_PASSWORD_HASH:?BASIC_AUTH_PASSWORD_HASH must be set}
     ports:
       - "80:80"
       - "443:443"

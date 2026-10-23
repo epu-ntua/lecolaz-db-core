@@ -8,7 +8,7 @@ Le’Colaz production runs as **one Docker Compose project** (`lecolaz-prod`) on
 Internet (HTTPS)
        |
        v
-Caddy (Docker, ports 80/443; automatic TLS)
+Caddy (Docker, ports 80/443; automatic TLS and site-wide Basic Auth)
        |-- /              --> frontend (Nginx container serving built React/Vite assets)
        |-- /api/*         --> backend (FastAPI container, prefix removed)
        `-- /portainer/*   --> Portainer (Docker administration; current URL)
@@ -20,7 +20,7 @@ Internal Docker services:
 
 The backend publishes `127.0.0.1:${BACKEND_PORT:-8080}:8000` for host-local troubleshooting; database, MinIO, and Fuseki ports are not published in production. The Caddy container communicates with services over the Compose network. Portainer additionally publishes `127.0.0.1:9443:9443` for host-local troubleshooting. **Portainer grants powerful Docker-host administration privileges:** configure strong authentication and MFA before relying on public `/portainer/` access; consider an additional access restriction.
 
-The Caddy configuration is in `infra/caddy/Caddyfile`. Its `handle_path /api/*` removes `/api` before forwarding to FastAPI. `handle_path /portainer/*` removes `/portainer` when proxying Portainer, whose startup configuration uses `--base-url=/portainer` and `--http-enabled` for its internal HTTP listener. The `/portainer` path redirects to `/portainer/`.
+The Caddy configuration is in `infra/caddy/Caddyfile`. Site-wide HTTP Basic Authentication protects the frontend, API and Portainer route using credentials supplied through the production environment. Its `handle_path /api/*` removes `/api` before forwarding to FastAPI. `handle_path /portainer/*` removes `/portainer` when proxying Portainer, whose startup configuration uses `--base-url=/portainer` and `--http-enabled` for its internal HTTP listener. The `/portainer` path redirects to `/portainer/`.
 
 Caddy manages TLS certificates automatically, stored in persistent Docker volumes `caddy_data` and `caddy_config`. Public DNS must resolve to the server and TCP ports 80 and 443 must be reachable (UDP 443 is also published). **Caddy and host Nginx cannot bind ports 80/443 simultaneously.** The old Certbot/Nginx certificate setup is not required for Caddy.
 
@@ -76,6 +76,8 @@ Production examples of key settings (use matching credentials in the actual file
 # infra/.env
 COMPOSE_PROJECT_NAME=lecolaz-prod
 BACKEND_PORT=8080
+BASIC_AUTH_USERNAME=admin
+BASIC_AUTH_PASSWORD_HASH='$argon2id$v=19$m=...'
 # Also configure POSTGRES_*, MINIO_*, FUSEKI_ADMIN_PASSWORD,
 # FUSEKI_DATASET, DAGSTER_POSTGRES_* and other variables from .env.example.
 ```
@@ -97,6 +99,42 @@ The frontend uses `/api` in production. The current production image does not lo
 `frontend/.env`, so optional Administration links remain unconfigured.
 
 Compose commands below explicitly load `infra/.env`. The backend reads `backend/.env` through the production Compose `env_file` entry. In Docker, services address one another via service names (`postgres`, `minio`, `fuseki`, `dagster-webserver`), not `localhost`.
+
+### First-time production Basic Auth setup
+
+The production Compose file requires `BASIC_AUTH_USERNAME` and `BASIC_AUTH_PASSWORD_HASH`. Only the variable names and Caddy wiring are committed; the real credentials stay in the server's ignored `infra/.env` file.
+
+After pulling the version that introduces Basic Auth, generate a password hash without putting the plaintext password in shell history:
+
+```bash
+docker run --rm -it --entrypoint caddy caddy:2-alpine \
+  hash-password --algorithm argon2id
+```
+
+Enter the desired password when prompted and copy the resulting hash. Then edit `infra/.env`:
+
+```bash
+nano infra/.env
+```
+
+Add these values, replacing the example hash with the complete generated value:
+
+```dotenv
+BASIC_AUTH_USERNAME=admin
+BASIC_AUTH_PASSWORD_HASH='$argon2id$v=19$m=...'
+```
+
+Do not put the plaintext password in `infra/.env`. Keep the generated hash inside single quotes so Docker Compose preserves every `$` character. Validate the Compose and Caddy configurations before recreating the stack:
+
+```bash
+docker compose --env-file infra/.env -f infra/compose.prod.yaml config --quiet
+
+docker compose --env-file infra/.env -f infra/compose.prod.yaml \
+  run --rm --no-deps --entrypoint caddy caddy \
+  validate --config /etc/caddy/Caddyfile --adapter caddyfile
+```
+
+Then use the normal `up -d --build` deployment command. Do not run `down` first. The browser will display its native username/password prompt. This is temporary site-wide access control, not application-level users, sessions or roles.
 
 ## Compose services and persistence
 
@@ -202,9 +240,9 @@ docker compose --env-file infra/.env -f infra/compose.prod.yaml logs --tail=100 
 curl http://127.0.0.1:8080/health
 
 # Public endpoints
-curl -I https://lecolaz.epu.ntua.gr/
-curl https://lecolaz.epu.ntua.gr/api/health
-curl -I https://lecolaz.epu.ntua.gr/portainer/
+curl -I https://lecolaz.epu.ntua.gr/                  # expect 401 without credentials
+curl -u admin https://lecolaz.epu.ntua.gr/api/health  # prompts for the Basic Auth password
+curl -I -u admin https://lecolaz.epu.ntua.gr/portainer/
 ```
 
 Manually verify React deep-link refreshes (SPA fallback), backend API calls, a representative BIM/file upload, sensor registration, RDF schema availability, Dagster initialization, and Portainer login. Portainer has been initialized; keep its credentials and access restrictions appropriate to the elevated Docker permissions it grants.

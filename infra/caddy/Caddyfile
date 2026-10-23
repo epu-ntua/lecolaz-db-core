@@ -1,4 +1,8 @@
 lecolaz.epu.ntua.gr {
+    basic_auth argon2id {
+        {env.BASIC_AUTH_USERNAME} {env.BASIC_AUTH_PASSWORD_HASH}
+    }
+
     redir /portainer /portainer/ 308
 
     handle_path /portainer/* {
