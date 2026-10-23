@@ -117,29 +117,37 @@ The backend does not use `--reload` or mount its source tree in production. A re
 
 Run from the repository root on Ubuntu. This is an actual production deploy: it may recreate services, run database migrations, and interrupt availability. Check that your production `.env` values are configured first.
 
+### Routine redeploy after a pull
+
+**Do not run `docker compose down` first.** Compose will rebuild the images and recreate only the services that need updating. The named volumes and their production data remain attached.
+
+Use this sequence for a normal deployment:
+
 ```bash
 cd /home/lecolaz/platform/lecolaz-db-core
 
+git status --short
+git branch --show-current
 git pull --ff-only origin deployment
 
 docker compose --env-file infra/.env -f infra/compose.prod.yaml config --quiet
+docker compose --env-file infra/.env -f infra/compose.prod.yaml up -d --build
+docker compose --env-file infra/.env -f infra/compose.prod.yaml ps
 ```
+
+If the pull has already been completed, the redeploy command is simply:
+
+```bash
+docker compose --env-file infra/.env -f infra/compose.prod.yaml up -d --build
+```
+
+The backend runs `alembic upgrade head` before starting Uvicorn. A failed migration prevents it from starting normally; inspect backend logs rather than assuming it succeeded. If the server user cannot access Docker directly, prefix the Docker commands with `sudo`.
 
 **Initial transition (already completed on 21 October 2026):** host Nginx previously occupied ports 80/443. It was stopped to allow Caddy to bind them. **Do not repeat this step for routine deployments**:
 
 ```bash
 sudo systemctl stop nginx
 ```
-
-Start or update the production stack:
-
-```bash
-docker compose --env-file infra/.env -f infra/compose.prod.yaml up -d --build
-
-docker compose --env-file infra/.env -f infra/compose.prod.yaml ps
-```
-
-For routine deployments, after updating `deployment`, rerun the `up -d --build` command. The backend runs `alembic upgrade head` before starting Uvicorn. A failed migration prevents it from starting normally; inspect backend logs rather than assuming it succeeded.
 
 ### Clean reset (destructive; used for the 21 October 2026 deployment)
 
@@ -151,7 +159,7 @@ docker compose --env-file infra/.env -f infra/compose.prod.yaml up -d --build
 docker compose --env-file infra/.env -f infra/compose.prod.yaml ps -a
 ```
 
-**`down -v` permanently deletes the project's PostgreSQL, MinIO, Fuseki, Dagster, Portainer and Caddy data**, including Portainer administrator setup and Caddy certificate state. It does not delete unrelated Docker projects' volumes. This is a deliberate **reset procedure, not the routine update command**. Fresh PostgreSQL storage automatically runs database initialization, including Dagster's DB/role initialization.
+**Never run this reset during a routine deployment.** `down -v` permanently deletes the project's PostgreSQL, MinIO, Fuseki, Dagster, Portainer and Caddy data, including Portainer administrator setup and Caddy certificate state. It does not delete unrelated Docker projects' volumes. This is a deliberate **reset procedure, not the routine update command**. Fresh PostgreSQL storage automatically runs database initialization, including Dagster's DB/role initialization.
 
 ### Existing-volume Dagster alternative (only if preserving data)
 
