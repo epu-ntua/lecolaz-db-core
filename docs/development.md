@@ -130,6 +130,16 @@ The backend container runs `alembic upgrade head` before Uvicorn. If migrations 
 docker compose --env-file infra/.env -f infra/compose.yaml logs backend
 ```
 
+## Mock data
+
+Modular components have no real data source yet. `backend/mock_data/` holds three mock components (one per component class) with their draft DPP, photo, placeholder QR image and, for the interior wall, an IFC file. The seed uploads the files to MinIO and inserts the `modular_components` rows. It never runs automatically, including in production; run it once after migrations have created the table:
+
+```powershell
+docker compose --env-file infra/.env -f infra/compose.yaml exec backend python -m mock_data.seed_modular_components
+```
+
+It is safe to re-run: component ids are fixed, so files are overwritten and rows are updated rather than duplicated. Edit a component's `dpp.json` and re-run the seed to apply the change.
+
 ## Everyday commands
 
 From the **repository root**:
