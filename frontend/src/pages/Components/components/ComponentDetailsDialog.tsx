@@ -1,5 +1,4 @@
 import { useEffect, useState, type ReactNode } from 'react';
-import { Link } from 'react-router-dom';
 import { Download } from 'lucide-react';
 import { getBimFile, listBimFiles } from '@/api/bim_files';
 import { getComponentFileUrl, updateComponentBuilding } from '@/api/components';
@@ -24,6 +23,7 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { cn } from '@/lib/utils';
+import { BIMDetailsDialog } from '@/pages/BIM/components/BIMDetailsDialog';
 import { buildingName } from '@/lib/format';
 import type { BimFileDto } from '@/types/api/bim';
 import type { ModularComponentDto } from '@/types/api/components';
@@ -95,6 +95,7 @@ export function ComponentDetailsDialog({
   } | null>(null);
   const [picking, setPicking] = useState(false);
   const [confirmingDisconnect, setConfirmingDisconnect] = useState(false);
+  const [showBuildingDialog, setShowBuildingDialog] = useState(false);
   const [pilotQuery, setPilotQuery] = useState('');
   const [buildingSaving, setBuildingSaving] = useState(false);
   const [buildingError, setBuildingError] = useState<string | null>(null);
@@ -382,16 +383,13 @@ export function ComponentDetailsDialog({
                             <span className="text-muted-foreground">Loading…</span>
                           ) : linkedBuilding ? (
                             <Button
-                              asChild
+                              type="button"
                               variant="link"
+                              title={linkedBuilding.filename}
+                              onClick={() => setShowBuildingDialog(true)}
                               className="h-auto max-w-full justify-start truncate p-0"
                             >
-                              <Link
-                                to={`/buildings/${linkedBuilding.id}`}
-                                title={linkedBuilding.filename}
-                              >
-                                {buildingName(linkedBuilding.filename)}
-                              </Link>
+                              {buildingName(linkedBuilding.filename)}
                             </Button>
                           ) : (
                             <span className="text-destructive">
@@ -532,6 +530,12 @@ export function ComponentDetailsDialog({
           </DialogFooter>
         </DialogContent>
       </Dialog>
+      {linkedBuilding && showBuildingDialog && (
+        <BIMDetailsDialog
+          file={linkedBuilding}
+          onClose={() => setShowBuildingDialog(false)}
+        />
+      )}
     </Dialog>
   );
 }
