@@ -143,7 +143,10 @@ export default function DataDiscoveryPage() {
         title="Data Explorer"
         description="Browse, manage and explore datasets available in the Le’Colaz platform."
       />
-      <nav aria-label="Dataset type" className="flex gap-5 overflow-x-auto border-b">
+      <nav
+        aria-label="Dataset type"
+        className="flex gap-5 overflow-x-auto overflow-y-hidden border-b"
+      >
         {tabs.map((tab) => (
           <Link
             key={tab.value}
@@ -156,7 +159,7 @@ export default function DataDiscoveryPage() {
             className={cn(
               'relative whitespace-nowrap pb-3 text-sm font-medium text-muted-foreground transition-colors hover:text-foreground',
               activeTab === tab.value &&
-                'text-primary after:absolute after:inset-x-0 after:-bottom-px after:h-0.5 after:bg-primary',
+                'text-primary after:absolute after:inset-x-0 after:bottom-0 after:h-0.5 after:bg-primary',
             )}
           >
             {tab.label}
