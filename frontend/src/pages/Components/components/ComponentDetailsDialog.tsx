@@ -1,13 +1,17 @@
-import type { ReactNode } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
+import { Link } from 'react-router-dom';
 import { Download } from 'lucide-react';
-import { getComponentFileUrl } from '@/api/components';
+import { getBimFile, listBimFiles } from '@/api/bim_files';
+import { getComponentFileUrl, updateComponentBuilding } from '@/api/components';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { SearchInput } from '@/components/ui/search-input';
 import {
   Dialog,
   DialogContent,
   DialogDescription,
+  DialogFooter,
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
@@ -19,7 +23,19 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
+import { cn } from '@/lib/utils';
+import { buildingName } from '@/lib/format';
+import type { BimFileDto } from '@/types/api/bim';
 import type { ModularComponentDto } from '@/types/api/components';
+
+const tabs = [
+  { value: 'traceability', label: 'Traceability' },
+  { value: 'transparency', label: 'Transparency' },
+  { value: 'trust', label: 'Trust' },
+  { value: 'building', label: 'Building' },
+] as const;
+
+type TabValue = (typeof tabs)[number]['value'];
 
 function Field({ label, value }: { label: string; value: ReactNode }) {
   return (
@@ -30,13 +46,17 @@ function Field({ label, value }: { label: string; value: ReactNode }) {
   );
 }
 
-function Section({ title, children }: { title: string; children: ReactNode }) {
+function Section({ title, children }: { title?: string; children: ReactNode }) {
   return (
     <Card className="shadow-none">
-      <CardHeader className="pb-4">
-        <CardTitle className="text-sm font-medium">{title}</CardTitle>
-      </CardHeader>
-      <CardContent className="grid gap-3 break-words md:grid-cols-2">
+      {title && (
+        <CardHeader className="pb-4">
+          <CardTitle className="text-sm font-medium">{title}</CardTitle>
+        </CardHeader>
+      )}
+      <CardContent
+        className={cn('grid gap-3 break-words md:grid-cols-2', !title && 'pt-6')}
+      >
         {children}
       </CardContent>
     </Card>
@@ -49,9 +69,11 @@ const withUnit = (value: number | undefined, unit: string) =>
 export function ComponentDetailsDialog({
   component,
   onClose,
+  onUpdated,
 }: {
   component: ModularComponentDto;
   onClose: () => void;
+  onUpdated: (component: ModularComponentDto) => void;
 }) {
   const dpp = component.dpp;
   const traceability = dpp?.traceability;
@@ -61,6 +83,74 @@ export function ComponentDetailsDialog({
   const dimensions = technical?.dimensions;
   const disassembly = technical?.disassembly;
   const epd = dpp?.trust?.epd;
+  const [activeTab, setActiveTab] = useState<TabValue>('traceability');
+  const [pilots, setPilots] = useState<BimFileDto[]>([]);
+  const [pilotsLoading, setPilotsLoading] = useState(true);
+  const [pilotsError, setPilotsError] = useState<string | null>(null);
+  // Fetched by id, not looked up in `pilots`: the link must resolve even if the
+  // building is no longer a pilot or falls outside the list endpoint's limit.
+  const [linked, setLinked] = useState<{
+    id: string;
+    building: BimFileDto | null;
+  } | null>(null);
+  const [picking, setPicking] = useState(false);
+  const [confirmingDisconnect, setConfirmingDisconnect] = useState(false);
+  const [pilotQuery, setPilotQuery] = useState('');
+  const [buildingSaving, setBuildingSaving] = useState(false);
+  const [buildingError, setBuildingError] = useState<string | null>(null);
+  const linkedId = component.bim_dataset_id;
+  const linkedBuilding = linked?.id === linkedId ? linked.building : undefined;
+  const visiblePilots = pilots.filter((bim) =>
+    buildingName(bim.filename).toLowerCase().includes(pilotQuery.toLowerCase()),
+  );
+
+  useEffect(() => {
+    let cancelled = false;
+    listBimFiles()
+      .then((rows) => {
+        // Same rule as the Buildings & Pilots page: anything not an archetype is a pilot.
+        if (!cancelled) setPilots(rows.filter((bim) => bim.category !== 'archetype'));
+      })
+      .catch(() => {
+        if (!cancelled) setPilotsError('Buildings could not be loaded.');
+      })
+      .finally(() => {
+        if (!cancelled) setPilotsLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!linkedId) return;
+    let cancelled = false;
+    getBimFile(linkedId)
+      .then((building) => {
+        if (!cancelled) setLinked({ id: linkedId, building });
+      })
+      .catch(() => {
+        if (!cancelled) setLinked({ id: linkedId, building: null });
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [linkedId]);
+
+  const saveBuilding = async (bimDatasetId: string | null) => {
+    try {
+      setBuildingSaving(true);
+      setBuildingError(null);
+      onUpdated(await updateComponentBuilding(component.id, bimDatasetId));
+      setPicking(false);
+      setConfirmingDisconnect(false);
+      setPilotQuery('');
+    } catch {
+      setBuildingError('Building could not be updated.');
+    } finally {
+      setBuildingSaving(false);
+    }
+  };
 
   return (
     <Dialog open onOpenChange={(open) => !open && onClose()}>
@@ -115,116 +205,333 @@ export function ComponentDetailsDialog({
             </div>
           </section>
 
-          <Section title="Traceability">
-            <Field
-              label="Serial number"
-              value={traceability?.product_id?.serial_number}
-            />
-            <Field
-              label="Production date"
-              value={traceability?.product_id?.production_date}
-            />
-            <Field
-              label="Manufacturer"
-              value={
-                traceability?.manufacturer?.name &&
-                [traceability.manufacturer.name, traceability.manufacturer.country]
-                  .filter(Boolean)
-                  .join(', ')
-              }
-            />
-            <Field
-              label="Lifecycle stage"
-              value={
-                traceability?.lifecycle_stage?.value && (
-                  <span className="capitalize">{traceability.lifecycle_stage.value}</span>
-                )
-              }
-            />
-            <Field label="Reuse cycles" value={traceability?.reuse_cycles?.value} />
-          </Section>
+          <div role="tablist" aria-label="DPP section" className="flex gap-5 border-b">
+            {tabs.map((tab, index) => (
+              <button
+                key={tab.value}
+                id={`component-tab-${tab.value}`}
+                type="button"
+                role="tab"
+                aria-selected={activeTab === tab.value}
+                aria-controls="component-tabpanel"
+                tabIndex={activeTab === tab.value ? 0 : -1}
+                onClick={() => setActiveTab(tab.value)}
+                onKeyDown={(event) => {
+                  const step =
+                    event.key === 'ArrowRight' ? 1 : event.key === 'ArrowLeft' ? -1 : 0;
+                  if (!step) return;
+                  event.preventDefault();
+                  const next = tabs[(index + step + tabs.length) % tabs.length];
+                  setActiveTab(next.value);
+                  document.getElementById(`component-tab-${next.value}`)?.focus();
+                }}
+                className={cn(
+                  'relative whitespace-nowrap pb-3 text-sm font-medium text-muted-foreground transition-colors hover:text-foreground',
+                  activeTab === tab.value &&
+                    'text-primary after:absolute after:inset-x-0 after:-bottom-px after:h-0.5 after:bg-primary',
+                )}
+              >
+                {tab.label}
+              </button>
+            ))}
+          </div>
 
-          <Card className="shadow-none">
-            <CardHeader className="flex-row items-center justify-between gap-3 space-y-0 pb-4">
-              <CardTitle className="text-sm font-medium">Materials</CardTitle>
-              {material?.circularity_class && <Badge>{material.circularity_class}</Badge>}
-            </CardHeader>
-            <CardContent>
-              {material?.materials?.length ? (
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Material</TableHead>
-                      <TableHead className="text-right">Weight</TableHead>
-                      <TableHead className="text-right">Recycled content</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {material.materials.map((item, index) => (
-                      <TableRow key={`${item.name ?? 'material'}-${index}`}>
-                        <TableCell>{item.name ?? '--'}</TableCell>
-                        <TableCell className="text-right">
-                          {withUnit(item.weight_kg, 'kg') ?? '--'}
-                        </TableCell>
-                        <TableCell className="text-right">
-                          {withUnit(item.recycled_content_pct, '%') ?? '--'}
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              ) : (
-                <p className="text-sm text-muted-foreground">No materials recorded.</p>
-              )}
-            </CardContent>
-          </Card>
+          <div
+            id="component-tabpanel"
+            role="tabpanel"
+            aria-labelledby={`component-tab-${activeTab}`}
+            className="space-y-5"
+          >
+            {activeTab === 'traceability' && (
+              <Section>
+                <Field
+                  label="Serial number"
+                  value={traceability?.product_id?.serial_number}
+                />
+                <Field
+                  label="Production date"
+                  value={traceability?.product_id?.production_date}
+                />
+                <Field
+                  label="Manufacturer"
+                  value={
+                    traceability?.manufacturer?.name &&
+                    [traceability.manufacturer.name, traceability.manufacturer.country]
+                      .filter(Boolean)
+                      .join(', ')
+                  }
+                />
+                <Field
+                  label="Lifecycle stage"
+                  value={
+                    traceability?.lifecycle_stage?.value && (
+                      <span className="capitalize">
+                        {traceability.lifecycle_stage.value}
+                      </span>
+                    )
+                  }
+                />
+                <Field label="Reuse cycles" value={traceability?.reuse_cycles?.value} />
+              </Section>
+            )}
 
-          <Section title="Environmental">
-            <Field
-              label="Carbon footprint"
-              value={withUnit(carbon?.total_kg_co2eq, 'kgCO₂e')}
-            />
-            <Field label="Performance class" value={carbon?.performance_class} />
-          </Section>
+            {activeTab === 'transparency' && (
+              <>
+                <Card className="shadow-none">
+                  <CardHeader className="flex-row items-center justify-between gap-3 space-y-0 pb-4">
+                    <CardTitle className="text-sm font-medium">Materials</CardTitle>
+                    {material?.circularity_class && (
+                      <Badge>{material.circularity_class}</Badge>
+                    )}
+                  </CardHeader>
+                  <CardContent>
+                    {material?.materials?.length ? (
+                      <Table>
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead>Material</TableHead>
+                            <TableHead className="text-right">Weight</TableHead>
+                            <TableHead className="text-right">Recycled content</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {material.materials.map((item, index) => (
+                            <TableRow key={`${item.name ?? 'material'}-${index}`}>
+                              <TableCell>{item.name ?? '--'}</TableCell>
+                              <TableCell className="text-right">
+                                {withUnit(item.weight_kg, 'kg') ?? '--'}
+                              </TableCell>
+                              <TableCell className="text-right">
+                                {withUnit(item.recycled_content_pct, '%') ?? '--'}
+                              </TableCell>
+                            </TableRow>
+                          ))}
+                        </TableBody>
+                      </Table>
+                    ) : (
+                      <p className="text-sm text-muted-foreground">
+                        No materials recorded.
+                      </p>
+                    )}
+                  </CardContent>
+                </Card>
 
-          <Section title="Technical">
-            <Field
-              label="Dimensions (W × H × T)"
-              value={
-                dimensions &&
-                [dimensions.width_m, dimensions.height_m, dimensions.thickness_m]
-                  .map((value) => (typeof value === 'number' ? value : '--'))
-                  .join(' × ') + ' m'
-              }
-            />
-            <Field label="Fire reaction class" value={technical?.fire_reaction_class} />
-            <Field
-              label="Expected lifetime"
-              value={withUnit(technical?.expected_lifetime_years, 'years')}
-            />
-            <Field
-              label="Disassembly"
-              value={
-                disassembly?.connection_type &&
-                `${disassembly.connection_type}${disassembly.reversible ? ' (reversible)' : ''}`
-              }
-            />
-            <Field
-              label="End of life"
-              value={
-                technical?.end_of_life_scenario && (
-                  <span className="capitalize">{technical.end_of_life_scenario}</span>
-                )
-              }
-            />
-          </Section>
+                <Section title="Environmental">
+                  <Field
+                    label="Carbon footprint"
+                    value={withUnit(carbon?.total_kg_co2eq, 'kgCO₂e')}
+                  />
+                  <Field label="Performance class" value={carbon?.performance_class} />
+                </Section>
 
-          <Section title="Trust">
-            <Field label="EPD" value={epd?.epd_id} />
-            <Field label="EPD valid until" value={epd?.valid_until} />
-          </Section>
+                <Section title="Technical">
+                  <Field
+                    label="Dimensions (W × H × T)"
+                    value={
+                      dimensions &&
+                      [dimensions.width_m, dimensions.height_m, dimensions.thickness_m]
+                        .map((value) => (typeof value === 'number' ? value : '--'))
+                        .join(' × ') + ' m'
+                    }
+                  />
+                  <Field
+                    label="Fire reaction class"
+                    value={technical?.fire_reaction_class}
+                  />
+                  <Field
+                    label="Expected lifetime"
+                    value={withUnit(technical?.expected_lifetime_years, 'years')}
+                  />
+                  <Field
+                    label="Disassembly"
+                    value={
+                      disassembly?.connection_type &&
+                      `${disassembly.connection_type}${disassembly.reversible ? ' (reversible)' : ''}`
+                    }
+                  />
+                  <Field
+                    label="End of life"
+                    value={
+                      technical?.end_of_life_scenario && (
+                        <span className="capitalize">
+                          {technical.end_of_life_scenario}
+                        </span>
+                      )
+                    }
+                  />
+                </Section>
+              </>
+            )}
+
+            {activeTab === 'trust' && (
+              <Section>
+                <Field label="EPD" value={epd?.epd_id} />
+                <Field label="EPD valid until" value={epd?.valid_until} />
+              </Section>
+            )}
+
+            {activeTab === 'building' && (
+              <Card className="shadow-none">
+                <CardContent className="space-y-4 pt-6 text-sm">
+                  {linkedId ? (
+                    <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                      <Field
+                        label="Connected to"
+                        value={
+                          linkedBuilding === undefined ? (
+                            <span className="text-muted-foreground">Loading…</span>
+                          ) : linkedBuilding ? (
+                            <Button
+                              asChild
+                              variant="link"
+                              className="h-auto max-w-full justify-start truncate p-0"
+                            >
+                              <Link
+                                to={`/buildings/${linkedBuilding.id}`}
+                                title={linkedBuilding.filename}
+                              >
+                                {buildingName(linkedBuilding.filename)}
+                              </Link>
+                            </Button>
+                          ) : (
+                            <span className="text-destructive">
+                              Building could not be loaded.
+                            </span>
+                          )
+                        }
+                      />
+                      <div className="flex gap-2">
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          disabled={buildingSaving}
+                          onClick={() => setPicking(true)}
+                        >
+                          Change
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          disabled={buildingSaving}
+                          onClick={() => setConfirmingDisconnect(true)}
+                        >
+                          Disconnect
+                        </Button>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="flex flex-col items-center gap-3 py-6 text-center">
+                      <p className="text-muted-foreground">
+                        This component is not connected to a building.
+                      </p>
+                      <Button type="button" size="sm" onClick={() => setPicking(true)}>
+                        Connect to building
+                      </Button>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            )}
+          </div>
         </div>
       </DialogContent>
+      <Dialog
+        open={picking}
+        onOpenChange={(open) => {
+          if (buildingSaving) return;
+          setPicking(open);
+          setPilotQuery('');
+          setBuildingError(null);
+        }}
+      >
+        <DialogContent className="flex max-h-[80vh] w-[calc(100%-2rem)] max-w-md flex-col gap-0 overflow-hidden p-0">
+          <DialogHeader className="border-b border-border px-6 py-4 text-left">
+            <DialogTitle className="text-lg">Connect to building</DialogTitle>
+            <DialogDescription>
+              Select a pilot building for {component.name}.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="px-4 pt-4 sm:px-6">
+            <SearchInput
+              value={pilotQuery}
+              onChange={setPilotQuery}
+              placeholder="Search buildings…"
+              className="sm:max-w-none"
+            />
+          </div>
+          <div className="max-h-72 min-h-0 space-y-3 overflow-y-auto px-4 py-4 text-sm sm:px-6">
+            {pilotsLoading ? (
+              <p className="text-muted-foreground">Loading buildings…</p>
+            ) : pilotsError ? (
+              <p className="text-destructive">{pilotsError}</p>
+            ) : visiblePilots.length ? (
+              <ul className="divide-y rounded-lg border">
+                {visiblePilots.map((bim) => (
+                  <li key={bim.id}>
+                    <button
+                      type="button"
+                      disabled={buildingSaving || bim.id === linkedId}
+                      onClick={() => saveBuilding(bim.id)}
+                      className="flex w-full items-center justify-between gap-3 px-4 py-3 text-left transition-colors hover:bg-muted disabled:pointer-events-none disabled:opacity-50"
+                    >
+                      <span className="truncate">{buildingName(bim.filename)}</span>
+                      {bim.id === linkedId && (
+                        <span className="text-xs text-muted-foreground">Current</span>
+                      )}
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p className="text-muted-foreground">
+                {pilots.length
+                  ? 'No buildings match the current search.'
+                  : 'No pilot buildings available.'}
+              </p>
+            )}
+            {buildingError && <p className="text-destructive">{buildingError}</p>}
+          </div>
+        </DialogContent>
+      </Dialog>
+      <Dialog
+        open={confirmingDisconnect}
+        onOpenChange={(open) => {
+          if (buildingSaving) return;
+          setConfirmingDisconnect(open);
+          setBuildingError(null);
+        }}
+      >
+        <DialogContent className="w-[calc(100%-2rem)] max-w-md">
+          <DialogHeader className="text-left">
+            <DialogTitle>Disconnect building?</DialogTitle>
+            <DialogDescription>
+              {component.name} will no longer be connected to{' '}
+              {linkedBuilding ? buildingName(linkedBuilding.filename) : 'its building'}.
+            </DialogDescription>
+          </DialogHeader>
+          {buildingError && <p className="text-sm text-destructive">{buildingError}</p>}
+          <DialogFooter>
+            <Button
+              type="button"
+              variant="outline"
+              disabled={buildingSaving}
+              onClick={() => setConfirmingDisconnect(false)}
+            >
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              variant="destructive"
+              disabled={buildingSaving}
+              onClick={() => saveBuilding(null)}
+            >
+              {buildingSaving ? 'Disconnecting…' : 'Disconnect'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </Dialog>
   );
 }

@@ -111,7 +111,18 @@ export default function ComponentsPage() {
       )}
 
       {selected && (
-        <ComponentDetailsDialog component={selected} onClose={() => setSelected(null)} />
+        <ComponentDetailsDialog
+          component={selected}
+          onClose={() => setSelected(null)}
+          onUpdated={(updated) => {
+            setSelected(updated);
+            setComponents((current) =>
+              current.map((component) =>
+                component.id === updated.id ? updated : component,
+              ),
+            );
+          }}
+        />
       )}
     </PageContainer>
   );

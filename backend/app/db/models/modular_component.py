@@ -1,6 +1,6 @@
 import uuid
 
-from sqlalchemy import CheckConstraint, Column, DateTime, String, func, text
+from sqlalchemy import CheckConstraint, Column, DateTime, ForeignKey, String, func, text
 from sqlalchemy.dialects.postgresql import JSONB, UUID
 
 from app.db.base import Base
@@ -23,6 +23,12 @@ class ModularComponent(Base):
     )
     name = Column(String, nullable=False)
     component_class = Column(String, nullable=False)
+    bim_dataset_id = Column(
+        UUID(as_uuid=True),
+        ForeignKey("bim_datasets.id", ondelete="SET NULL"),
+        nullable=True,
+        index=True,
+    )
 
     # Draft Digital Product Passport; expected to move to its own table later.
     dpp = Column(JSONB, nullable=True)

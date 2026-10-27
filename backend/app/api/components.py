@@ -4,8 +4,9 @@ from typing import Literal
 from fastapi import APIRouter, HTTPException
 from fastapi.responses import StreamingResponse
 
-from app.schemas import ModularComponentResponse
+from app.schemas import ModularComponentBuildingUpdate, ModularComponentResponse
 from app.storage.object.minio import MinioStore
+from app.storage.postgres.bim_store import BimStore
 from app.storage.postgres.modular_component_store import ModularComponentStore
 
 
@@ -20,6 +21,23 @@ def list_components(limit: int = 100):
 @router.get("/{component_id}", response_model=ModularComponentResponse)
 def get_component(component_id: uuid.UUID):
     component = ModularComponentStore().get_by_id(component_id)
+    if not component:
+        raise HTTPException(status_code=404, detail="Component not found")
+    return component
+
+
+@router.patch("/{component_id}/building", response_model=ModularComponentResponse)
+def update_component_building(component_id: uuid.UUID, payload: ModularComponentBuildingUpdate):
+    # TODO: the pilot-only rule is business logic and belongs in a service. It lives
+    # here while it is the only rule; move it once linking gains more logic (e.g. KG sync).
+    if payload.bim_dataset_id:
+        bim = BimStore().get_bim_by_id(payload.bim_dataset_id)
+        if not bim:
+            raise HTTPException(status_code=400, detail="Building not found")
+        if bim["category"] == "archetype":
+            raise HTTPException(status_code=400, detail="Components can only be linked to pilot buildings")
+
+    component = ModularComponentStore().update_building(component_id, payload.bim_dataset_id)
     if not component:
         raise HTTPException(status_code=404, detail="Component not found")
     return component

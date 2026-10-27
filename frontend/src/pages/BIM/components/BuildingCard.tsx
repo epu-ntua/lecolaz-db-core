@@ -5,15 +5,13 @@ import type { BimFileDto } from '@/types/api/bim';
 import { StatusBadge } from '@/components/ui/status-badge';
 import { BuildingIllustration } from '@/components/layout/BuildingIllustration';
 import { Button } from '@/components/ui/button';
+import { buildingName } from '@/lib/format';
 
 type BuildingCardProps = {
   building: BimFileDto;
   coverImageUrl?: string;
   onDetails: () => void;
 };
-
-const buildingName = (filename: string) =>
-  filename.replace(/\.(ifc|ifczip|ifcxml)$/i, '').replace(/[_-]+/g, ' ');
 
 export function BuildingCard({ building, coverImageUrl, onDetails }: BuildingCardProps) {
   const [imageFailed, setImageFailed] = useState(false);

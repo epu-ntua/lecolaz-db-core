@@ -72,6 +72,7 @@ export type ModularComponentDto = {
   id: string;
   name: string;
   component_class: ComponentClass;
+  bim_dataset_id: string | null;
   dpp: Dpp | null;
   photo_object_key: string | null;
   qr_object_key: string | null;

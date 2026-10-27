@@ -7,6 +7,19 @@ export async function listComponents(): Promise<ModularComponentDto[]> {
   return res.json() as Promise<ModularComponentDto[]>;
 }
 
+export async function updateComponentBuilding(
+  componentId: string,
+  bimDatasetId: string | null,
+): Promise<ModularComponentDto> {
+  const res = await fetch(`${API_BASE}/components/${componentId}/building`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ bim_dataset_id: bimDatasetId }),
+  });
+  if (!res.ok) throw new Error('Update component building failed');
+  return res.json() as Promise<ModularComponentDto>;
+}
+
 export function getComponentFileUrl(
   componentId: string,
   kind: ComponentFileKind,
