@@ -35,7 +35,7 @@ export function ComponentCard({ component, onDetails }: ComponentCardProps) {
             <Blocks className="h-12 w-12 text-primary/60" />
           </div>
         )}
-        <div className="absolute left-4 top-4 rounded-full bg-card">
+        <div className="absolute left-4 top-4 flex rounded-md bg-card">
           <Badge>{COMPONENT_CLASS_LABELS[component.component_class]}</Badge>
         </div>
       </div>

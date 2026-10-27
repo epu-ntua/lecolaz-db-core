@@ -40,7 +40,7 @@ export function BuildingCard({ building, coverImageUrl, onDetails }: BuildingCar
             </span>
           </div>
         )}
-        <div className="absolute left-4 top-4 rounded-full bg-card">
+        <div className="absolute left-4 top-4 flex rounded-md bg-card">
           <StatusBadge status={building.status} />
         </div>
       </div>
