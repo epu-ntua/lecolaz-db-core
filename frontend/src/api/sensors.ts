@@ -45,10 +45,15 @@ export async function listEligibleSensors(
 export async function listRegisteredSensors(filters?: {
   family?: SensorFamily;
   bimDatasetId?: string;
+  modularComponentId?: string;
+  unassigned?: boolean;
 }): Promise<RegisteredSensorDto[]> {
   const query = new URLSearchParams();
   if (filters?.family) query.set('sensor_family', filters.family);
   if (filters?.bimDatasetId) query.set('bim_dataset_id', filters.bimDatasetId);
+  if (filters?.modularComponentId)
+    query.set('modular_component_id', filters.modularComponentId);
+  if (filters?.unassigned) query.set('unassigned', 'true');
   const suffix = query.size ? `?${query.toString()}` : '';
   const response = await sensorFetch(
     `${API_BASE}/sensors/registered${suffix}`,

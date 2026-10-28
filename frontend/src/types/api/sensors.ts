@@ -9,6 +9,7 @@ export type RegisteredSensorDto = {
   space: string | null;
   starting_date: string;
   bim_dataset_id: string | null;
+  modular_component_id: string | null;
 };
 
 export type EligibleSensorDto = Omit<RegisteredSensorDto, 'id' | 'starting_date'> & {

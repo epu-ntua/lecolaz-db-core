@@ -1,6 +1,7 @@
 import uuid
 
 from sqlalchemy import (
+    CheckConstraint,
     Column,
     DateTime,
     ForeignKey,
@@ -23,6 +24,11 @@ class Sensor(Base):
             "external_id",
             name="uq_sensors_sensor_family_external_id",
         ),
+        # A sensor is placed on a building or on a modular component, never both.
+        CheckConstraint(
+            "bim_dataset_id IS NULL OR modular_component_id IS NULL",
+            name="ck_sensors_single_link",
+        ),
     )
 
     id = Column(
@@ -35,6 +41,13 @@ class Sensor(Base):
     bim_dataset_id = Column(
         UUID(as_uuid=True),
         ForeignKey("bim_datasets.id", ondelete="SET NULL"),
+        nullable=True,
+        index=True,
+    )
+
+    modular_component_id = Column(
+        UUID(as_uuid=True),
+        ForeignKey("modular_components.id", ondelete="SET NULL"),
         nullable=True,
         index=True,
     )

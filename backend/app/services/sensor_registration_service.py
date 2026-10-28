@@ -4,6 +4,8 @@ from sqlalchemy import select
 from sqlalchemy.orm import sessionmaker
 
 from app.db.models.bim_dataset import BimDataset
+from app.db.models.modular_component import ModularComponent
+from app.db.models.sensor import Sensor
 from app.db.session import engine
 from app.schemas.sensors import SensorRegistrationRequest
 from app.services.dagster_service import reload_sensor_location
@@ -13,6 +15,10 @@ from app.storage.postgres.sensor_store import SensorStore
 
 
 class SensorBimNotFound(ValueError):
+    pass
+
+
+class SensorOnComponent(ValueError):
     pass
 
 
@@ -50,6 +56,28 @@ def register_sensors(request: SensorRegistrationRequest) -> dict:
             ).scalars())
             if found != bim_ids:
                 raise SensorBimNotFound("One or more BIM datasets were not found")
+            # A sensor is on a building or a component, never both (ck_sensors_single_link).
+            # Refuse instead of silently moving it off its component.
+            to_building = [
+                selection.external_id
+                for selection in request.sensors
+                if selection.settings.bim_dataset_id is not None
+            ]
+            # Lock the rows (external_id order, like the writes below) so no component
+            # link can land between this check and the update.
+            rows = connection.execute(
+                select(Sensor.name, ModularComponent.name)
+                .outerjoin(ModularComponent, ModularComponent.id == Sensor.modular_component_id)
+                .where(Sensor.sensor_family == family, Sensor.external_id.in_(to_building))
+                .order_by(Sensor.external_id)
+                .with_for_update(of=Sensor)
+            ).all()
+            on_component = [(sensor, component) for sensor, component in rows if component]
+            if on_component:
+                placed = ", ".join(f"{sensor} (on {component})" for sensor, component in on_component)
+                raise SensorOnComponent(
+                    f"Remove these sensors from their component first: {placed}"
+                )
         sessions = sessionmaker(bind=connection)
         ObservationTypeStore(sessions).upsert_source_fields(family, type_rows)
         store = SensorStore(sessions)

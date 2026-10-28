@@ -1,7 +1,7 @@
 import uuid
 from typing import Any, Literal
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field, model_validator
 
 
 class ModularComponentResponse(BaseModel):
@@ -19,3 +19,15 @@ class ModularComponentResponse(BaseModel):
 class ModularComponentBuildingUpdate(BaseModel):
     # None disconnects the component from its building.
     bim_dataset_id: uuid.UUID | None
+
+
+class ModularComponentSensorsUpdate(BaseModel):
+    # Only the named sensors change, so concurrent edits by other users are kept.
+    add: list[uuid.UUID] = Field(default_factory=list, max_length=500)
+    remove: list[uuid.UUID] = Field(default_factory=list, max_length=500)
+
+    @model_validator(mode="after")
+    def disjoint(self):
+        if set(self.add) & set(self.remove):
+            raise ValueError("A sensor cannot be both added and removed")
+        return self

@@ -86,6 +86,7 @@ class EligibleSensorResponse(BaseModel):
     id: UUID | None = None
     starting_date: datetime | None = None
     bim_dataset_id: UUID | None = None
+    modular_component_id: UUID | None = None
 
 
 class RegisteredSensorResponse(BaseModel):
@@ -97,6 +98,7 @@ class RegisteredSensorResponse(BaseModel):
     space: str | None = None
     starting_date: datetime
     bim_dataset_id: UUID | None
+    modular_component_id: UUID | None
 
 
 class DagsterReloadResponse(BaseModel):

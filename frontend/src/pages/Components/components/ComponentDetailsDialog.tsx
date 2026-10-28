@@ -27,12 +27,14 @@ import { BIMDetailsDialog } from '@/pages/BIM/components/BIMDetailsDialog';
 import { buildingName } from '@/lib/format';
 import type { BimFileDto } from '@/types/api/bim';
 import type { ModularComponentDto } from '@/types/api/components';
+import { ComponentSensorsTab } from './ComponentSensorsTab';
 
 const tabs = [
   { value: 'traceability', label: 'Traceability' },
   { value: 'transparency', label: 'Transparency' },
   { value: 'trust', label: 'Trust' },
   { value: 'building', label: 'Building' },
+  { value: 'sensors', label: 'Sensors' },
 ] as const;
 
 type TabValue = (typeof tabs)[number]['value'];
@@ -370,6 +372,8 @@ export function ComponentDetailsDialog({
                 <Field label="EPD valid until" value={epd?.valid_until} />
               </Section>
             )}
+
+            {activeTab === 'sensors' && <ComponentSensorsTab component={component} />}
 
             {activeTab === 'building' && (
               <Card className="shadow-none">

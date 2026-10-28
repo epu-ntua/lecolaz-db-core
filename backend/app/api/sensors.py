@@ -17,6 +17,7 @@ from app.services.sensor_catalog_service import (
 )
 from app.services.sensor_registration_service import (
     SensorBimNotFound,
+    SensorOnComponent,
     list_eligible_sensors,
     register_sensors,
 )
@@ -29,10 +30,14 @@ router = APIRouter(prefix="/sensors", tags=["Sensors"])
 def list_registered_sensors(
     sensor_family: SensorFamily | None = None,
     bim_dataset_id: UUID | None = None,
+    modular_component_id: UUID | None = None,
+    unassigned: bool = False,
 ):
     return SensorStore().list_registered(
         sensor_family=sensor_family,
         bim_dataset_id=bim_dataset_id,
+        modular_component_id=modular_component_id,
+        unassigned=unassigned,
     )
 
 
@@ -61,6 +66,8 @@ def register(request: SensorRegistrationRequest):
         return register_sensors(request)
     except SensorBimNotFound as exc:
         raise HTTPException(404, str(exc)) from exc
+    except SensorOnComponent as exc:
+        raise HTTPException(409, str(exc)) from exc
     except IneligibleSensors as exc:
         raise HTTPException(422, str(exc)) from exc
     except SensorCatalogNotConfigured as exc:
