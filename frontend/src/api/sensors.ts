@@ -5,7 +5,55 @@ import type {
   SensorFamily,
   SensorRegistrationResponse,
   SensorRegistrationSettings,
+  SensorObservationTypeDto,
+  SensorTimestampBoundsDto,
+  SensorTimeseriesPointDto,
 } from '@/types/api/sensors';
+
+export async function listSensorObservationTypes(
+  sensorId: string,
+): Promise<SensorObservationTypeDto[]> {
+  const response = await sensorFetch(`${API_BASE}/sensors/${sensorId}/observation-types`);
+  if (!response.ok)
+    throw new Error(await readError(response, 'Sensor measurements could not be loaded'));
+  return response.json() as Promise<SensorObservationTypeDto[]>;
+}
+
+export async function getSensorTimestampBounds(
+  sensorId: string,
+  observationTypeId: string,
+): Promise<SensorTimestampBoundsDto> {
+  const query = new URLSearchParams({ observation_type_id: observationTypeId });
+  const response = await sensorFetch(
+    `${API_BASE}/sensors/${sensorId}/timeseries/bounds?${query}`,
+  );
+  if (!response.ok)
+    throw new Error(
+      await readError(response, 'Measurement date range could not be loaded'),
+    );
+  return response.json() as Promise<SensorTimestampBoundsDto>;
+}
+
+export async function listSensorTimeseries(
+  sensorId: string,
+  observationTypeId: string,
+  start: string,
+  end: string,
+): Promise<SensorTimeseriesPointDto[]> {
+  const query = new URLSearchParams({
+    observation_type_id: observationTypeId,
+    start,
+    end,
+  });
+  const response = await sensorFetch(
+    `${API_BASE}/sensors/${sensorId}/timeseries?${query}`,
+  );
+  if (!response.ok)
+    throw new Error(
+      await readError(response, 'Sensor time-series values could not be loaded'),
+    );
+  return response.json() as Promise<SensorTimeseriesPointDto[]>;
+}
 
 async function readError(response: Response, fallback: string) {
   try {

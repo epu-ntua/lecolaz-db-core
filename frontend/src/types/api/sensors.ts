@@ -1,5 +1,22 @@
 export type SensorFamily = 'ham' | 'openmeteo';
 
+export type SensorObservationTypeDto = {
+  id: string;
+  unit: string;
+  label: string;
+};
+
+export type SensorTimestampBoundsDto = {
+  start: string | null;
+  end: string | null;
+};
+
+export type SensorTimeseriesPointDto = {
+  id: string;
+  timestamp: string;
+  value: number;
+};
+
 export type RegisteredSensorDto = {
   id: string;
   sensor_family: SensorFamily;

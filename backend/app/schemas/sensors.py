@@ -7,6 +7,23 @@ from pydantic import AwareDatetime, BaseModel, ConfigDict, Field, field_validato
 SensorFamily = Literal["ham", "openmeteo"]
 
 
+class SensorObservationTypeResponse(BaseModel):
+    id: UUID
+    unit: str
+    label: str
+
+
+class SensorTimestampBoundsResponse(BaseModel):
+    start: datetime | None
+    end: datetime | None
+
+
+class SensorTimeseriesPointResponse(BaseModel):
+    id: UUID
+    timestamp: datetime
+    value: float
+
+
 class SensorListRequest(BaseModel):
     """Reserved for family-specific credentials/options in a future API version."""
 

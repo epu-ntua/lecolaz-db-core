@@ -21,6 +21,7 @@ import {
 import type { BimFileDto } from '@/types/api/bim';
 import type { RegisteredSensorDto } from '@/types/api/sensors';
 import { SensorRegistrationDialog } from './components/SensorRegistrationDialog';
+import { SensorChartDialog } from '@/components/sensors/SensorChartDialog';
 
 export default function MonitoringPage() {
   const [sensors, setSensors] = useState<RegisteredSensorDto[]>([]);
@@ -31,6 +32,7 @@ export default function MonitoringPage() {
   const [query, setQuery] = useState('');
   const [family, setFamily] = useState('all');
   const [connection, setConnection] = useState('all');
+  const [selectedSensor, setSelectedSensor] = useState<RegisteredSensorDto | null>(null);
   const load = useCallback(async () => {
     setLoading(true);
     setError(null);
@@ -111,7 +113,7 @@ export default function MonitoringPage() {
           <div>
             <h2 className="text-sm font-semibold">Sensor registry</h2>
             <p className="mt-1 text-xs text-muted-foreground">
-              Provider sources and their building connections
+              Select a sensor to explore its measurements and time-series values
             </p>
           </div>
           <Button
@@ -180,7 +182,13 @@ export default function MonitoringPage() {
                             <RadioTower className="h-4 w-4" />
                           </span>
                           <div>
-                            <div className="font-medium">{sensor.name}</div>
+                            <Button
+                              variant="link"
+                              className="h-auto whitespace-normal p-0 text-left"
+                              onClick={() => setSelectedSensor(sensor)}
+                            >
+                              {sensor.name}
+                            </Button>
                             <div className="mt-1 text-xs text-muted-foreground">
                               {sensor.external_id}
                             </div>
@@ -254,6 +262,13 @@ export default function MonitoringPage() {
           </div>
         )}
       </section>
+      {selectedSensor && (
+        <SensorChartDialog
+          sensorId={selectedSensor.id}
+          sensorName={selectedSensor.name}
+          onClose={() => setSelectedSensor(null)}
+        />
+      )}
     </PageContainer>
   );
 }
