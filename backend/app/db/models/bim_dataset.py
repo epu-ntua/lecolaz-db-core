@@ -25,6 +25,7 @@ class BimDataset(Base):
     filename = Column(String, nullable=False)
     format = Column(String, nullable=False)
     category = Column(String, nullable=True)
+    image_object_key = Column(String, nullable=True)
     schema = Column(String, nullable=True)
     stats = Column(JSONB, nullable=True)
     units = Column(JSONB, nullable=True)

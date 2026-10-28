@@ -18,7 +18,22 @@ export function ComponentCard({ component, onDetails }: ComponentCardProps) {
   const carbon = dpp?.transparency?.environmental?.carbon_footprint?.total_kg_co2eq;
 
   return (
-    <article className="group overflow-hidden rounded-2xl border bg-card shadow-sm transition-shadow hover:border-primary/30 hover:shadow-md">
+    <article
+      role="button"
+      tabIndex={0}
+      aria-label={`Details for ${component.name}`}
+      onClick={onDetails}
+      onKeyDown={(event) => {
+        if (
+          event.target === event.currentTarget &&
+          (event.key === 'Enter' || event.key === ' ')
+        ) {
+          event.preventDefault();
+          onDetails();
+        }
+      }}
+      className="group cursor-pointer overflow-hidden rounded-2xl border bg-card shadow-sm transition-shadow hover:border-primary/40 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+    >
       <div className="relative aspect-[16/10] overflow-hidden bg-muted">
         {showImage ? (
           <img
@@ -67,7 +82,15 @@ export function ComponentCard({ component, onDetails }: ComponentCardProps) {
           </span>
         </div>
         <div className="mt-5 flex items-center justify-end border-t pt-4">
-          <Button type="button" size="sm" variant="ghost" onClick={onDetails}>
+          <Button
+            type="button"
+            size="sm"
+            variant="ghost"
+            onClick={(event) => {
+              event.stopPropagation();
+              onDetails();
+            }}
+          >
             Details
           </Button>
         </div>

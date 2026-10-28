@@ -11,6 +11,7 @@ class BimFileResponse(BaseModel):
     filename: str
     format: str
     category: Literal["archetype", "pilot"] | None
+    image_object_key: str | None = None
     status: str | None
     bim_schema: str | None = Field(
         default=None,

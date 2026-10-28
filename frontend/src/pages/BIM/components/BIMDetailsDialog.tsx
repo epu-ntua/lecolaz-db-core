@@ -168,7 +168,7 @@ export function BIMDetailsDialog({
                 onClick={() => navigate(`/buildings/${file.id}`)}
               >
                 <Eye />
-                View
+                View Building
               </Button>
             </div>
           </div>

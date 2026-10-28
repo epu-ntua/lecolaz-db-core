@@ -4,6 +4,7 @@ from typing import Literal
 from fastapi import APIRouter, BackgroundTasks, File, Form, HTTPException, UploadFile
 
 from app.schemas import FileUploadResponse
+from app.services.bim_image_service import MAX_BIM_IMAGE_BYTES
 from app.services.bim_processing_service import (
     BimConflictError,
     BimNotFoundError,
@@ -58,11 +59,13 @@ async def upload_bim(
     background_tasks: BackgroundTasks,
     file: UploadFile = File(...),
     category: Literal["archetype", "pilot"] = Form(...),
+    image: UploadFile | None = File(default=None),
 ):
     if not is_bim_filename(file.filename):
         raise HTTPException(400, "Only BIM files allowed")
 
     data = await file.read()
+    image_data = await image.read(MAX_BIM_IMAGE_BYTES + 1) if image else None
     try:
         return ingest_upload(
             filename=file.filename,
@@ -70,6 +73,8 @@ async def upload_bim(
             data=data,
             type="bim",
             bim_category=category,
+            bim_image=image_data,
+            bim_image_content_type=image.content_type if image else None,
             background_tasks=background_tasks,
         )
     except ValueError as exc:

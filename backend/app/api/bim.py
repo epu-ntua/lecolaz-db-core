@@ -3,7 +3,7 @@
 import uuid
 
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, File, HTTPException, UploadFile
 from fastapi.responses import StreamingResponse
 
 from app.schemas import (
@@ -19,9 +19,40 @@ from app.storage.postgres.bim_store import BimStore
 from app.storage.postgres.bim_storey_store import BimStoreyStore
 from app.storage.postgres.simulation_store import SimulationStore
 from app.services.bim_view_service import get_bim_view_file, get_bim_metadata
+from app.services.bim_image_service import (
+    BimImageNotFound,
+    BimImageStorageError,
+    MAX_BIM_IMAGE_BYTES,
+    get_bim_image_file,
+    update_bim_image,
+)
 
 
 router = APIRouter(prefix="/bim", tags=["BIM"])
+
+
+@router.put("/{bim_id}/image", response_model=BimFileResponse)
+async def upload_bim_image(bim_id: uuid.UUID, image: UploadFile = File(...)):
+    data = await image.read(MAX_BIM_IMAGE_BYTES + 1)
+    try:
+        return update_bim_image(bim_id, data, image.content_type)
+    except ValueError as exc:
+        if isinstance(exc, BimImageNotFound):
+            raise HTTPException(404, str(exc)) from exc
+        raise HTTPException(400, str(exc)) from exc
+    except BimImageStorageError as exc:
+        raise HTTPException(503, str(exc)) from exc
+
+
+@router.get("/{bim_id}/image")
+def get_bim_image(bim_id: uuid.UUID):
+    try:
+        chunks, content_type = get_bim_image_file(bim_id)
+    except BimImageNotFound as exc:
+        raise HTTPException(404, str(exc)) from exc
+    except BimImageStorageError as exc:
+        raise HTTPException(502, str(exc)) from exc
+    return StreamingResponse(chunks, media_type=content_type)
 
 
 @router.get("", response_model=list[BimFileResponse])

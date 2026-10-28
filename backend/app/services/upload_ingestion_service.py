@@ -5,6 +5,7 @@ from typing import Any, Dict, Optional
 
 from fastapi import BackgroundTasks
 
+from app.services.bim_image_service import validate_bim_image
 from app.services.bim_processing_service import process_bim
 from app.services.simulation_processing_service import process_simulation
 from app.storage.object.minio import MinioStore
@@ -79,6 +80,8 @@ def ingest_upload(
     data: bytes,
     type: str | None = None,
     bim_category: str | None = None,
+    bim_image: bytes | None = None,
+    bim_image_content_type: str | None = None,
     bim_dataset_id: uuid.UUID | None = None,
     metadata: Optional[dict] = None,
     background_tasks: Optional[BackgroundTasks] = None,
@@ -105,8 +108,13 @@ def ingest_upload(
         raise ValueError("bim_category is only supported for BIM uploads")
     if bim_dataset_id is not None and dataset_type != "simulation":
         raise ValueError("bim_dataset_id is only supported for simulation uploads")
+    if bim_image is not None:
+        if dataset_type != "bim":
+            raise ValueError("bim_image is only supported for BIM uploads")
+        validate_bim_image(bim_image, bim_image_content_type)
     dataset_id = uuid.uuid4()
     object_key = f"{dataset_type}/{dataset_id}/{normalized_filename}"
+    image_key = f"bim/{dataset_id}/image/{uuid.uuid4()}" if bim_image else None
 
     try:
         object_store.put_object(
@@ -114,7 +122,15 @@ def ingest_upload(
             data=data,
             content_type=content_type,
         )
+        if image_key and bim_image:
+            object_store.put_object(image_key, bim_image, bim_image_content_type)
     except Exception as exc:
+        for key in (object_key, image_key):
+            if key:
+                try:
+                    object_store.delete_object(key)
+                except Exception:
+                    pass
         raise UploadIngestionError("Failed to store uploaded file") from exc
 
     try:
@@ -139,6 +155,7 @@ def ingest_upload(
                 filename=normalized_filename,
                 format=subtype or "ifc",
                 category=bim_category,
+                image_object_key=image_key,
                 schema=None,
                 extra=None,
             )
@@ -152,10 +169,12 @@ def ingest_upload(
                 extra=None,
             )
     except Exception as exc:
-        try:
-            object_store.delete_object(object_key)
-        except Exception:
-            pass
+        for key in (object_key, image_key):
+            if key:
+                try:
+                    object_store.delete_object(key)
+                except Exception:
+                    pass
         raise UploadIngestionError("Failed to register uploaded dataset") from exc
 
     if dataset_type == "bim":

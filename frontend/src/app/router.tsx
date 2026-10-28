@@ -29,6 +29,12 @@ export const router = createBrowserRouter([
       },
       { path: 'components', element: <ComponentsPage /> },
       {
+        path: 'components/:id/view',
+        lazy: async () => ({
+          Component: (await import('@/pages/BIM/BIMViewerPage')).default,
+        }),
+      },
+      {
         path: 'monitoring',
         element: <MonitoringPage />,
       },

@@ -40,3 +40,15 @@ export function getComponentFileUrl(
 ): string {
   return `${API_BASE}/components/${componentId}/files/${kind}`;
 }
+
+export async function getComponent(componentId: string): Promise<ModularComponentDto> {
+  const res = await fetch(`${API_BASE}/components/${componentId}`);
+  if (!res.ok) throw new Error('Get component failed');
+  return res.json() as Promise<ModularComponentDto>;
+}
+
+export async function fetchComponentIfc(componentId: string): Promise<ArrayBuffer> {
+  const res = await fetch(getComponentFileUrl(componentId, 'ifc'));
+  if (!res.ok) throw new Error('Failed to fetch component IFC');
+  return res.arrayBuffer();
+}

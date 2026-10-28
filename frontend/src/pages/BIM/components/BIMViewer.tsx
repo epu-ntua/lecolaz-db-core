@@ -22,17 +22,16 @@ import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from 're
 import { ErrorNotice, LoadingState } from '@/components/layout/Feedback';
 import { Button } from '@/components/ui/button';
 import { Focus } from 'lucide-react';
-import { fetchBimStream } from '@/api/bim_files'; // your function
 import { BIMViewerEngine } from '../BIMViewerEngine';
 
 export type BIMViewerHandle = {
   highlightByGlobalIds: (globalIds: string[]) => Promise<void>;
 };
 
-const BIMViewer = forwardRef<BIMViewerHandle, { bimId: string }>(function BIMViewer(
-  { bimId },
-  ref,
-) {
+const BIMViewer = forwardRef<
+  BIMViewerHandle,
+  { sourceId: string; fetchStream: (id: string) => Promise<ArrayBuffer> }
+>(function BIMViewer({ sourceId, fetchStream }, ref) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [retry, setRetry] = useState(0);
@@ -54,7 +53,7 @@ const BIMViewer = forwardRef<BIMViewerHandle, { bimId: string }>(function BIMVie
     (async () => {
       if (!containerRef.current) return;
 
-      const data = await fetchBimStream(bimId); // ArrayBuffer from FastAPI stream
+      const data = await fetchStream(sourceId);
       if (cancelled) return;
 
       engine = new BIMViewerEngine(containerRef.current);
@@ -63,7 +62,7 @@ const BIMViewer = forwardRef<BIMViewerHandle, { bimId: string }>(function BIMVie
       await engine.initIfcPipeline();
       if (cancelled) return;
 
-      await engine.loadIFCFromArrayBuffer(data, `${bimId}.ifc`);
+      await engine.loadIFCFromArrayBuffer(data, `${sourceId}.ifc`);
     })()
       .then(() => {
         if (!cancelled) setLoading(false);
@@ -82,17 +81,17 @@ const BIMViewer = forwardRef<BIMViewerHandle, { bimId: string }>(function BIMVie
       engineRef.current = null;
       engine?.dispose();
     };
-  }, [bimId, retry]);
+  }, [sourceId, fetchStream, retry]);
 
   return (
-    <div className="relative h-full w-full">
+    <div className="relative h-full w-full overflow-hidden bg-gradient-to-b from-slate-100 via-slate-50 to-slate-200">
       <div ref={containerRef} className="h-full w-full" />
       {!loading && !error && (
         <>
           <Button
             variant="outline"
             size="sm"
-            className="absolute right-4 top-4 shadow-sm"
+            className="absolute right-4 top-4 border-white/70 bg-white/90 shadow-md backdrop-blur-sm hover:bg-white"
             onClick={() => {
               void engineRef.current
                 ?.fitModel()
@@ -105,7 +104,7 @@ const BIMViewer = forwardRef<BIMViewerHandle, { bimId: string }>(function BIMVie
           >
             <Focus className="h-4 w-4" /> Reset view
           </Button>
-          <p className="pointer-events-none absolute bottom-4 left-4 rounded-lg border bg-card/95 px-3 py-2 text-[11px] text-muted-foreground">
+          <p className="pointer-events-none absolute bottom-4 left-4 rounded-lg border border-white/70 bg-white/90 px-3 py-2 text-[11px] text-slate-600 shadow-sm backdrop-blur-sm">
             Drag to orbit · Scroll to zoom
           </p>
         </>

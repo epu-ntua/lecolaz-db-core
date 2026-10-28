@@ -1,5 +1,6 @@
 import { useEffect, useState, type ReactNode } from 'react';
-import { Download } from 'lucide-react';
+import { Eye } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import { getBimFile, listBimFiles } from '@/api/bim_files';
 import { getComponentFileUrl, updateComponentBuilding } from '@/api/components';
 import { Badge } from '@/components/ui/badge';
@@ -78,6 +79,7 @@ export function ComponentDetailsDialog({
   onUpdated: (component: ModularComponentDto) => void;
 }) {
   const dpp = component.dpp;
+  const navigate = useNavigate();
   const traceability = dpp?.traceability;
   const material = dpp?.transparency?.material;
   const carbon = dpp?.transparency?.environmental?.carbon_footprint;
@@ -164,14 +166,16 @@ export function ComponentDetailsDialog({
               <DialogTitle className="text-lg">{component.name}</DialogTitle>
               <DialogDescription>DPP</DialogDescription>
             </div>
-            {component.ifc_object_key && (
-              <Button asChild variant="outline" size="sm" className="shrink-0">
-                <a href={getComponentFileUrl(component.id, 'ifc')} download>
-                  <Download />
-                  Download IFC
-                </a>
-              </Button>
-            )}
+            <Button
+              variant="outline"
+              size="sm"
+              className="shrink-0"
+              disabled={!component.ifc_object_key}
+              title={component.ifc_object_key ? undefined : 'No IFC file available'}
+              onClick={() => navigate(`/components/${component.id}/view`)}
+            >
+              <Eye /> View Component
+            </Button>
           </div>
         </DialogHeader>
 
