@@ -127,7 +127,16 @@ docker compose --env-file infra/.env -f infra/compose.yaml exec -T postgres sh /
 
 FastAPI applies Alembic migrations before starting Uvicorn. Set `HAMAPI_API_KEY` in `infra/.env` for HAM-accessed data; Compose passes it to the backend and Dagster services. OpenMeteo ingestion does not require an API key. Changes to environment variables normally require recreating affected containers.
 
-Daily ingestion is enabled by default. Set sensor start dates during registration; use Dagster's partition views for historical backfills. See the [Dagster guide](../infra/dagster/README.md) for workflow details.
+Daily ingestion is enabled by default. Sensor registration also starts missing
+historical imports. See the [Dagster guide](../infra/dagster/README.md) for setup
+and workflow details.
+
+## Sensor listing and registration API
+
+The sensor API lists available sensors and registers selected ones. Registration
+and re-registration save settings and start eligible missing historical imports.
+See the [Dagster guide](../infra/dagster/README.md#registration-api) for registration
+and backfill behavior.
 
 ## Database migrations
 

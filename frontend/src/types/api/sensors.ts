@@ -48,4 +48,11 @@ export type SensorRegistrationResponse = {
     status: 'reloaded' | 'failed';
     message?: string | null;
   };
+  backfills: {
+    sensor_id: string;
+    status: 'submitted' | 'skipped' | 'failed';
+    backfill_id: string | null;
+    target_count: number;
+    message: string | null;
+  }[];
 };

@@ -123,6 +123,15 @@ class DagsterReloadResponse(BaseModel):
     message: str | None = None
 
 
+class SensorBackfillResponse(BaseModel):
+    sensor_id: UUID
+    status: Literal["submitted", "skipped", "failed"]
+    backfill_id: str | None = None
+    target_count: int = 0
+    message: str | None = None
+
+
 class SensorRegistrationResponse(BaseModel):
     sensors: list[RegisteredSensorResponse]
     dagster: DagsterReloadResponse
+    backfills: list[SensorBackfillResponse] = Field(default_factory=list)

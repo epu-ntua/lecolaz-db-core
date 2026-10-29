@@ -128,7 +128,7 @@ export async function registerSensors(
         sensors: externalIds.map((external_id) => ({ external_id, settings })),
       }),
     },
-    75_000,
+    180_000, // Registration also reloads definitions and submits eligible backfills.
   );
   if (!response.ok)
     throw new Error(await readError(response, 'Sensor registration failed'));

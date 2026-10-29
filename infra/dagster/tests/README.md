@@ -22,6 +22,18 @@ Tests use fixture API responses. OpenMeteo fixtures cover `1334/564/232` on
 `HAMAPI_TEST_POSTGRES_DSN` pointing to a migrated test database; they use
 session-local temporary tables. Without that setting, database tests skip.
 
+Registration backfill integration tests use temporary Dagster SQLite storage and
+the real GraphQL schema without external services or a daemon:
+
+```bash
+PYTHONPATH=backend:. python -m unittest infra.dagster.tests.test_sensor_backfill -v
+```
+
+They cover arbitrary asset names and stage counts, downstream replay, active
+backfill/run exclusion, pagination, repeat registration, static/unpartitioned
+assets, and ambiguous submission failures. Run them with the pinned Dagster
+version when upgrading the GraphQL dependency.
+
 ## Full deployment check
 
 Use this disposable project with Compose 2.30+. Never substitute the normal

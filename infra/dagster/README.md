@@ -31,19 +31,28 @@ attempting the other family; the hook exits with an error if either failed.
 
 Sensors are discovered from PostgreSQL when the code location loads. The
 [registration API](../../docs/development.md#sensor-listing-and-registration-api)
-reloads it automatically. After a manual Dagster registration job or direct database
+reloads it automatically and, on success, submits at most one historical backfill
+per selected sensor. After a manual Dagster registration job or direct database
 edit, reload **Deployment → Code locations → lecolaz**. Database/schema errors fail
 loading rather than hiding assets.
 
 Each observation asset owns one sensor's rows and has UTC daily partitions.
-The first day is clipped to `starting_date`; historical days require explicit
-backfills. HAM and OpenMeteo automation are enabled by default.
+The first day is clipped to `starting_date`. Registration and re-registration
+backfill only missing partitions not already being processed, identifying assets
+by their `sensor_id` metadata. Manual registration jobs and startup initialization
+still require explicit backfills. Daily automation is enabled by default.
 
 Imports upsert values without deleting source-absent rows. Empty imports preserve
 existing data but do not mark observation partitions materialized. Such partitions
 can make a backfill finish as `COMPLETED_FAILED` even when its runs succeeded.
 Pause automation and finish queued work before changing sensor identities or start
 dates. Deleting a sensor cascades to its observations; Dagster history remains.
+
+## Registration API
+
+`POST /sensors/register` returns saved sensors, reload status and per-sensor
+backfill outcomes. Imports run asynchronously; submission failures do not undo
+registration. Re-register to retry missing work.
 
 ## Storage and maintenance
 

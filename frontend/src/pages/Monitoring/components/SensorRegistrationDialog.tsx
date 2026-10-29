@@ -112,23 +112,50 @@ export function SensorRegistrationDialog({
       if (startingDate) settings.starting_date = new Date(startingDate).toISOString();
 
       const result = await registerSensors(family, [...selected], settings);
-      setSelected(new Set());
+      const saved = new Map(result.sensors.map((sensor) => [sensor.external_id, sensor]));
+      setSensors((current) =>
+        current.map((sensor) =>
+          saved.has(sensor.external_id)
+            ? { ...sensor, ...saved.get(sensor.external_id), registered: true }
+            : sensor,
+        ),
+      );
+      const failedIds = new Set(
+        result.backfills
+          .filter((backfill) => backfill.status === 'failed')
+          .map((backfill) => backfill.sensor_id),
+      );
+      if (result.dagster.status !== 'failed') {
+        setSelected(
+          new Set(
+            result.sensors
+              .filter((sensor) => failedIds.has(sensor.id))
+              .map((sensor) => sensor.external_id),
+          ),
+        );
+      }
+      const confirmation =
+        result.sensors.length === 1 ? 'Sensor saved.' : 'Sensors saved.';
+      const loadingReadings = result.backfills.some(
+        (backfill) => backfill.status === 'submitted',
+      );
+      setWarning(
+        result.dagster.status === 'failed'
+          ? `${confirmation} We couldn’t start loading past readings. Please try registering the selected sensors again.`
+          : failedIds.size
+            ? `${confirmation} We had trouble loading past readings for ${failedIds.size === 1 ? 'the sensor still selected. Please try registering it again.' : 'the sensors still selected. Please try registering them again.'}`
+            : loadingReadings
+              ? `${confirmation} Past readings will appear as they’re loaded. You can close this window.`
+              : confirmation,
+      );
       try {
         await onRegistered();
       } catch {
         setWarning(
-          'Sensors were saved. Close this dialog and refresh the registry to see them.',
+          (message) =>
+            `${message} Refresh the page after closing this window to see your sensors.`,
         );
-        return;
       }
-      if (result.dagster.status === 'failed') {
-        setWarning(
-          result.dagster.message ?? 'Sensors were saved, but ingestion reload failed.',
-        );
-        return;
-      }
-      setOpen(false);
-      reset();
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : 'Sensor registration failed.');
     } finally {
@@ -362,7 +389,7 @@ export function SensorRegistrationDialog({
               reset();
             }}
           >
-            Cancel
+            {warning ? 'Close' : 'Cancel'}
           </Button>
           <Button disabled={!selected.size || loading || saving} onClick={submit}>
             {saving ? <Loader2 className="animate-spin" /> : <RadioTower />}

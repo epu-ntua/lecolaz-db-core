@@ -1,4 +1,4 @@
-"""Validate selections, atomically persist references, then refresh asset discovery."""
+"""Persist selections atomically, reload definitions, then backfill missing work."""
 
 from sqlalchemy import select
 from sqlalchemy.orm import sessionmaker
@@ -8,6 +8,7 @@ from app.db.models.modular_component import ModularComponent
 from app.db.models.sensor import Sensor
 from app.db.session import engine
 from app.schemas.sensors import SensorRegistrationRequest
+from app.services.dagster_backfill_service import launch_sensor_backfills
 from app.services.dagster_service import reload_sensor_location
 from app.services.sensor_catalog_service import prepare_catalog
 from app.storage.postgres.observation_type_store import ObservationTypeStore
@@ -94,4 +95,6 @@ def register_sensors(request: SensorRegistrationRequest) -> dict:
         )
         saved = {row["external_id"]: row for row in store.list_registration_fields(family)}
         result = [saved[external_id] for external_id in external_ids]
-    return {"sensors": result, "dagster": reload_sensor_location()}
+    dagster = reload_sensor_location()
+    backfills = launch_sensor_backfills(result) if dagster["status"] == "reloaded" else []
+    return {"sensors": result, "dagster": dagster, "backfills": backfills}
