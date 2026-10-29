@@ -108,6 +108,13 @@ The endpoint validates the Turtle file and reports the graph URI/triple count on
 
 For the UI's protected dataset list, visit `http://localhost:3030/$/server` first and log in with `admin` and your configured password, then open `http://localhost:3030/#/`. If browser credentials are cached incorrectly, try a private window.
 
+## Ontology explorer
+
+Open `/data?tab=ontology` for the lazy-loaded Reactodia workspace. The initial view dynamically loads building, modular component, simulation run and energy model dataset instances, including subclasses. Search and connection navigation explore all published graphs within `FUSEKI_DATASET`; **Reload graph** refreshes the starting view.
+
+The backend provides `GET /ontology/instances` and read-only `POST /ontology/query` (SELECT/CONSTRUCT). Set `FUSEKI_BASE_URL=http://fuseki:3030` for the Docker backend, or `http://localhost:3030` for a host-side backend.
+
+
 ## Dagster workflows
 
 The development Compose stack runs three Dagster services: `dagster-code` (definitions/execution), `dagster-webserver` (UI), and `dagster-daemon` (automation and run coordination). Dagster uses a separate database within the existing PostgreSQL instance, controlled by `DAGSTER_POSTGRES_USER`, `DAGSTER_POSTGRES_PASSWORD`, and `DAGSTER_POSTGRES_DB` in `infra/.env`.

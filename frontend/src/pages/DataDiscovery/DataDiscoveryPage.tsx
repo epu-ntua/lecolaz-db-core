@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { lazy, Suspense, useEffect, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { getBimFileByDataset, listBimFiles } from '@/api/bim_files';
 import { getDataset, listDatasets } from '@/api/datasets';
@@ -6,7 +6,7 @@ import { getSimulationFileByDataset, listSimulationFiles } from '@/api/simulatio
 import { PageContainer } from '@/components/layout/PageContainer';
 import { PageHeader } from '@/components/layout/PageHeader';
 import { SearchInput } from '@/components/ui/search-input';
-import { ErrorNotice } from '@/components/layout/Feedback';
+import { ErrorNotice, LoadingState } from '@/components/layout/Feedback';
 import { cn } from '@/lib/utils';
 import { usePendingDatasetPolling } from '@/hooks/usePendingDatasetPolling';
 import { BimUploadDialog } from '@/pages/BIM/components/BimUploadDialog';
@@ -19,10 +19,13 @@ import type { BimFileDto } from '@/types/api/bim';
 import type { DatasetDto } from '@/types/api/datasets';
 import type { SimulationFileDto } from '@/types/api/simulations';
 
+const OntologyExplorer = lazy(() => import('./components/OntologyExplorer'));
+
 const tabs = [
   { value: 'all', label: 'All Datasets' },
   { value: 'simulations', label: 'Simulation Datasets' },
   { value: 'bim', label: 'BIM Datasets' },
+  { value: 'ontology', label: 'Ontology Explorer' },
 ] as const;
 
 function SectionHeader({
@@ -167,26 +170,33 @@ export default function DataDiscoveryPage() {
         ))}
       </nav>
 
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <SearchInput
-          value={query}
-          onChange={setQuery}
-          placeholder="Search datasets by filename…"
-        />
-        <select
-          className="field sm:w-44"
-          aria-label="Filter by processing status"
-          value={status}
-          onChange={(event) => setStatus(event.target.value)}
-        >
-          <option value="all">All statuses</option>
-          <option value="processed">Processed</option>
-          <option value="pending">Pending</option>
-          <option value="processing">Processing</option>
-          <option value="failed">Failed</option>
-        </select>
-      </div>
+      {activeTab !== 'ontology' && (
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <SearchInput
+            value={query}
+            onChange={setQuery}
+            placeholder="Search datasets by filename…"
+          />
+          <select
+            className="field sm:w-44"
+            aria-label="Filter by processing status"
+            value={status}
+            onChange={(event) => setStatus(event.target.value)}
+          >
+            <option value="all">All statuses</option>
+            <option value="processed">Processed</option>
+            <option value="pending">Pending</option>
+            <option value="processing">Processing</option>
+            <option value="failed">Failed</option>
+          </select>
+        </div>
+      )}
       <div className="space-y-5 pt-0">
+        {activeTab === 'ontology' && (
+          <Suspense fallback={<LoadingState label="Loading ontology explorer…" />}>
+            <OntologyExplorer />
+          </Suspense>
+        )}
         {activeTab === 'all' && (
           <>
             <SectionHeader
