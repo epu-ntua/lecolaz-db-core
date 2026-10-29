@@ -1,5 +1,5 @@
 import { useEffect, useState, type ReactNode } from 'react';
-import { Eye } from 'lucide-react';
+import { Building2, Eye, Plus } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { getBimFile, listBimFiles } from '@/api/bim_files';
 import { getComponentFileUrl, updateComponentBuilding } from '@/api/components';
@@ -380,7 +380,25 @@ export function ComponentDetailsDialog({
 
             {activeTab === 'building' && (
               <Card className="shadow-none">
-                <CardContent className="space-y-4 pt-6 text-sm">
+                {!linkedId && (
+                  <CardHeader className="pb-4">
+                    <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                      <div>
+                        <CardTitle className="text-sm font-medium">
+                          Building for {component.name}
+                        </CardTitle>
+                        <DialogDescription className="mt-1 text-left">
+                          The building this component is placed in.
+                        </DialogDescription>
+                      </div>
+                      <Button type="button" size="lg" onClick={() => setPicking(true)}>
+                        <Plus />
+                        Connect Building
+                      </Button>
+                    </div>
+                  </CardHeader>
+                )}
+                <CardContent className={cn('space-y-4 text-sm', linkedId && 'pt-6')}>
                   {linkedId ? (
                     <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                       <Field
@@ -427,13 +445,9 @@ export function ComponentDetailsDialog({
                       </div>
                     </div>
                   ) : (
-                    <div className="flex flex-col items-center gap-3 py-6 text-center">
-                      <p className="text-muted-foreground">
-                        This component is not connected to a building.
-                      </p>
-                      <Button type="button" size="sm" onClick={() => setPicking(true)}>
-                        Connect to building
-                      </Button>
+                    <div className="flex items-center gap-3 rounded-lg border border-dashed p-4 text-sm text-muted-foreground">
+                      <Building2 className="h-5 w-5" />
+                      This component is not connected to a building.
                     </div>
                   )}
                 </CardContent>
