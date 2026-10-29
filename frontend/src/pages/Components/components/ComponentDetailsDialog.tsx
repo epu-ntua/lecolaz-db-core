@@ -92,7 +92,7 @@ export function ComponentDetailsDialog({
   const [pilotsLoading, setPilotsLoading] = useState(true);
   const [pilotsError, setPilotsError] = useState<string | null>(null);
   // Fetched by id, not looked up in `pilots`: the link must resolve even if the
-  // building is no longer a pilot or falls outside the list endpoint's limit.
+  // building falls outside the list endpoint's limit.
   const [linked, setLinked] = useState<{
     id: string;
     building: BimFileDto | null;
@@ -113,8 +113,7 @@ export function ComponentDetailsDialog({
     let cancelled = false;
     listBimFiles()
       .then((rows) => {
-        // Same rule as the Buildings & Pilots page: anything not an archetype is a pilot.
-        if (!cancelled) setPilots(rows.filter((bim) => bim.category !== 'archetype'));
+        if (!cancelled) setPilots(rows);
       })
       .catch(() => {
         if (!cancelled) setPilotsError('Buildings could not be loaded.');
@@ -456,7 +455,7 @@ export function ComponentDetailsDialog({
           <DialogHeader className="border-b border-border px-6 py-4 text-left">
             <DialogTitle className="text-lg">Connect to building</DialogTitle>
             <DialogDescription>
-              Select a pilot building for {component.name}.
+              Select a building for {component.name}.
             </DialogDescription>
           </DialogHeader>
           <div className="px-4 pt-4 sm:px-6">
@@ -494,7 +493,7 @@ export function ComponentDetailsDialog({
               <p className="text-muted-foreground">
                 {pilots.length
                   ? 'No buildings match the current search.'
-                  : 'No pilot buildings available.'}
+                  : 'No buildings available.'}
               </p>
             )}
             {buildingError && <p className="text-destructive">{buildingError}</p>}

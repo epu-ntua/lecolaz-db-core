@@ -22,13 +22,11 @@ class ComponentSensorsUnavailable(ValueError):
 def update_component_building(
     component_id: uuid.UUID, bim_dataset_id: uuid.UUID | None
 ) -> dict:
-    """Link the component to a pilot building, or disconnect it with None."""
+    """Link the component to a building, or disconnect it with None."""
     if bim_dataset_id:
         bim = BimStore().get_bim_by_id(bim_dataset_id)
         if not bim:
             raise ComponentBuildingInvalid("Building not found")
-        if bim["category"] == "archetype":
-            raise ComponentBuildingInvalid("Components can only be linked to pilot buildings")
 
     component = ModularComponentStore().update_building(component_id, bim_dataset_id)
     if not component:
