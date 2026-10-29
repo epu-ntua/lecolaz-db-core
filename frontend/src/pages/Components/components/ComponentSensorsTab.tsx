@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { Plus, RadioTower } from 'lucide-react';
 import { updateComponentSensors } from '@/api/components';
 import { listRegisteredSensors } from '@/api/sensors';
+import { SensorChartDialog } from '@/components/sensors/SensorChartDialog';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -30,6 +31,7 @@ const SAVE_ERROR =
 
 export function ComponentSensorsTab({ component }: { component: ModularComponentDto }) {
   const [sensors, setSensors] = useState<RegisteredSensorDto[]>([]);
+  const [selectedSensor, setSelectedSensor] = useState<RegisteredSensorDto | null>(null);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [picking, setPicking] = useState(false);
@@ -144,7 +146,13 @@ export function ComponentSensorsTab({ component }: { component: ModularComponent
                   {sensors.map((sensor) => (
                     <TableRow key={sensor.id}>
                       <TableCell>
-                        <div className="font-medium">{sensor.name}</div>
+                        <Button
+                          variant="link"
+                          className="h-auto whitespace-normal p-0 text-left"
+                          onClick={() => setSelectedSensor(sensor)}
+                        >
+                          {sensor.name}
+                        </Button>
                         <div className="text-xs text-muted-foreground">
                           {sensor.external_id}
                         </div>
@@ -180,6 +188,14 @@ export function ComponentSensorsTab({ component }: { component: ModularComponent
           )}
         </CardContent>
       </Card>
+
+      {selectedSensor && (
+        <SensorChartDialog
+          sensorId={selectedSensor.id}
+          sensorName={selectedSensor.name}
+          onClose={() => setSelectedSensor(null)}
+        />
+      )}
 
       <Dialog
         open={picking}
