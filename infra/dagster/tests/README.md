@@ -2,7 +2,8 @@
 
 [Overview](../README.md)
 
-From the repository root, with `infra/dagster/requirements.txt` installed and
+From the repository root, with `backend/requirements.txt` and
+`infra/dagster/requirements.txt` installed and
 `POSTGRES_DSN` set (as in `backend/.env`). The stores import the backend session
 factory; this creates an engine but does not connect to the database:
 
@@ -10,12 +11,8 @@ factory; this creates an engine but does not connect to the database:
 PYTHONPATH=backend:. python -m unittest discover -s infra/dagster/tests -v
 ```
 
-Or use the pinned image:
-
-```bash
-docker build -t lecolaz-dagster:1.13.23 -f infra/dagster/Dockerfile .
-docker run --rm -e POSTGRES_DSN lecolaz-dagster:1.13.23 python -m unittest discover -s infra/dagster/tests -v
-```
+For containerized tests, use the full deployment check below. The suite needs
+backend modules and dependencies absent from the Dagster runtime image.
 
 Tests use fixture API responses. OpenMeteo fixtures cover `1334/564/232` on
 2026-01-01 (144 observations), captured on 2026-09-30. PostgreSQL tests require
@@ -47,7 +44,7 @@ test_compose() {
 test_compose up -d --build --wait postgres minio backend
 test_compose exec -T backend alembic upgrade head
 test_compose up -d --build --wait
-test_compose exec -T -e HAMAPI_TEST_POSTGRES_DSN=postgresql+psycopg://fixture:fixture@postgres:5432/dagster_fixture dagster-code python -m unittest discover -s infra/dagster/tests -v
+test_compose exec -T -w /opt/lecolaz -e HAMAPI_TEST_POSTGRES_DSN=postgresql+psycopg://fixture:fixture@postgres:5432/dagster_fixture backend python -m unittest discover -s infra/dagster/tests -v
 test_compose exec -T dagster-code python -m infra.dagster.tests.check_deployment
 test_compose restart dagster-code dagster-webserver dagster-daemon
 test_compose up -d --wait
