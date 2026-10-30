@@ -3,9 +3,16 @@ import type { ComponentFileKind, ModularComponentDto } from '@/types/api/compone
 import type { RegisteredSensorDto } from '@/types/api/sensors';
 
 export async function listComponents(): Promise<ModularComponentDto[]> {
-  const res = await fetch(`${API_BASE}/components`);
-  if (!res.ok) throw new Error('List components failed');
-  return res.json() as Promise<ModularComponentDto[]>;
+  const components: ModularComponentDto[] = [];
+  const limit = 100;
+  // Follow every page so older components and building links are not hidden.
+  for (let offset = 0; ; offset += limit) {
+    const res = await fetch(`${API_BASE}/components?limit=${limit}&offset=${offset}`);
+    if (!res.ok) throw new Error('List components failed');
+    const rows = (await res.json()) as ModularComponentDto[];
+    components.push(...rows);
+    if (rows.length < limit) return components;
+  }
 }
 
 export async function updateComponentBuilding(

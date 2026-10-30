@@ -44,15 +44,19 @@ import type {
 } from '@/types/api/bim';
 import type { SimulationFileDto } from '@/types/api/simulations';
 import type { RegisteredSensorDto } from '@/types/api/sensors';
+import type { ModularComponentDto } from '@/types/api/components';
+import { BIMComponentsTab } from './BIMComponentsTab';
 
 export function BIMDetailsDialog({
   file,
   onClose,
   onCategoryChanged,
+  onComponentUpdated,
 }: {
   file: BimFileDto;
   onClose: () => void;
   onCategoryChanged?: (file: BimFileDto) => void;
+  onComponentUpdated?: (component: ModularComponentDto) => void;
 }) {
   const navigate = useNavigate();
   const [section, setSection] = useState('overview');
@@ -186,6 +190,7 @@ export function BIMDetailsDialog({
           {[
             { id: 'overview', label: 'Overview' },
             { id: 'simulations', label: 'Simulations' },
+            { id: 'components', label: 'Components' },
             { id: 'sensors', label: 'Sensors' },
             { id: 'structure', label: 'Structure' },
           ].map((item) => (
@@ -422,6 +427,10 @@ export function BIMDetailsDialog({
                 )}
               </CardContent>
             </Card>
+          )}
+
+          {section === 'components' && (
+            <BIMComponentsTab key={file.id} file={file} onUpdated={onComponentUpdated} />
           )}
 
           {section === 'sensors' && (

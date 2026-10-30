@@ -555,6 +555,12 @@ export function ComponentDetailsDialog({
         <BIMDetailsDialog
           file={linkedBuilding}
           onClose={() => setShowBuildingDialog(false)}
+          onComponentUpdated={(updated) => {
+            if (updated.id === component.id) {
+              setShowBuildingDialog(false);
+              onUpdated(updated);
+            }
+          }}
         />
       )}
     </Dialog>

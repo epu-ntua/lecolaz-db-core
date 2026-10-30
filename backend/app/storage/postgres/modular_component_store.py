@@ -25,12 +25,13 @@ class ModularComponentStore:
             session.execute(statement)
             session.commit()
 
-    def list_components(self, limit: int = 100) -> List[Dict[str, Any]]:
+    def list_components(self, limit: int = 100, offset: int = 0) -> List[Dict[str, Any]]:
         with self._session_factory() as session:
             stmt = (
                 select(ModularComponent)
-                .order_by(ModularComponent.created_at.desc())
+                .order_by(ModularComponent.created_at.desc(), ModularComponent.id)
                 .limit(limit)
+                .offset(offset)
             )
             return [self._to_dict(obj) for obj in session.execute(stmt).scalars()]
 

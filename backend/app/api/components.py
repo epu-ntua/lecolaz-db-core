@@ -1,7 +1,7 @@
 import uuid
 from typing import Literal
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Query
 from fastapi.responses import StreamingResponse
 
 from app.schemas import (
@@ -25,8 +25,8 @@ router = APIRouter(prefix="/components", tags=["Modular components"])
 
 
 @router.get("", response_model=list[ModularComponentResponse])
-def list_components(limit: int = 100):
-    return ModularComponentStore().list_components(limit=limit)
+def list_components(limit: int = Query(100, ge=1), offset: int = Query(0, ge=0)):
+    return ModularComponentStore().list_components(limit=limit, offset=offset)
 
 
 @router.get("/{component_id}", response_model=ModularComponentResponse)
