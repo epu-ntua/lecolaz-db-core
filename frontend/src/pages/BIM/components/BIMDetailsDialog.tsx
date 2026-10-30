@@ -14,6 +14,7 @@ import { uploadSimulationFile } from '@/api/simulation_files';
 import { listRegisteredSensors } from '@/api/sensors';
 import { SensorChartDialog } from '@/components/sensors/SensorChartDialog';
 import { StatusBadge } from '@/components/ui/status-badge';
+import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import {
@@ -473,7 +474,9 @@ export function BIMDetailsDialog({
                               </div>
                             </TableCell>
                             <TableCell>
-                              <StatusBadge status={file.status} />
+                              <Badge variant="secondary">
+                                {sensor.sensor_family === 'ham' ? 'HAM' : 'OpenMeteo'}
+                              </Badge>
                             </TableCell>
                             <TableCell>{sensor.location ?? '—'}</TableCell>
                             <TableCell>{sensor.space ?? '—'}</TableCell>
