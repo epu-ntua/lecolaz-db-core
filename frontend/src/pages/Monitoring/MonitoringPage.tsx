@@ -7,7 +7,7 @@ import { PageContainer } from '@/components/layout/PageContainer';
 import { PageHeader } from '@/components/layout/PageHeader';
 import { MetricCard } from '@/components/layout/MetricCard';
 import { ErrorNotice, LoadingState } from '@/components/layout/Feedback';
-import { Badge } from '@/components/ui/badge';
+import { SensorFamilyBadge } from '@/components/sensors/SensorFamilyBadge';
 import { Button } from '@/components/ui/button';
 import { SearchInput } from '@/components/ui/search-input';
 import {
@@ -18,6 +18,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
+import { SENSOR_FAMILY_LABELS } from '@/lib/constants';
 import type { BimFileDto } from '@/types/api/bim';
 import type { RegisteredSensorDto } from '@/types/api/sensors';
 import { SensorRegistrationDialog } from './components/SensorRegistrationDialog';
@@ -140,8 +141,8 @@ export default function MonitoringPage() {
             onChange={(event) => setFamily(event.target.value)}
           >
             <option value="all">All providers</option>
-            <option value="ham">HAM</option>
-            <option value="openmeteo">OpenMeteo</option>
+            <option value="ham">{SENSOR_FAMILY_LABELS.ham}</option>
+            <option value="openmeteo">{SENSOR_FAMILY_LABELS.openmeteo}</option>
           </select>
           <select
             aria-label="Filter building connection"
@@ -196,9 +197,7 @@ export default function MonitoringPage() {
                         </div>
                       </TableCell>
                       <TableCell>
-                        <Badge variant="secondary">
-                          {sensor.sensor_family === 'ham' ? 'HAM' : 'OpenMeteo'}
-                        </Badge>
+                        <SensorFamilyBadge family={sensor.sensor_family} />
                       </TableCell>
                       <TableCell>
                         {sensor.bim_dataset_id ? (

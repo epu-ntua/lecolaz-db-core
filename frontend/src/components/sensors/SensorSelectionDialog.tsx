@@ -10,6 +10,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { SearchInput } from '@/components/ui/search-input';
+import { SENSOR_FAMILY_LABELS } from '@/lib/constants';
 import type { RegisteredSensorDto } from '@/types/api/sensors';
 
 export function SensorSelectionDialog({
@@ -98,7 +99,7 @@ export function SensorSelectionDialog({
                       <span className="block truncate font-medium">{sensor.name}</span>
                       <span className="block truncate text-xs text-muted-foreground">
                         {sensor.external_id} ·{' '}
-                        {sensor.sensor_family === 'ham' ? 'HAM' : 'OpenMeteo'}
+                        {SENSOR_FAMILY_LABELS[sensor.sensor_family]}
                       </span>
                     </span>
                   </label>

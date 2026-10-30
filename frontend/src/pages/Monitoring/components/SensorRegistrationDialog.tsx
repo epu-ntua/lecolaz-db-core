@@ -15,6 +15,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from '@/components/ui/dialog';
+import { SENSOR_FAMILY_LABELS } from '@/lib/constants';
 import type { BimFileDto } from '@/types/api/bim';
 import type { EligibleSensorDto, SensorFamily } from '@/types/api/sensors';
 
@@ -208,7 +209,7 @@ export function SensorRegistrationDialog({
                   setQuery('');
                 }}
               >
-                {value === 'ham' ? 'HAM' : 'OpenMeteo'}
+                {SENSOR_FAMILY_LABELS[value]}
               </Button>
             ))}
           </div>

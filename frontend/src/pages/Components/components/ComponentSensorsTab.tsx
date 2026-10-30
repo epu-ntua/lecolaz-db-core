@@ -4,7 +4,7 @@ import { updateComponentSensors } from '@/api/components';
 import { listRegisteredSensors } from '@/api/sensors';
 import { SensorSelectionDialog } from '@/components/sensors/SensorSelectionDialog';
 import { SensorChartDialog } from '@/components/sensors/SensorChartDialog';
-import { Badge } from '@/components/ui/badge';
+import { SensorFamilyBadge } from '@/components/sensors/SensorFamilyBadge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import {
@@ -122,9 +122,7 @@ export function ComponentSensorsTab({ component }: { component: ModularComponent
                         </div>
                       </TableCell>
                       <TableCell>
-                        <Badge variant="secondary">
-                          {sensor.sensor_family === 'ham' ? 'HAM' : 'OpenMeteo'}
-                        </Badge>
+                        <SensorFamilyBadge family={sensor.sensor_family} />
                       </TableCell>
                       <TableCell>{sensor.location ?? '—'}</TableCell>
                       <TableCell>{sensor.space ?? '—'}</TableCell>
