@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Loader2, Plus, RadioTower } from 'lucide-react';
 import { listBimFiles } from '@/api/bim_files';
+import { listComponents } from '@/api/components';
 import { listEligibleSensors, registerSensors } from '@/api/sensors';
 import { SearchInput } from '@/components/ui/search-input';
 import { ErrorNotice } from '@/components/layout/Feedback';
@@ -15,11 +16,17 @@ import {
   DialogTitle,
   DialogTrigger,
 } from '@/components/ui/dialog';
-import { SENSOR_FAMILY_LABELS } from '@/lib/constants';
+import { COMPONENT_CLASS_LABELS, SENSOR_FAMILY_LABELS } from '@/lib/constants';
+import { SensorAssignmentPicker, type AssignmentOption } from './SensorAssignmentPicker';
 import type { BimFileDto } from '@/types/api/bim';
-import type { EligibleSensorDto, SensorFamily } from '@/types/api/sensors';
+import type { ModularComponentDto } from '@/types/api/components';
+import type {
+  EligibleSensorDto,
+  SensorFamily,
+  SensorRegistrationSettings,
+} from '@/types/api/sensors';
 
-const PRESERVE_BIM = '__preserve__';
+const PRESERVE_ASSIGNMENT = '__preserve__';
 
 export function SensorRegistrationDialog({
   initialBimId,
@@ -37,8 +44,11 @@ export function SensorRegistrationDialog({
   const [family, setFamily] = useState<SensorFamily>('ham');
   const [sensors, setSensors] = useState<EligibleSensorDto[]>([]);
   const [bims, setBims] = useState<BimFileDto[]>([]);
+  const [components, setComponents] = useState<ModularComponentDto[]>([]);
   const [selected, setSelected] = useState<Set<string>>(new Set());
-  const [bimId, setBimId] = useState(initialBimId ?? PRESERVE_BIM);
+  const [assignment, setAssignment] = useState(
+    initialBimId ? `building:${initialBimId}` : PRESERVE_ASSIGNMENT,
+  );
   const [location, setLocation] = useState('');
   const [space, setSpace] = useState('');
   const [startingDate, setStartingDate] = useState('');
@@ -52,6 +62,50 @@ export function SensorRegistrationDialog({
     [bims],
   );
 
+  const componentNames = useMemo(
+    () => new Map(components.map((component) => [component.id, component.name] as const)),
+    [components],
+  );
+  const assignmentOptions = useMemo<AssignmentOption[]>(
+    () => [
+      { value: PRESERVE_ASSIGNMENT, label: 'Keep current assignments', kind: 'action' },
+      { value: '', label: 'Leave unassigned / remove connections', kind: 'action' },
+      ...bims
+        .map(
+          (bim): AssignmentOption => ({
+            value: `building:${bim.id}`,
+            label: bim.filename,
+            kind: 'building',
+          }),
+        )
+        .sort((a, b) => a.label.localeCompare(b.label)),
+      ...components
+        .map(
+          (component): AssignmentOption => ({
+            value: `component:${component.id}`,
+            label: component.name,
+            kind: 'component',
+            description: `${component.bim_dataset_id ? (bimNames.get(component.bim_dataset_id) ?? 'Linked building') : 'No building'} · ${COMPONENT_CLASS_LABELS[component.component_class]}`,
+          }),
+        )
+        .sort((a, b) => a.label.localeCompare(b.label)),
+    ],
+    [bims, components, bimNames],
+  );
+  const chosenAssignment = assignmentOptions.find(
+    (option) => option.value === assignment,
+  );
+  const replacedConnections = sensors.filter((sensor) => {
+    if (!selected.has(sensor.external_id) || assignment === PRESERVE_ASSIGNMENT)
+      return false;
+    const current = sensor.modular_component_id
+      ? `component:${sensor.modular_component_id}`
+      : sensor.bim_dataset_id
+        ? `building:${sensor.bim_dataset_id}`
+        : '';
+    return current && current !== assignment;
+  }).length;
+
   useEffect(() => {
     if (!open) return;
     let cancelled = false;
@@ -60,11 +114,12 @@ export function SensorRegistrationDialog({
     setDiscoveryFailed(false);
     setError(null);
     setSelected(new Set());
-    Promise.all([listEligibleSensors(family), listBimFiles()])
-      .then(([nextSensors, nextBims]) => {
+    Promise.all([listEligibleSensors(family), listBimFiles(), listComponents()])
+      .then(([nextSensors, nextBims, nextComponents]) => {
         if (!cancelled) {
           setSensors(nextSensors);
           setBims(nextBims);
+          setComponents(nextComponents);
         }
       })
       .catch((reason: unknown) => {
@@ -87,7 +142,7 @@ export function SensorRegistrationDialog({
     setFamily('ham');
     setSensors([]);
     setSelected(new Set());
-    setBimId(initialBimId ?? PRESERVE_BIM);
+    setAssignment(initialBimId ? `building:${initialBimId}` : PRESERVE_ASSIGNMENT);
     setLocation('');
     setSpace('');
     setStartingDate('');
@@ -101,13 +156,15 @@ export function SensorRegistrationDialog({
       setSaving(true);
       setError(null);
       setWarning(null);
-      const settings: {
-        bim_dataset_id?: string | null;
-        location?: string;
-        space?: string;
-        starting_date?: string;
-      } = {};
-      if (bimId !== PRESERVE_BIM) settings.bim_dataset_id = bimId || null;
+      const settings: SensorRegistrationSettings = {};
+      if (assignment !== PRESERVE_ASSIGNMENT) {
+        settings.bim_dataset_id = assignment.startsWith('building:')
+          ? assignment.slice('building:'.length)
+          : null;
+        settings.modular_component_id = assignment.startsWith('component:')
+          ? assignment.slice('component:'.length)
+          : null;
+      }
       if (location.trim()) settings.location = location.trim();
       if (space.trim()) settings.space = space.trim();
       if (startingDate) settings.starting_date = new Date(startingDate).toISOString();
@@ -187,11 +244,23 @@ export function SensorRegistrationDialog({
           {buttonLabel}
         </Button>
       </DialogTrigger>
-      <DialogContent className="flex max-h-[90vh] max-w-3xl flex-col overflow-hidden p-0">
+      <DialogContent
+        className="flex max-h-[90vh] max-w-3xl flex-col overflow-hidden p-0"
+        onEscapeKeyDown={(event) => {
+          // Radix handles Escape during capture, before the picker's key handler.
+          // Let the first Escape dismiss the options without closing registration.
+          if (
+            event.target instanceof HTMLElement &&
+            event.target.matches('[role="combobox"][aria-expanded="true"]')
+          )
+            event.preventDefault();
+        }}
+      >
         <DialogHeader className="border-b px-6 py-5">
           <DialogTitle>Discover and register sensors</DialogTitle>
           <DialogDescription>
-            Select provider sensors and optionally connect them to a building model.
+            Select provider sensors and optionally connect them to a building or
+            component.
           </DialogDescription>
         </DialogHeader>
 
@@ -292,7 +361,9 @@ export function SensorRegistrationDialog({
                       <span className="block truncate text-xs text-muted-foreground">
                         {sensor.external_id}
                         {sensor.bim_dataset_id &&
-                          ` · ${bimNames.get(sensor.bim_dataset_id) ?? 'Linked BIM'}`}
+                          ` · Building: ${bimNames.get(sensor.bim_dataset_id) ?? 'Linked building'}`}
+                        {sensor.modular_component_id &&
+                          ` · Component: ${componentNames.get(sensor.modular_component_id) ?? 'Linked component'}`}
                       </span>
                     </span>
                   </label>
@@ -315,25 +386,24 @@ export function SensorRegistrationDialog({
             </p>
           </div>
           <fieldset disabled={saving} className="grid gap-4 sm:grid-cols-2">
-            <label className="grid gap-2 text-sm font-medium sm:col-span-2">
-              Building model
-              <select
-                aria-label="Building model"
-                value={bimId}
-                onChange={(event) => setBimId(event.target.value)}
-                className="field"
-              >
-                {!initialBimId && (
-                  <option value={PRESERVE_BIM}>Keep current assignment</option>
-                )}
-                <option value="">No BIM — disconnect</option>
-                {bims.map((bim) => (
-                  <option key={bim.id} value={bim.id}>
-                    {bim.filename}
-                  </option>
-                ))}
-              </select>
-            </label>
+            <SensorAssignmentPicker
+              options={assignmentOptions}
+              value={assignment}
+              onChange={setAssignment}
+              disabled={saving || loading || discoveryFailed}
+            />
+            <p
+              className="text-xs leading-5 text-muted-foreground sm:col-span-2"
+              role="status"
+            >
+              {assignment === PRESERVE_ASSIGNMENT
+                ? 'Existing connections stay unchanged. New sensors remain unassigned.'
+                : !assignment
+                  ? `Leave ${selected.size} selected sensor${selected.size === 1 ? '' : 's'} unassigned.`
+                  : `Connect ${selected.size} selected sensor${selected.size === 1 ? '' : 's'} to ${chosenAssignment?.kind === 'component' ? 'component' : 'building'} ${chosenAssignment?.label ?? ''}.`}
+              {replacedConnections > 0 &&
+                ` ${assignment ? 'Replaces' : 'Removes'} existing connections for ${replacedConnections} sensor${replacedConnections === 1 ? '' : 's'}.`}
+            </p>
             <label className="grid gap-2 text-sm font-medium">
               Location{' '}
               <span className="text-xs font-normal text-muted-foreground">Optional</span>

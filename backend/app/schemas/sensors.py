@@ -31,15 +31,25 @@ class SensorListRequest(BaseModel):
 
 
 class SensorSettings(BaseModel):
-    """User-managed fields: omission preserves values; null clears nullable fields."""
+    """Omission preserves values; null clears nullable fields.
+
+    Choosing a building or component replaces the other connection atomically.
+    """
 
     model_config = ConfigDict(extra="forbid")
 
     starting_date: AwareDatetime | None = None
     bim_dataset_id: UUID | None = None
+    modular_component_id: UUID | None = None
     name: str | None = Field(default=None, description="Custom name; omit to preserve it. Null is not allowed.")
     location: str | None = None
     space: str | None = None
+
+    @model_validator(mode="after")
+    def single_assignment(self):
+        if self.bim_dataset_id is not None and self.modular_component_id is not None:
+            raise ValueError("Connect a sensor to a building or a component, not both")
+        return self
 
     @field_validator("name")
     @classmethod

@@ -5,7 +5,6 @@ from sqlalchemy.orm import sessionmaker
 
 from app.db.models.bim_dataset import BimDataset
 from app.db.models.modular_component import ModularComponent
-from app.db.models.sensor import Sensor
 from app.db.session import engine
 from app.schemas.sensors import SensorRegistrationRequest
 from app.services.dagster_backfill_service import launch_sensor_backfills
@@ -19,7 +18,7 @@ class SensorBimNotFound(ValueError):
     pass
 
 
-class SensorOnComponent(ValueError):
+class SensorComponentNotFound(ValueError):
     pass
 
 
@@ -57,28 +56,16 @@ def register_sensors(request: SensorRegistrationRequest) -> dict:
             ).scalars())
             if found != bim_ids:
                 raise SensorBimNotFound("One or more BIM datasets were not found")
-            # A sensor is on a building or a component, never both (ck_sensors_single_link).
-            # Refuse instead of silently moving it off its component.
-            to_building = [
-                selection.external_id
-                for selection in request.sensors
-                if selection.settings.bim_dataset_id is not None
-            ]
-            # Lock the rows (external_id order, like the writes below) so no component
-            # link can land between this check and the update.
-            rows = connection.execute(
-                select(Sensor.name, ModularComponent.name)
-                .outerjoin(ModularComponent, ModularComponent.id == Sensor.modular_component_id)
-                .where(Sensor.sensor_family == family, Sensor.external_id.in_(to_building))
-                .order_by(Sensor.external_id)
-                .with_for_update(of=Sensor)
-            ).all()
-            on_component = [(sensor, component) for sensor, component in rows if component]
-            if on_component:
-                placed = ", ".join(f"{sensor} (on {component})" for sensor, component in on_component)
-                raise SensorOnComponent(
-                    f"Remove these sensors from their component first: {placed}"
-                )
+        component_ids = {
+            selection.settings.modular_component_id for selection in request.sensors
+        } - {None}
+        if component_ids:
+            found = set(connection.execute(
+                select(ModularComponent.id).where(ModularComponent.id.in_(component_ids))
+                .with_for_update(read=True, key_share=True)
+            ).scalars())
+            if found != component_ids:
+                raise SensorComponentNotFound("One or more components were not found")
         sessions = sessionmaker(bind=connection)
         ObservationTypeStore(sessions).upsert_source_fields(family, type_rows)
         store = SensorStore(sessions)

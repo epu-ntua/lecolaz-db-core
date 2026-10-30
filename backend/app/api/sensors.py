@@ -21,7 +21,7 @@ from app.services.sensor_catalog_service import (
 )
 from app.services.sensor_registration_service import (
     SensorBimNotFound,
-    SensorOnComponent,
+    SensorComponentNotFound,
     list_eligible_sensors,
     register_sensors,
 )
@@ -88,10 +88,8 @@ def list_openmeteo_sensors(request: SensorListRequest | None = None):
 def register(request: SensorRegistrationRequest):
     try:
         return register_sensors(request)
-    except SensorBimNotFound as exc:
+    except (SensorBimNotFound, SensorComponentNotFound) as exc:
         raise HTTPException(404, str(exc)) from exc
-    except SensorOnComponent as exc:
-        raise HTTPException(409, str(exc)) from exc
     except IneligibleSensors as exc:
         raise HTTPException(422, str(exc)) from exc
     except SensorCatalogNotConfigured as exc:

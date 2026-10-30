@@ -1,7 +1,15 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Building2, RadioTower, Unplug, ArrowUpRight, RefreshCw } from 'lucide-react';
+import {
+  Building2,
+  Box,
+  RadioTower,
+  Unplug,
+  Link as LinkIcon,
+  RefreshCw,
+} from 'lucide-react';
 import { listBimFiles } from '@/api/bim_files';
+import { listComponents } from '@/api/components';
 import { listRegisteredSensors } from '@/api/sensors';
 import { PageContainer } from '@/components/layout/PageContainer';
 import { PageHeader } from '@/components/layout/PageHeader';
@@ -20,6 +28,7 @@ import {
 } from '@/components/ui/table';
 import { SENSOR_FAMILY_LABELS } from '@/lib/constants';
 import type { BimFileDto } from '@/types/api/bim';
+import type { ModularComponentDto } from '@/types/api/components';
 import type { RegisteredSensorDto } from '@/types/api/sensors';
 import { SensorRegistrationDialog } from './components/SensorRegistrationDialog';
 import { SensorChartDialog } from '@/components/sensors/SensorChartDialog';
@@ -27,9 +36,10 @@ import { SensorChartDialog } from '@/components/sensors/SensorChartDialog';
 export default function MonitoringPage() {
   const [sensors, setSensors] = useState<RegisteredSensorDto[]>([]);
   const [bims, setBims] = useState<BimFileDto[]>([]);
+  const [components, setComponents] = useState<ModularComponentDto[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [bimError, setBimError] = useState(false);
+  const [assignmentError, setAssignmentError] = useState(false);
   const [query, setQuery] = useState('');
   const [family, setFamily] = useState('all');
   const [connection, setConnection] = useState('all');
@@ -37,10 +47,11 @@ export default function MonitoringPage() {
   const load = useCallback(async () => {
     setLoading(true);
     setError(null);
-    setBimError(false);
-    const [nextSensors, nextBims] = await Promise.allSettled([
+    setAssignmentError(false);
+    const [nextSensors, nextBims, nextComponents] = await Promise.allSettled([
       listRegisteredSensors(),
       listBimFiles(),
+      listComponents(),
     ]);
     if (nextSensors.status === 'fulfilled') setSensors(nextSensors.value);
     else
@@ -50,7 +61,9 @@ export default function MonitoringPage() {
           : 'Sensors could not be loaded.',
       );
     if (nextBims.status === 'fulfilled') setBims(nextBims.value);
-    else setBimError(true);
+    else setAssignmentError(true);
+    if (nextComponents.status === 'fulfilled') setComponents(nextComponents.value);
+    else setAssignmentError(true);
     setLoading(false);
   }, []);
   useEffect(() => {
@@ -60,18 +73,29 @@ export default function MonitoringPage() {
     () => new Map(bims.map((bim) => [bim.id, bim.filename])),
     [bims],
   );
-  const linked = sensors.filter((sensor) => sensor.bim_dataset_id).length;
+  const componentNames = useMemo(
+    () => new Map(components.map((component) => [component.id, component.name])),
+    [components],
+  );
+  const linked = sensors.filter(
+    (sensor) => sensor.bim_dataset_id || sensor.modular_component_id,
+  ).length;
   const visible = sensors.filter(
     (sensor) =>
       (family === 'all' || sensor.sensor_family === family) &&
       (connection === 'all' ||
-        (connection === 'linked' ? !!sensor.bim_dataset_id : !sensor.bim_dataset_id)) &&
+        (connection === 'building' && !!sensor.bim_dataset_id) ||
+        (connection === 'component' && !!sensor.modular_component_id) ||
+        (connection === 'standalone' &&
+          !sensor.bim_dataset_id &&
+          !sensor.modular_component_id)) &&
       [
         sensor.name,
         sensor.external_id,
         sensor.location,
         sensor.space,
         bimNames.get(sensor.bim_dataset_id ?? ''),
+        componentNames.get(sensor.modular_component_id ?? ''),
       ].some((value) => value?.toLowerCase().includes(query.toLowerCase())),
   );
   return (
@@ -79,7 +103,7 @@ export default function MonitoringPage() {
       <PageHeader
         eyebrow="Operations"
         title="Monitoring & Performance"
-        description="Connect environmental data sources to your buildings and manage their ingestion settings."
+        description="Connect environmental data sources to your buildings or components and manage their ingestion settings."
         actions={<SensorRegistrationDialog onRegistered={load} />}
       />
       <div className="grid grid-cols-3 gap-3 sm:gap-4">
@@ -90,22 +114,22 @@ export default function MonitoringPage() {
           icon={RadioTower}
         />
         <MetricCard
-          label="Connected to BIM"
+          label="Connected sensors"
           value={loading || error ? '—' : linked}
-          detail="Sensors assigned to building models"
-          icon={Building2}
+          detail="Assigned to buildings or components"
+          icon={LinkIcon}
         />
         <MetricCard
           label="Standalone sources"
           value={loading || error ? '—' : sensors.length - linked}
-          detail="Sensors without a building assignment"
+          detail="Sensors without a connection"
           icon={Unplug}
         />
       </div>
       {error && <ErrorNotice message={error} onRetry={load} />}
-      {bimError && (
+      {assignmentError && (
         <ErrorNotice
-          message="Building names could not be loaded. Sensor assignments are still preserved."
+          message="Some building or component names could not be loaded. Sensor assignments are still preserved."
           onRetry={load}
         />
       )}
@@ -131,7 +155,7 @@ export default function MonitoringPage() {
           <SearchInput
             value={query}
             onChange={setQuery}
-            placeholder="Search sensors, buildings or spaces…"
+            placeholder="Search sensors, connections or spaces…"
             className="lg:mr-auto"
           />
           <select
@@ -145,13 +169,14 @@ export default function MonitoringPage() {
             <option value="openmeteo">{SENSOR_FAMILY_LABELS.openmeteo}</option>
           </select>
           <select
-            aria-label="Filter building connection"
+            aria-label="Filter sensor connection"
             className="field lg:w-44"
             value={connection}
             onChange={(event) => setConnection(event.target.value)}
           >
             <option value="all">All connections</option>
-            <option value="linked">Connected to BIM</option>
+            <option value="building">Buildings</option>
+            <option value="component">Components</option>
             <option value="standalone">Standalone</option>
           </select>
         </div>
@@ -169,7 +194,7 @@ export default function MonitoringPage() {
                   <TableRow>
                     <TableHead>Sensor</TableHead>
                     <TableHead>Provider</TableHead>
-                    <TableHead>Building</TableHead>
+                    <TableHead>Connection</TableHead>
                     <TableHead>Location / space</TableHead>
                     <TableHead>Ingestion start</TableHead>
                   </TableRow>
@@ -203,13 +228,31 @@ export default function MonitoringPage() {
                         {sensor.bim_dataset_id ? (
                           <Link
                             to={`/buildings/${sensor.bim_dataset_id}`}
-                            className="inline-flex max-w-52 items-center gap-1 text-primary hover:underline"
+                            className="inline-flex max-w-52 items-center gap-2 text-primary hover:underline"
                           >
-                            <span className="truncate">
-                              {bimNames.get(sensor.bim_dataset_id) ?? 'View linked BIM'}
+                            <Building2 aria-hidden="true" className="h-4 w-4 shrink-0" />
+                            <span>
+                              <span className="block break-words">
+                                {bimNames.get(sensor.bim_dataset_id) ?? 'Linked building'}
+                              </span>
+                              <span className="block text-xs text-muted-foreground">
+                                Building
+                              </span>
                             </span>
-                            <ArrowUpRight className="h-3 w-3 shrink-0" />
                           </Link>
+                        ) : sensor.modular_component_id ? (
+                          <span className="inline-flex max-w-52 items-center gap-2">
+                            <Box aria-hidden="true" className="h-4 w-4 shrink-0" />
+                            <span>
+                              <span className="block break-words">
+                                {componentNames.get(sensor.modular_component_id) ??
+                                  'Linked component'}
+                              </span>
+                              <span className="block text-xs text-muted-foreground">
+                                Component
+                              </span>
+                            </span>
+                          </span>
                         ) : (
                           <span className="text-muted-foreground">Not connected</span>
                         )}
@@ -242,8 +285,8 @@ export default function MonitoringPage() {
             </h3>
             <p className="mt-2 max-w-sm text-sm leading-6 text-muted-foreground">
               {sensors.length
-                ? 'Try another name, provider or building connection.'
-                : 'Discover HAM or OpenMeteo sensors using Register sensors, then assign them to a building.'}
+                ? 'Try another name, provider or connection.'
+                : 'Discover HAM or OpenMeteo sensors using Register sensors, then assign them to a building or component.'}
             </p>
             {sensors.length > 0 && (
               <Button

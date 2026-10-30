@@ -37,6 +37,7 @@ export type EligibleSensorDto = Omit<RegisteredSensorDto, 'id' | 'starting_date'
 
 export type SensorRegistrationSettings = {
   bim_dataset_id?: string | null;
+  modular_component_id?: string | null;
   starting_date?: string;
   location?: string | null;
   space?: string | null;

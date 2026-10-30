@@ -146,9 +146,19 @@ class SensorStore:
             for selection in sorted(selections, key=lambda row: row["external_id"]):
                 fields = {
                     key: selection[key]
-                    for key in ("starting_date", "bim_dataset_id", "name", "location", "space")
+                    for key in (
+                        "starting_date", "bim_dataset_id", "modular_component_id",
+                        "name", "location", "space",
+                    )
                     if key in selection
                 }
+                # Reassignment replaces the other link in the same UPDATE so the
+                # single-link constraint holds, even when moving between types.
+                # Explicit nulls clear only the named link; omission preserves it.
+                if fields.get("bim_dataset_id") is not None:
+                    fields["modular_component_id"] = None
+                elif fields.get("modular_component_id") is not None:
+                    fields["bim_dataset_id"] = None
                 if fields:
                     session.execute(
                         update(Sensor).where(
