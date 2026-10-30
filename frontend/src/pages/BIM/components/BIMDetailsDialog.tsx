@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Download, Eye, RadioTower } from 'lucide-react';
+import { Download, Eye, Plus, RadioTower } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { getDatasetDownloadUrl } from '@/api/datasets';
 import {
@@ -8,6 +8,7 @@ import {
   listBimSimulations,
   listBimStoreys,
   updateBimCategory,
+  connectBimSensors,
 } from '@/api/bim_files';
 import { uploadSimulationFile } from '@/api/simulation_files';
 import { listRegisteredSensors } from '@/api/sensors';
@@ -32,7 +33,7 @@ import {
 } from '@/components/ui/table';
 import { FileUpload } from '@/pages/DataDiscovery/components/FileUpload';
 import { SimulationDetailsModal } from '@/pages/Simulations/components/SimulationDetailsModal';
-import { SensorRegistrationDialog } from '@/pages/Monitoring/components/SensorRegistrationDialog';
+import { SensorSelectionDialog } from '@/components/sensors/SensorSelectionDialog';
 import type {
   BimCategory,
   BimFileDto,
@@ -60,6 +61,7 @@ export function BIMDetailsDialog({
   const [simulations, setSimulations] = useState<SimulationFileDto[]>([]);
   const [sensors, setSensors] = useState<RegisteredSensorDto[]>([]);
   const [selectedSensor, setSelectedSensor] = useState<RegisteredSensorDto | null>(null);
+  const [pickingSensors, setPickingSensors] = useState(false);
   const [sensorsLoading, setSensorsLoading] = useState(true);
   const [sensorsError, setSensorsError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -433,11 +435,10 @@ export function BIMDetailsDialog({
                       Registered monitoring sources connected to this BIM model.
                     </DialogDescription>
                   </div>
-                  <SensorRegistrationDialog
-                    initialBimId={file.id}
-                    buttonLabel="Connect Sensors"
-                    onRegistered={loadSensors}
-                  />
+                  <Button type="button" size="lg" onClick={() => setPickingSensors(true)}>
+                    <Plus />
+                    Connect Sensors
+                  </Button>
                 </div>
               </CardHeader>
               <CardContent>
@@ -602,6 +603,16 @@ export function BIMDetailsDialog({
           )}
         </div>
       </DialogContent>
+      {pickingSensors && (
+        <SensorSelectionDialog
+          description={`Select sensors to connect to ${file.filename}.`}
+          onConnect={async (sensorIds) => {
+            setSensors(await connectBimSensors(file.id, sensorIds));
+            setSensorsError(null);
+          }}
+          onClose={() => setPickingSensors(false)}
+        />
+      )}
       {selectedSensor && (
         <SensorChartDialog
           sensorId={selectedSensor.id}

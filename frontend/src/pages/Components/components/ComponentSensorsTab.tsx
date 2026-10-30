@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { Plus, RadioTower } from 'lucide-react';
 import { updateComponentSensors } from '@/api/components';
 import { listRegisteredSensors } from '@/api/sensors';
+import { SensorSelectionDialog } from '@/components/sensors/SensorSelectionDialog';
 import { SensorChartDialog } from '@/components/sensors/SensorChartDialog';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -14,7 +15,6 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
-import { SearchInput } from '@/components/ui/search-input';
 import {
   Table,
   TableBody,
@@ -35,17 +35,9 @@ export function ComponentSensorsTab({ component }: { component: ModularComponent
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [picking, setPicking] = useState(false);
-  const [freeSensors, setFreeSensors] = useState<RegisteredSensorDto[]>([]);
-  const [freeLoading, setFreeLoading] = useState(false);
-  const [freeError, setFreeError] = useState<string | null>(null);
-  const [selected, setSelected] = useState<Set<string>>(new Set());
-  const [query, setQuery] = useState('');
   const [toRemove, setToRemove] = useState<RegisteredSensorDto | null>(null);
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
-  const visibleFree = freeSensors.filter((sensor) =>
-    `${sensor.name} ${sensor.external_id}`.toLowerCase().includes(query.toLowerCase()),
-  );
 
   useEffect(() => {
     let cancelled = false;
@@ -64,27 +56,6 @@ export function ComponentSensorsTab({ component }: { component: ModularComponent
     };
   }, [component.id]);
 
-  // Reload free sensors each time the picker opens: another user may have taken some.
-  useEffect(() => {
-    if (!picking) return;
-    let cancelled = false;
-    setFreeLoading(true);
-    setFreeError(null);
-    listRegisteredSensors({ unassigned: true })
-      .then((rows) => {
-        if (!cancelled) setFreeSensors(rows);
-      })
-      .catch(() => {
-        if (!cancelled) setFreeError('Available sensors could not be loaded.');
-      })
-      .finally(() => {
-        if (!cancelled) setFreeLoading(false);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [picking]);
-
   const save = async (changes: { add?: string[]; remove?: string[] }) => {
     try {
       setSaving(true);
@@ -97,13 +68,6 @@ export function ComponentSensorsTab({ component }: { component: ModularComponent
     } finally {
       setSaving(false);
     }
-  };
-
-  const closePicker = () => {
-    setPicking(false);
-    setSelected(new Set());
-    setQuery('');
-    setSaveError(null);
   };
 
   return (
@@ -197,92 +161,15 @@ export function ComponentSensorsTab({ component }: { component: ModularComponent
         />
       )}
 
-      <Dialog
-        open={picking}
-        onOpenChange={(open) => {
-          if (saving) return;
-          if (open) setPicking(true);
-          else closePicker();
-        }}
-      >
-        <DialogContent className="flex max-h-[80vh] w-[calc(100%-2rem)] max-w-md flex-col gap-0 overflow-hidden p-0">
-          <DialogHeader className="border-b border-border px-6 py-4 text-left">
-            <DialogTitle className="text-lg">Connect sensors</DialogTitle>
-            <DialogDescription>
-              Select sensors to place on {component.name}.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="px-4 pt-4 sm:px-6">
-            <SearchInput
-              value={query}
-              onChange={setQuery}
-              placeholder="Search sensors…"
-              className="sm:max-w-none"
-            />
-          </div>
-          <div className="max-h-72 min-h-0 space-y-3 overflow-y-auto px-4 py-4 text-sm sm:px-6">
-            {freeLoading ? (
-              <p className="text-muted-foreground">Loading sensors…</p>
-            ) : freeError ? (
-              <p className="text-destructive">{freeError}</p>
-            ) : visibleFree.length ? (
-              <ul className="divide-y rounded-lg border">
-                {visibleFree.map((sensor) => (
-                  <li key={sensor.id}>
-                    <label className="flex cursor-pointer items-start gap-3 px-4 py-3 hover:bg-muted">
-                      <input
-                        type="checkbox"
-                        className="mt-1 h-4 w-4 accent-primary"
-                        disabled={saving}
-                        checked={selected.has(sensor.id)}
-                        onChange={() => {
-                          const next = new Set(selected);
-                          if (next.has(sensor.id)) next.delete(sensor.id);
-                          else next.add(sensor.id);
-                          setSelected(next);
-                        }}
-                      />
-                      <span className="min-w-0 flex-1">
-                        <span className="block truncate font-medium">{sensor.name}</span>
-                        <span className="block truncate text-xs text-muted-foreground">
-                          {sensor.external_id} ·{' '}
-                          {sensor.sensor_family === 'ham' ? 'HAM' : 'OpenMeteo'}
-                        </span>
-                      </span>
-                    </label>
-                  </li>
-                ))}
-              </ul>
-            ) : (
-              <p className="text-muted-foreground">
-                {freeSensors.length
-                  ? 'No sensors match the current search.'
-                  : 'No available sensors. Register sensors or unlink them from a building first.'}
-              </p>
-            )}
-            {saveError && <p className="text-destructive">{saveError}</p>}
-          </div>
-          <DialogFooter className="border-t border-border px-6 py-4">
-            <Button
-              type="button"
-              variant="outline"
-              disabled={saving}
-              onClick={closePicker}
-            >
-              Cancel
-            </Button>
-            <Button
-              type="button"
-              disabled={saving || !selected.size}
-              onClick={async () => {
-                if (await save({ add: [...selected] })) closePicker();
-              }}
-            >
-              {saving ? 'Connecting…' : `Connect (${selected.size})`}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      {picking && (
+        <SensorSelectionDialog
+          description={`Select sensors to place on ${component.name}.`}
+          onConnect={async (sensorIds) => {
+            setSensors(await updateComponentSensors(component.id, { add: sensorIds }));
+          }}
+          onClose={() => setPicking(false)}
+        />
+      )}
 
       <Dialog
         open={toRemove !== null}

@@ -1,4 +1,5 @@
 import { API_BASE } from './client';
+import type { RegisteredSensorDto } from '@/types/api/sensors';
 import type { DatasetUploadResult } from '@/types/api/datasets';
 import type {
   BimFileDto,
@@ -103,4 +104,17 @@ export async function listBimSimulations(bimId: string): Promise<SimulationFileD
   const res = await fetch(`${API_BASE}/bim/${bimId}/simulations`);
   if (!res.ok) throw new Error('Failed to fetch BIM simulations');
   return res.json() as Promise<SimulationFileDto[]>;
+}
+
+export async function connectBimSensors(
+  bimId: string,
+  sensorIds: string[],
+): Promise<RegisteredSensorDto[]> {
+  const res = await fetch(`${API_BASE}/bim/${bimId}/sensors`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ add: sensorIds }),
+  });
+  if (!res.ok) throw new Error('Connect BIM sensors failed');
+  return res.json() as Promise<RegisteredSensorDto[]>;
 }

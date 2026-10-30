@@ -171,6 +171,22 @@ class SensorStore:
         removing a sensor that is not on the component is a no-op. Returns the ids
         that could not be added; if any, nothing is changed.
         """
+        return self._update_sensor_links(
+            Sensor.modular_component_id, Sensor.bim_dataset_id, component_id, add, remove
+        )
+
+    def connect_bim_sensors(
+        self, bim_id: uuid.UUID, add: List[uuid.UUID]
+    ) -> List[uuid.UUID]:
+        """Connect free registered sensors to a building, all or nothing."""
+        return self._update_sensor_links(
+            Sensor.bim_dataset_id, Sensor.modular_component_id, bim_id, add, []
+        )
+
+    def _update_sensor_links(
+        self, target_column, other_column, target_id: uuid.UUID,
+        add: List[uuid.UUID], remove: List[uuid.UUID],
+    ) -> List[uuid.UUID]:
         to_add, to_remove = set(add), set(remove)
         with self._session_factory() as session:
             # Lock in the family/external_id order the other writers use to avoid deadlocks.
@@ -184,9 +200,9 @@ class SensorStore:
                 update(Sensor)
                 .where(
                     Sensor.id.in_(to_remove),
-                    Sensor.modular_component_id == component_id,
+                    target_column == target_id,
                 )
-                .values(modular_component_id=None)
+                .values({target_column: None})
             )
             added = set(
                 session.execute(
@@ -196,11 +212,10 @@ class SensorStore:
                         # Same visibility rules as list_registered.
                         Sensor.sensor_family.in_(("ham", "openmeteo")),
                         Sensor.external_id.is_not(None),
-                        Sensor.bim_dataset_id.is_(None),
-                        (Sensor.modular_component_id.is_(None))
-                        | (Sensor.modular_component_id == component_id),
+                        other_column.is_(None),
+                        (target_column.is_(None)) | (target_column == target_id),
                     )
-                    .values(modular_component_id=component_id)
+                    .values({target_column: target_id})
                     .returning(Sensor.id)
                 ).scalars()
             )
