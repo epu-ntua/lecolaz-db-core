@@ -1,4 +1,5 @@
 import { API_BASE } from './client';
+import type { RegisteredSensorDto } from '@/types/api/sensors';
 import type { DatasetUploadResult } from '@/types/api/datasets';
 import type {
   BimFileDto,
@@ -12,10 +13,12 @@ import type { SimulationFileDto } from '@/types/api/simulations';
 export async function uploadBimFile(
   file: File,
   category: BimCategory,
+  image?: File | null,
 ): Promise<DatasetUploadResult> {
   const form = new FormData();
   form.append('file', file);
   form.append('category', category);
+  if (image) form.append('image', image);
 
   const res = await fetch(`${API_BASE}/ingestion/bim/upload`, {
     method: 'POST',
@@ -24,6 +27,18 @@ export async function uploadBimFile(
 
   if (!res.ok) throw new Error('Upload BIM file failed');
   return res.json() as Promise<DatasetUploadResult>;
+}
+
+export function getBimImageUrl(bimId: string): string {
+  return `${API_BASE}/bim/${bimId}/image`;
+}
+
+export async function uploadBimImage(bimId: string, image: File): Promise<BimFileDto> {
+  const form = new FormData();
+  form.append('image', image);
+  const res = await fetch(getBimImageUrl(bimId), { method: 'PUT', body: form });
+  if (!res.ok) throw new Error('Upload building image failed');
+  return res.json() as Promise<BimFileDto>;
 }
 
 export async function updateBimCategory(
@@ -89,4 +104,17 @@ export async function listBimSimulations(bimId: string): Promise<SimulationFileD
   const res = await fetch(`${API_BASE}/bim/${bimId}/simulations`);
   if (!res.ok) throw new Error('Failed to fetch BIM simulations');
   return res.json() as Promise<SimulationFileDto[]>;
+}
+
+export async function connectBimSensors(
+  bimId: string,
+  sensorIds: string[],
+): Promise<RegisteredSensorDto[]> {
+  const res = await fetch(`${API_BASE}/bim/${bimId}/sensors`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ add: sensorIds }),
+  });
+  if (!res.ok) throw new Error('Connect BIM sensors failed');
+  return res.json() as Promise<RegisteredSensorDto[]>;
 }

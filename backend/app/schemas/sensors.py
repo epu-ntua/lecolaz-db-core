@@ -7,6 +7,23 @@ from pydantic import AwareDatetime, BaseModel, ConfigDict, Field, field_validato
 SensorFamily = Literal["ham", "openmeteo"]
 
 
+class SensorObservationTypeResponse(BaseModel):
+    id: UUID
+    unit: str
+    label: str
+
+
+class SensorTimestampBoundsResponse(BaseModel):
+    start: datetime | None
+    end: datetime | None
+
+
+class SensorTimeseriesPointResponse(BaseModel):
+    id: UUID
+    timestamp: datetime
+    value: float
+
+
 class SensorListRequest(BaseModel):
     """Reserved for family-specific credentials/options in a future API version."""
 
@@ -14,15 +31,25 @@ class SensorListRequest(BaseModel):
 
 
 class SensorSettings(BaseModel):
-    """User-managed fields: omission preserves values; null clears nullable fields."""
+    """Omission preserves values; null clears nullable fields.
+
+    Choosing a building or component replaces the other connection atomically.
+    """
 
     model_config = ConfigDict(extra="forbid")
 
     starting_date: AwareDatetime | None = None
     bim_dataset_id: UUID | None = None
+    modular_component_id: UUID | None = None
     name: str | None = Field(default=None, description="Custom name; omit to preserve it. Null is not allowed.")
     location: str | None = None
     space: str | None = None
+
+    @model_validator(mode="after")
+    def single_assignment(self):
+        if self.bim_dataset_id is not None and self.modular_component_id is not None:
+            raise ValueError("Connect a sensor to a building or a component, not both")
+        return self
 
     @field_validator("name")
     @classmethod
@@ -86,6 +113,7 @@ class EligibleSensorResponse(BaseModel):
     id: UUID | None = None
     starting_date: datetime | None = None
     bim_dataset_id: UUID | None = None
+    modular_component_id: UUID | None = None
 
 
 class RegisteredSensorResponse(BaseModel):
@@ -97,6 +125,7 @@ class RegisteredSensorResponse(BaseModel):
     space: str | None = None
     starting_date: datetime
     bim_dataset_id: UUID | None
+    modular_component_id: UUID | None
 
 
 class DagsterReloadResponse(BaseModel):
@@ -104,6 +133,15 @@ class DagsterReloadResponse(BaseModel):
     message: str | None = None
 
 
+class SensorBackfillResponse(BaseModel):
+    sensor_id: UUID
+    status: Literal["submitted", "skipped", "failed"]
+    backfill_id: str | None = None
+    target_count: int = 0
+    message: str | None = None
+
+
 class SensorRegistrationResponse(BaseModel):
     sensors: list[RegisteredSensorResponse]
     dagster: DagsterReloadResponse
+    backfills: list[SensorBackfillResponse] = Field(default_factory=list)

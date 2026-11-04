@@ -5,7 +5,9 @@
 ## Register
 
 The [backend API](../../../docs/development.md#sensor-listing-and-registration-api)
-lists accessible devices and registers a selected subset, then reloads Dagster.
+lists accessible devices and registers a selected subset, then reloads Dagster
+and backfills eligible missing history for each selected sensor. Re-registration
+uses the same checks and reuses already materialized stages.
 The startup and manual jobs below register all accessible devices.
 
 Set `HAMAPI_API_KEY` in `infra/.env` and recreate Dagster services. The startup

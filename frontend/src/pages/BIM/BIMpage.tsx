@@ -7,6 +7,7 @@ import type { BimFileDto } from '@/types/api/bim';
 import { BIMDetailsDialog } from './components/BIMDetailsDialog';
 import { BimUploadDialog } from './components/BimUploadDialog';
 import { BuildingCard } from './components/BuildingCard';
+import { BuildingImageDialog } from './components/BuildingImageDialog';
 import { SearchInput } from '@/components/ui/search-input';
 import { ErrorNotice } from '@/components/layout/Feedback';
 
@@ -15,9 +16,16 @@ type BuildingSectionProps = {
   description: string;
   files: BimFileDto[];
   onDetails: (file: BimFileDto) => void;
+  onEditImage: (file: BimFileDto) => void;
 };
 
-function BuildingSection({ title, description, files, onDetails }: BuildingSectionProps) {
+function BuildingSection({
+  title,
+  description,
+  files,
+  onDetails,
+  onEditImage,
+}: BuildingSectionProps) {
   return (
     <section className="space-y-5">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
@@ -39,6 +47,7 @@ function BuildingSection({ title, description, files, onDetails }: BuildingSecti
               key={file.id}
               building={file}
               onDetails={() => onDetails(file)}
+              onEditImage={() => onEditImage(file)}
             />
           ))}
         </div>
@@ -56,6 +65,7 @@ export default function BIMPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [selectedFile, setSelectedFile] = useState<BimFileDto | null>(null);
+  const [imageFile, setImageFile] = useState<BimFileDto | null>(null);
   const [query, setQuery] = useState('');
   const [sort, setSort] = useState('newest');
   const [retry, setRetry] = useState(0);
@@ -166,12 +176,14 @@ export default function BIMPage() {
             description="Digital reference models for design, renovation and performance studies."
             files={archetypes}
             onDetails={setSelectedFile}
+            onEditImage={setImageFile}
           />
           <BuildingSection
             title="Living Labs & Pilots"
             description="Physical demonstration sites for validating Le’Colaz solutions."
             files={pilots}
             onDetails={setSelectedFile}
+            onEditImage={setImageFile}
           />
         </div>
       )}
@@ -184,6 +196,16 @@ export default function BIMPage() {
             setSelectedFile(updated);
           }}
           onClose={() => setSelectedFile(null)}
+        />
+      )}
+      {imageFile && (
+        <BuildingImageDialog
+          building={imageFile}
+          onClose={() => setImageFile(null)}
+          onSaved={(updated) => {
+            replaceFile(updated);
+            setImageFile(null);
+          }}
         />
       )}
     </PageContainer>

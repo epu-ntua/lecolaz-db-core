@@ -13,6 +13,11 @@ from app.schemas.bim import (
     BimSpaceResponse,
     BimStoreyResponse,
 )
+from app.schemas.components import (
+    ModularComponentBuildingUpdate,
+    ModularComponentResponse,
+    ModularComponentSensorsUpdate,
+)
 from app.schemas.datasets import DatasetResponse, FileUploadResponse
 from app.schemas.health import HealthResponse
 from app.schemas.simulations import (
@@ -30,6 +35,9 @@ __all__ = [
     "DatasetResponse",
     "FileUploadResponse",
     "HealthResponse",
+    "ModularComponentBuildingUpdate",
+    "ModularComponentResponse",
+    "ModularComponentSensorsUpdate",
     "SimulationFileResponse",
     "SimulationTimeseriesResponse",
     "SimulationVariableResponse",

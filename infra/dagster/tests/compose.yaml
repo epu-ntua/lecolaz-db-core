@@ -9,6 +9,8 @@ services:
     ports: !reset []
   minio:
     ports: !reset []
+  fuseki:
+    ports: !reset []
   backend:
     env_file: !reset []
     environment: &fixture-backend-environment
@@ -18,9 +20,11 @@ services:
       MINIO_SECRET_KEY: lecolaz123
       MINIO_BUCKET: fixture-data
       PYTHONDONTWRITEBYTECODE: "1"
+      PYTHONPATH: /opt/lecolaz/backend:/opt/lecolaz
     ports: !reset []
     volumes: !override
       - ../backend:/app:ro
+      - ..:/opt/lecolaz:ro
   dagster-code:
     # Fixture deployment initializes explicitly, without production startup hooks.
     post_start: !reset []

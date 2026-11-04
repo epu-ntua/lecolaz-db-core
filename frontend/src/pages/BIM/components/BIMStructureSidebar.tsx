@@ -42,8 +42,8 @@ export function BIMStructureSidebar({
   }
 
   return (
-    <aside className="flex h-full w-full flex-col border-l border-border bg-card">
-      <div className="border-b border-border px-4 py-4">
+    <aside className="flex h-full w-full flex-col border-l border-border bg-slate-50/95">
+      <div className="border-b border-border bg-white/75 px-4 py-4">
         <h2 className="text-sm font-semibold text-foreground">Building Structure</h2>
         <p className="mt-1 text-sm text-muted-foreground">Storeys and spaces</p>
       </div>
@@ -65,7 +65,7 @@ export function BIMStructureSidebar({
                 <div
                   key={storey.global_id}
                   data-global-id={storey.global_id}
-                  className="rounded-lg border border-border bg-background"
+                  className="rounded-xl border border-border bg-white shadow-sm transition-colors hover:border-primary/25"
                 >
                   <button
                     type="button"
@@ -77,7 +77,7 @@ export function BIMStructureSidebar({
                       );
                       onStoreyClick(spaceGlobalIds);
                     }}
-                    className="flex w-full items-start justify-between gap-3 px-3 py-3 text-left"
+                    className="flex w-full items-start justify-between gap-3 px-3 py-3 text-left hover:text-primary"
                   >
                     <div className="min-w-0">
                       <div className="text-sm font-medium text-foreground">

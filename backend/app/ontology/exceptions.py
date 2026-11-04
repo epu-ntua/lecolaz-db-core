@@ -21,5 +21,13 @@ class FusekiPublishError(OntologyServiceError):
     """Raised when the Graph Store Protocol PUT to Fuseki fails."""
 
 
+class FusekiQueryError(OntologyServiceError):
+    """Raised when a read-only query to Fuseki fails."""
+
+
+class InvalidOntologyQuery(ValueError):
+    """Raised when an explorer query is invalid or outside the local read scope."""
+
+
 class SchemaFileError(OntologyServiceError):
     """Raised when the ontology schema file is missing or empty."""

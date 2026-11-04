@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Download, Eye, RadioTower } from 'lucide-react';
+import { Download, Eye, Plus, RadioTower } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { getDatasetDownloadUrl } from '@/api/datasets';
 import {
@@ -8,10 +8,13 @@ import {
   listBimSimulations,
   listBimStoreys,
   updateBimCategory,
+  connectBimSensors,
 } from '@/api/bim_files';
 import { uploadSimulationFile } from '@/api/simulation_files';
 import { listRegisteredSensors } from '@/api/sensors';
+import { SensorChartDialog } from '@/components/sensors/SensorChartDialog';
 import { StatusBadge } from '@/components/ui/status-badge';
+import { SensorFamilyBadge } from '@/components/sensors/SensorFamilyBadge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import {
@@ -31,7 +34,7 @@ import {
 } from '@/components/ui/table';
 import { FileUpload } from '@/pages/DataDiscovery/components/FileUpload';
 import { SimulationDetailsModal } from '@/pages/Simulations/components/SimulationDetailsModal';
-import { SensorRegistrationDialog } from '@/pages/Monitoring/components/SensorRegistrationDialog';
+import { SensorSelectionDialog } from '@/components/sensors/SensorSelectionDialog';
 import type {
   BimCategory,
   BimFileDto,
@@ -41,15 +44,19 @@ import type {
 } from '@/types/api/bim';
 import type { SimulationFileDto } from '@/types/api/simulations';
 import type { RegisteredSensorDto } from '@/types/api/sensors';
+import type { ModularComponentDto } from '@/types/api/components';
+import { BIMComponentsTab } from './BIMComponentsTab';
 
 export function BIMDetailsDialog({
   file,
   onClose,
   onCategoryChanged,
+  onComponentUpdated,
 }: {
   file: BimFileDto;
   onClose: () => void;
   onCategoryChanged?: (file: BimFileDto) => void;
+  onComponentUpdated?: (component: ModularComponentDto) => void;
 }) {
   const navigate = useNavigate();
   const [section, setSection] = useState('overview');
@@ -58,6 +65,8 @@ export function BIMDetailsDialog({
   const [spaces, setSpaces] = useState<BimSpaceDto[]>([]);
   const [simulations, setSimulations] = useState<SimulationFileDto[]>([]);
   const [sensors, setSensors] = useState<RegisteredSensorDto[]>([]);
+  const [selectedSensor, setSelectedSensor] = useState<RegisteredSensorDto | null>(null);
+  const [pickingSensors, setPickingSensors] = useState(false);
   const [sensorsLoading, setSensorsLoading] = useState(true);
   const [sensorsError, setSensorsError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -168,7 +177,7 @@ export function BIMDetailsDialog({
                 onClick={() => navigate(`/buildings/${file.id}`)}
               >
                 <Eye />
-                View
+                View Building
               </Button>
             </div>
           </div>
@@ -181,6 +190,7 @@ export function BIMDetailsDialog({
           {[
             { id: 'overview', label: 'Overview' },
             { id: 'simulations', label: 'Simulations' },
+            { id: 'components', label: 'Components' },
             { id: 'sensors', label: 'Sensors' },
             { id: 'structure', label: 'Structure' },
           ].map((item) => (
@@ -419,6 +429,10 @@ export function BIMDetailsDialog({
             </Card>
           )}
 
+          {section === 'components' && (
+            <BIMComponentsTab key={file.id} file={file} onUpdated={onComponentUpdated} />
+          )}
+
           {section === 'sensors' && (
             <Card className="shadow-none">
               <CardHeader className="pb-4">
@@ -431,11 +445,10 @@ export function BIMDetailsDialog({
                       Registered monitoring sources connected to this BIM model.
                     </DialogDescription>
                   </div>
-                  <SensorRegistrationDialog
-                    initialBimId={file.id}
-                    buttonLabel="Connect Sensors"
-                    onRegistered={loadSensors}
-                  />
+                  <Button type="button" size="lg" onClick={() => setPickingSensors(true)}>
+                    <Plus />
+                    Connect Sensors
+                  </Button>
                 </div>
               </CardHeader>
               <CardContent>
@@ -458,13 +471,19 @@ export function BIMDetailsDialog({
                         {sensors.map((sensor) => (
                           <TableRow key={sensor.id}>
                             <TableCell>
-                              <div className="font-medium">{sensor.name}</div>
+                              <Button
+                                variant="link"
+                                className="h-auto whitespace-normal p-0 text-left"
+                                onClick={() => setSelectedSensor(sensor)}
+                              >
+                                {sensor.name}
+                              </Button>
                               <div className="text-xs text-muted-foreground">
                                 {sensor.external_id}
                               </div>
                             </TableCell>
                             <TableCell>
-                              <StatusBadge status={file.status} />
+                              <SensorFamilyBadge family={sensor.sensor_family} />
                             </TableCell>
                             <TableCell>{sensor.location ?? '—'}</TableCell>
                             <TableCell>{sensor.space ?? '—'}</TableCell>
@@ -594,6 +613,23 @@ export function BIMDetailsDialog({
           )}
         </div>
       </DialogContent>
+      {pickingSensors && (
+        <SensorSelectionDialog
+          description={`Select sensors to connect to ${file.filename}.`}
+          onConnect={async (sensorIds) => {
+            setSensors(await connectBimSensors(file.id, sensorIds));
+            setSensorsError(null);
+          }}
+          onClose={() => setPickingSensors(false)}
+        />
+      )}
+      {selectedSensor && (
+        <SensorChartDialog
+          sensorId={selectedSensor.id}
+          sensorName={selectedSensor.name}
+          onClose={() => setSelectedSensor(null)}
+        />
+      )}
       {selectedSimulation && (
         <SimulationDetailsModal
           file={selectedSimulation}

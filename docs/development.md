@@ -108,6 +108,13 @@ The endpoint validates the Turtle file and reports the graph URI/triple count on
 
 For the UI's protected dataset list, visit `http://localhost:3030/$/server` first and log in with `admin` and your configured password, then open `http://localhost:3030/#/`. If browser credentials are cached incorrectly, try a private window.
 
+## Ontology explorer
+
+Open `/data?tab=ontology` for the lazy-loaded Reactodia workspace. The initial view dynamically loads building, modular component, simulation run and energy model dataset instances, including subclasses. Search and connection navigation explore all published graphs within `FUSEKI_DATASET`; **Reload graph** refreshes the starting view.
+
+The backend provides `GET /ontology/instances` and read-only `POST /ontology/query` (SELECT/CONSTRUCT). Set `FUSEKI_BASE_URL=http://fuseki:3030` for the Docker backend, or `http://localhost:3030` for a host-side backend.
+
+
 ## Dagster workflows
 
 The development Compose stack runs three Dagster services: `dagster-code` (definitions/execution), `dagster-webserver` (UI), and `dagster-daemon` (automation and run coordination). Dagster uses a separate database within the existing PostgreSQL instance, controlled by `DAGSTER_POSTGRES_USER`, `DAGSTER_POSTGRES_PASSWORD`, and `DAGSTER_POSTGRES_DB` in `infra/.env`.
@@ -120,7 +127,16 @@ docker compose --env-file infra/.env -f infra/compose.yaml exec -T postgres sh /
 
 FastAPI applies Alembic migrations before starting Uvicorn. Set `HAMAPI_API_KEY` in `infra/.env` for HAM-accessed data; Compose passes it to the backend and Dagster services. OpenMeteo ingestion does not require an API key. Changes to environment variables normally require recreating affected containers.
 
-Daily ingestion is enabled by default. Set sensor start dates during registration; use Dagster's partition views for historical backfills. See the [Dagster guide](../infra/dagster/README.md) for workflow details.
+Daily ingestion is enabled by default. Sensor registration also starts missing
+historical imports. See the [Dagster guide](../infra/dagster/README.md) for setup
+and workflow details.
+
+## Sensor listing and registration API
+
+The sensor API lists available sensors and registers selected ones. Registration
+and re-registration save settings and start eligible missing historical imports.
+See the [Dagster guide](../infra/dagster/README.md#registration-api) for registration
+and backfill behavior.
 
 ## Database migrations
 
@@ -129,6 +145,16 @@ The backend container runs `alembic upgrade head` before Uvicorn. If migrations 
 ```powershell
 docker compose --env-file infra/.env -f infra/compose.yaml logs backend
 ```
+
+## Mock data
+
+Modular components have no real data source yet. `backend/mock_data/` holds three mock components (one per component class) with their draft DPP, photo, placeholder QR image and, for the interior wall, an IFC file. The seed uploads the files to MinIO and inserts the `modular_components` rows. It never runs automatically, including in production; run it once after migrations have created the table:
+
+```powershell
+docker compose --env-file infra/.env -f infra/compose.yaml exec backend python -m mock_data.seed_modular_components
+```
+
+It is safe to re-run: component ids are fixed, so files are overwritten and rows are updated rather than duplicated. Edit a component's `dpp.json` and re-run the seed to apply the change.
 
 ## Everyday commands
 

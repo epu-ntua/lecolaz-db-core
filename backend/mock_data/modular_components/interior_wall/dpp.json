@@ -1,0 +1,56 @@
+{
+  "@id": "https://example.org/01/09506000000001/21/IW-0001",
+  "@type": "LeColazBuildingComponentPassport",
+  "traceability": {
+    "product_id": {
+      "product_name": "Modular partition panel",
+      "product_type": "InteriorWall",
+      "serial_number": "IW-0001",
+      "production_date": "2026-03-15"
+    },
+    "manufacturer": {
+      "name": "Mock Manufacturer",
+      "country": "GR"
+    },
+    "lifecycle_stage": {
+      "value": "installed",
+      "last_update": "2026-05-02T10:00:00Z"
+    },
+    "reuse_cycles": {
+      "value": 0
+    }
+  },
+  "transparency": {
+    "material": {
+      "materials": [
+        { "name": "Bio-based particle board", "weight_kg": 18.4, "recycled_content_pct": 60 },
+        { "name": "Aluminium rail profile", "weight_kg": 1.6, "recycled_content_pct": 75 }
+      ],
+      "circularity_class": "A-reusable"
+    },
+    "environmental": {
+      "carbon_footprint": {
+        "total_kg_co2eq": 38.2,
+        "performance_class": "B"
+      }
+    },
+    "technical": {
+      "dimensions": { "width_m": 1.2, "height_m": 2.7, "thickness_m": 0.08 },
+      "fire_reaction_class": "B-s1,d0",
+      "expected_lifetime_years": 50,
+      "disassembly": { "connection_type": "sliding rail", "reversible": true },
+      "end_of_life_scenario": "reuse"
+    }
+  },
+  "trust": {
+    "epd": {
+      "epd_id": "EPD-MOCK-IW-0001",
+      "valid_until": "2031-03-15"
+    }
+  },
+  "meta": {
+    "schema_version": "0.2",
+    "created_at": "2026-03-15T09:00:00Z",
+    "status": "active"
+  }
+}

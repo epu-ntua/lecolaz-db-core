@@ -1,3 +1,4 @@
+import uuid
 from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field
@@ -11,6 +12,7 @@ class BimFileResponse(BaseModel):
     filename: str
     format: str
     category: Literal["archetype", "pilot"] | None
+    image_object_key: str | None = None
     status: str | None
     bim_schema: str | None = Field(
         default=None,
@@ -25,6 +27,10 @@ class BimFileResponse(BaseModel):
 
 class BimCategoryUpdate(BaseModel):
     category: Literal["archetype", "pilot"]
+
+
+class BimSensorsConnect(BaseModel):
+    add: list[uuid.UUID] = Field(min_length=1, max_length=500)
 
 
 class BimMetadataResponse(BaseModel):

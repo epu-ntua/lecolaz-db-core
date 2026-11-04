@@ -3,7 +3,7 @@
 import uuid
 
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, File, HTTPException, UploadFile
 from fastapi.responses import StreamingResponse
 
 from app.schemas import (
@@ -18,10 +18,60 @@ from app.storage.postgres.bim_space_store import BimSpaceStore
 from app.storage.postgres.bim_store import BimStore
 from app.storage.postgres.bim_storey_store import BimStoreyStore
 from app.storage.postgres.simulation_store import SimulationStore
+from app.storage.postgres.sensor_store import SensorStore
+from app.schemas.bim import BimSensorsConnect
+from app.schemas.sensors import RegisteredSensorResponse
 from app.services.bim_view_service import get_bim_view_file, get_bim_metadata
+from app.services.bim_image_service import (
+    BimImageNotFound,
+    BimImageStorageError,
+    MAX_BIM_IMAGE_BYTES,
+    get_bim_image_file,
+    update_bim_image,
+)
 
 
 router = APIRouter(prefix="/bim", tags=["BIM"])
+
+
+@router.patch("/{bim_id}/sensors", response_model=list[RegisteredSensorResponse])
+def connect_bim_sensors(bim_id: uuid.UUID, payload: BimSensorsConnect):
+    if not BimStore().get_bim_by_id(bim_id):
+        raise HTTPException(404, "BIM not found")
+
+    store = SensorStore()
+    unavailable = store.connect_bim_sensors(bim_id, payload.add)
+    if unavailable:
+        raise HTTPException(
+            409,
+            "Sensors not found or already linked to another building or a component: "
+            + ", ".join(str(sensor_id) for sensor_id in unavailable),
+        )
+    return store.list_registered(bim_dataset_id=bim_id)
+
+
+@router.put("/{bim_id}/image", response_model=BimFileResponse)
+async def upload_bim_image(bim_id: uuid.UUID, image: UploadFile = File(...)):
+    data = await image.read(MAX_BIM_IMAGE_BYTES + 1)
+    try:
+        return update_bim_image(bim_id, data, image.content_type)
+    except ValueError as exc:
+        if isinstance(exc, BimImageNotFound):
+            raise HTTPException(404, str(exc)) from exc
+        raise HTTPException(400, str(exc)) from exc
+    except BimImageStorageError as exc:
+        raise HTTPException(503, str(exc)) from exc
+
+
+@router.get("/{bim_id}/image")
+def get_bim_image(bim_id: uuid.UUID):
+    try:
+        chunks, content_type = get_bim_image_file(bim_id)
+    except BimImageNotFound as exc:
+        raise HTTPException(404, str(exc)) from exc
+    except BimImageStorageError as exc:
+        raise HTTPException(502, str(exc)) from exc
+    return StreamingResponse(chunks, media_type=content_type)
 
 
 @router.get("", response_model=list[BimFileResponse])

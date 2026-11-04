@@ -5,7 +5,9 @@
 ## Register
 
 The [backend API](../../../docs/development.md#sensor-listing-and-registration-api)
-lists the default catalog and registers a selected subset, then reloads Dagster.
+lists the default catalog and registers a selected subset, then reloads Dagster
+and backfills eligible missing history for each selected sensor. Re-registration
+uses the same checks and reuses already materialized stages.
 
 Edit the shared [OpenMeteo catalog](../../../backend/app/integrations/openmeteo_registration.yaml)
 for the default sensor list used by both the backend API and Dagster. IDs use

@@ -6,6 +6,7 @@ export type BimFileDto = {
   filename: string;
   format: string;
   category: BimCategory | null;
+  image_object_key: string | null;
   status: string | null;
   schema: string | null;
   stats: {

@@ -97,6 +97,7 @@ class SensorStore:
         statement = select(
             Sensor.id, Sensor.sensor_family, Sensor.external_id, Sensor.name,
             Sensor.location, Sensor.space, Sensor.starting_date, Sensor.bim_dataset_id,
+            Sensor.modular_component_id,
         ).where(Sensor.sensor_family == sensor_family).order_by(Sensor.external_id)
         with self._session_factory() as session:
             return [dict(row) for row in session.execute(statement).mappings()]
@@ -106,11 +107,17 @@ class SensorStore:
         *,
         sensor_family: str | None = None,
         bim_dataset_id: uuid.UUID | None = None,
+        modular_component_id: uuid.UUID | None = None,
+        unassigned: bool = False,
     ) -> List[Dict[str, Any]]:
-        """Return registered sensors without contacting their external providers."""
+        """Return registered sensors without contacting their external providers.
+
+        unassigned keeps only sensors linked to neither a building nor a component.
+        """
         statement = select(
             Sensor.id, Sensor.sensor_family, Sensor.external_id, Sensor.name,
             Sensor.location, Sensor.space, Sensor.starting_date, Sensor.bim_dataset_id,
+            Sensor.modular_component_id,
         ).where(
             Sensor.sensor_family.in_(("ham", "openmeteo")),
             Sensor.external_id.is_not(None),
@@ -119,6 +126,13 @@ class SensorStore:
             statement = statement.where(Sensor.sensor_family == sensor_family)
         if bim_dataset_id is not None:
             statement = statement.where(Sensor.bim_dataset_id == bim_dataset_id)
+        if modular_component_id is not None:
+            statement = statement.where(Sensor.modular_component_id == modular_component_id)
+        if unassigned:
+            statement = statement.where(
+                Sensor.bim_dataset_id.is_(None),
+                Sensor.modular_component_id.is_(None),
+            )
         statement = statement.order_by(Sensor.name, Sensor.external_id)
         with self._session_factory() as session:
             return [dict(row) for row in session.execute(statement).mappings()]
@@ -132,9 +146,19 @@ class SensorStore:
             for selection in sorted(selections, key=lambda row: row["external_id"]):
                 fields = {
                     key: selection[key]
-                    for key in ("starting_date", "bim_dataset_id", "name", "location", "space")
+                    for key in (
+                        "starting_date", "bim_dataset_id", "modular_component_id",
+                        "name", "location", "space",
+                    )
                     if key in selection
                 }
+                # Reassignment replaces the other link in the same UPDATE so the
+                # single-link constraint holds, even when moving between types.
+                # Explicit nulls clear only the named link; omission preserves it.
+                if fields.get("bim_dataset_id") is not None:
+                    fields["modular_component_id"] = None
+                elif fields.get("modular_component_id") is not None:
+                    fields["bim_dataset_id"] = None
                 if fields:
                     session.execute(
                         update(Sensor).where(
@@ -143,6 +167,74 @@ class SensorStore:
                         ).values(**fields)
                     )
             session.commit()
+
+    def update_modular_component_sensors(
+        self,
+        component_id: uuid.UUID,
+        add: List[uuid.UUID],
+        remove: List[uuid.UUID],
+    ) -> List[uuid.UUID]:
+        """Add and remove sensors on a component, all or nothing.
+
+        Changes only the named sensors, so concurrent edits by other users are kept.
+        Only free registered sensors (no building, no other component) can be added;
+        removing a sensor that is not on the component is a no-op. Returns the ids
+        that could not be added; if any, nothing is changed.
+        """
+        return self._update_sensor_links(
+            Sensor.modular_component_id, Sensor.bim_dataset_id, component_id, add, remove
+        )
+
+    def connect_bim_sensors(
+        self, bim_id: uuid.UUID, add: List[uuid.UUID]
+    ) -> List[uuid.UUID]:
+        """Connect free registered sensors to a building, all or nothing."""
+        return self._update_sensor_links(
+            Sensor.bim_dataset_id, Sensor.modular_component_id, bim_id, add, []
+        )
+
+    def _update_sensor_links(
+        self, target_column, other_column, target_id: uuid.UUID,
+        add: List[uuid.UUID], remove: List[uuid.UUID],
+    ) -> List[uuid.UUID]:
+        to_add, to_remove = set(add), set(remove)
+        with self._session_factory() as session:
+            # Lock in the family/external_id order the other writers use to avoid deadlocks.
+            session.execute(
+                select(Sensor.id)
+                .where(Sensor.id.in_(to_add | to_remove))
+                .order_by(Sensor.sensor_family, Sensor.external_id)
+                .with_for_update()
+            ).all()
+            session.execute(
+                update(Sensor)
+                .where(
+                    Sensor.id.in_(to_remove),
+                    target_column == target_id,
+                )
+                .values({target_column: None})
+            )
+            added = set(
+                session.execute(
+                    update(Sensor)
+                    .where(
+                        Sensor.id.in_(to_add),
+                        # Same visibility rules as list_registered.
+                        Sensor.sensor_family.in_(("ham", "openmeteo")),
+                        Sensor.external_id.is_not(None),
+                        other_column.is_(None),
+                        (target_column.is_(None)) | (target_column == target_id),
+                    )
+                    .values({target_column: target_id})
+                    .returning(Sensor.id)
+                ).scalars()
+            )
+            unavailable = sorted(to_add - added, key=str)
+            if unavailable:
+                session.rollback()
+                return unavailable
+            session.commit()
+            return []
 
     def get_by_id_and_sensor_family(
         self, sensor_id: uuid.UUID, sensor_family: str

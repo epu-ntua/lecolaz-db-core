@@ -1,0 +1,55 @@
+{
+  "@id": "https://example.org/01/09506000000003/21/FC-0001",
+  "@type": "LeColazBuildingComponentPassport",
+  "traceability": {
+    "product_id": {
+      "product_name": "Interlocking floor tile",
+      "product_type": "FloorCovering",
+      "serial_number": "FC-0001",
+      "production_date": "2026-04-01"
+    },
+    "manufacturer": {
+      "name": "Mock Manufacturer",
+      "country": "GR"
+    },
+    "lifecycle_stage": {
+      "value": "reused",
+      "last_update": "2026-09-20T08:30:00Z"
+    },
+    "reuse_cycles": {
+      "value": 1
+    }
+  },
+  "transparency": {
+    "material": {
+      "materials": [
+        { "name": "Agglomerated cork", "weight_kg": 2.3, "recycled_content_pct": 80 }
+      ],
+      "circularity_class": "A-reusable"
+    },
+    "environmental": {
+      "carbon_footprint": {
+        "total_kg_co2eq": 4.7,
+        "performance_class": "A"
+      }
+    },
+    "technical": {
+      "dimensions": { "width_m": 0.6, "height_m": 0.6, "thickness_m": 0.012 },
+      "fire_reaction_class": "Cfl-s1",
+      "expected_lifetime_years": 25,
+      "disassembly": { "connection_type": "interlocking edge", "reversible": true },
+      "end_of_life_scenario": "reuse"
+    }
+  },
+  "trust": {
+    "epd": {
+      "epd_id": "EPD-MOCK-FC-0001",
+      "valid_until": "2031-04-01"
+    }
+  },
+  "meta": {
+    "schema_version": "0.2",
+    "created_at": "2026-04-01T09:00:00Z",
+    "status": "active"
+  }
+}

@@ -1,0 +1,56 @@
+{
+  "@id": "https://example.org/01/09506000000002/21/FE-0001",
+  "@type": "LeColazBuildingComponentPassport",
+  "traceability": {
+    "product_id": {
+      "product_name": "Facade cladding panel",
+      "product_type": "FacadeElement",
+      "serial_number": "FE-0001",
+      "production_date": "2026-02-10"
+    },
+    "manufacturer": {
+      "name": "Mock Manufacturer",
+      "country": "GR"
+    },
+    "lifecycle_stage": {
+      "value": "manufactured",
+      "last_update": "2026-02-10T12:00:00Z"
+    },
+    "reuse_cycles": {
+      "value": 0
+    }
+  },
+  "transparency": {
+    "material": {
+      "materials": [
+        { "name": "Recycled-aggregate concrete", "weight_kg": 42.0, "recycled_content_pct": 35 },
+        { "name": "Aluminium clip rail", "weight_kg": 0.9, "recycled_content_pct": 75 }
+      ],
+      "circularity_class": "B-recyclable"
+    },
+    "environmental": {
+      "carbon_footprint": {
+        "total_kg_co2eq": 61.5,
+        "performance_class": "C"
+      }
+    },
+    "technical": {
+      "dimensions": { "width_m": 0.6, "height_m": 1.2, "thickness_m": 0.03 },
+      "fire_reaction_class": "A1",
+      "expected_lifetime_years": 60,
+      "disassembly": { "connection_type": "rail clip", "reversible": true },
+      "end_of_life_scenario": "recycle"
+    }
+  },
+  "trust": {
+    "epd": {
+      "epd_id": "EPD-MOCK-FE-0001",
+      "valid_until": "2031-02-10"
+    }
+  },
+  "meta": {
+    "schema_version": "0.2",
+    "created_at": "2026-02-10T09:00:00Z",
+    "status": "active"
+  }
+}

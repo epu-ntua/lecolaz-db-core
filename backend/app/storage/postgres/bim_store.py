@@ -28,6 +28,7 @@ class BimStore:
         filename: str,
         format: str,
         category: Optional[str] = None,
+        image_object_key: Optional[str] = None,
         schema: Optional[str] = None,
         extra: Optional[dict] = None,
     ) -> None:
@@ -38,6 +39,7 @@ class BimStore:
                 filename=filename,
                 format=format,
                 category=category,
+                image_object_key=image_object_key,
                 schema=schema,
                 extra=extra,
             )
@@ -84,6 +86,18 @@ class BimStore:
             )
             row = session.execute(stmt).first()
             return self._to_dict(row[0], row[1]) if row else None
+
+    def update_image(self, bim_id: uuid.UUID, object_key: str) -> Optional[Dict[str, Any]]:
+        with self._session_factory() as session:
+            stmt = (select(BimDataset, Dataset.status)
+                    .join(Dataset, Dataset.id == BimDataset.dataset_id)
+                    .where(BimDataset.id == bim_id))
+            row = session.execute(stmt).first()
+            if not row:
+                return None
+            row[0].image_object_key = object_key
+            session.commit()
+            return self._to_dict(row[0], row[1])
 
     def get_bim_by_dataset_id(self, dataset_id: uuid.UUID) -> Optional[Dict[str, Any]]:
         with self._session_factory() as session:
@@ -178,6 +192,7 @@ class BimStore:
             "filename": obj.filename,
             "format": obj.format,
             "category": obj.category,
+            "image_object_key": obj.image_object_key,
             "schema": obj.schema,
             "status": dataset_status,
             "stats": obj.stats,

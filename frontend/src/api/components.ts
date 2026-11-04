@@ -1,0 +1,61 @@
+import { API_BASE } from './client';
+import type { ComponentFileKind, ModularComponentDto } from '@/types/api/components';
+import type { RegisteredSensorDto } from '@/types/api/sensors';
+
+export async function listComponents(): Promise<ModularComponentDto[]> {
+  const components: ModularComponentDto[] = [];
+  const limit = 100;
+  // Follow every page so older components and building links are not hidden.
+  for (let offset = 0; ; offset += limit) {
+    const res = await fetch(`${API_BASE}/components?limit=${limit}&offset=${offset}`);
+    if (!res.ok) throw new Error('List components failed');
+    const rows = (await res.json()) as ModularComponentDto[];
+    components.push(...rows);
+    if (rows.length < limit) return components;
+  }
+}
+
+export async function updateComponentBuilding(
+  componentId: string,
+  bimDatasetId: string | null,
+): Promise<ModularComponentDto> {
+  const res = await fetch(`${API_BASE}/components/${componentId}/building`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ bim_dataset_id: bimDatasetId }),
+  });
+  if (!res.ok) throw new Error('Update component building failed');
+  return res.json() as Promise<ModularComponentDto>;
+}
+
+export async function updateComponentSensors(
+  componentId: string,
+  changes: { add?: string[]; remove?: string[] },
+): Promise<RegisteredSensorDto[]> {
+  const res = await fetch(`${API_BASE}/components/${componentId}/sensors`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(changes),
+  });
+  if (!res.ok) throw new Error('Update component sensors failed');
+  return res.json() as Promise<RegisteredSensorDto[]>;
+}
+
+export function getComponentFileUrl(
+  componentId: string,
+  kind: ComponentFileKind,
+): string {
+  return `${API_BASE}/components/${componentId}/files/${kind}`;
+}
+
+export async function getComponent(componentId: string): Promise<ModularComponentDto> {
+  const res = await fetch(`${API_BASE}/components/${componentId}`);
+  if (!res.ok) throw new Error('Get component failed');
+  return res.json() as Promise<ModularComponentDto>;
+}
+
+export async function fetchComponentIfc(componentId: string): Promise<ArrayBuffer> {
+  const res = await fetch(getComponentFileUrl(componentId, 'ifc'));
+  if (!res.ok) throw new Error('Failed to fetch component IFC');
+  return res.arrayBuffer();
+}

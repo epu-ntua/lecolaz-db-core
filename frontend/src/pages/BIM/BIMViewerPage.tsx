@@ -1,6 +1,12 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
-import { fetchBimMetadata, listBimSpaces, listBimStoreys } from '@/api/bim_files';
+import { useNavigate, useParams, useLocation } from 'react-router-dom';
+import {
+  fetchBimMetadata,
+  fetchBimStream,
+  listBimSpaces,
+  listBimStoreys,
+} from '@/api/bim_files';
+import { fetchComponentIfc, getComponent } from '@/api/components';
 import { ArrowLeft, Layers3 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import type { BimMetadataDto, BimSpaceDto, BimStoreyDto } from '@/types/api/bim';
@@ -9,6 +15,8 @@ import BimViewer, { type BIMViewerHandle } from './components/BIMViewer';
 
 export default function BIMViewerPage() {
   const { id } = useParams();
+  const isComponent = useLocation().pathname.startsWith('/components/');
+  const [componentName, setComponentName] = useState<string | null>(null);
   const [showStructure, setShowStructure] = useState(false);
   const navigate = useNavigate();
   const [bim, setBim] = useState<BimMetadataDto | null>(null);
@@ -19,15 +27,23 @@ export default function BIMViewerPage() {
   const viewerRef = useRef<BIMViewerHandle | null>(null);
 
   useEffect(() => {
-    if (!id) return;
+    if (!id || isComponent) return;
 
     fetchBimMetadata(id)
       .then(setBim)
       .catch(() => setBim(null));
-  }, [id]);
+  }, [id, isComponent]);
 
   useEffect(() => {
-    if (!id) {
+    if (!id || !isComponent) return;
+    getComponent(id)
+      .then((component) => setComponentName(component.name))
+      .catch(() => setComponentName(null));
+  }, [id, isComponent]);
+
+  useEffect(() => {
+    if (!id || isComponent) {
+      setStructureLoading(false);
       return;
     }
 
@@ -59,7 +75,7 @@ export default function BIMViewerPage() {
     return () => {
       cancelled = true;
     };
-  }, [id]);
+  }, [id, isComponent]);
 
   const structuredStoreys = useMemo(() => {
     const spacesByStoreyId = new Map<string, BimSpaceDto[]>();
@@ -89,21 +105,23 @@ export default function BIMViewerPage() {
         <Button
           variant="ghost"
           size="icon"
-          aria-label="Back to buildings"
-          onClick={() => navigate('/buildings')}
+          aria-label={isComponent ? 'Back to components' : 'Back to buildings'}
+          onClick={() => navigate(isComponent ? '/components' : '/buildings')}
         >
           <ArrowLeft className="h-5 w-5" />
         </Button>
         <div className="min-w-0 flex-1">
           <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
-            BIM viewer
+            {isComponent ? 'Component viewer' : 'BIM viewer'}
           </p>
-          <h1 className="truncate text-base font-semibold">{bim?.filename ?? id}</h1>
+          <h1 className="truncate text-base font-semibold">
+            {isComponent ? (componentName ?? id) : (bim?.filename ?? id)}
+          </h1>
         </div>
         <Button
           variant="outline"
           size="sm"
-          className="xl:hidden"
+          className={isComponent ? 'hidden' : 'xl:hidden'}
           aria-expanded={showStructure}
           onClick={() => setShowStructure(!showStructure)}
         >
@@ -113,13 +131,19 @@ export default function BIMViewerPage() {
 
       <div className="relative flex min-h-0 flex-1">
         <div className="min-w-0 flex-1">
-          <BimViewer ref={viewerRef} bimId={id} />
+          <BimViewer
+            ref={viewerRef}
+            sourceId={id}
+            fetchStream={isComponent ? fetchComponentIfc : fetchBimStream}
+          />
         </div>
         <div
           className={
-            showStructure
-              ? 'absolute inset-y-0 right-0 z-10 w-[min(320px,100%)] shadow-xl xl:static xl:shadow-none'
-              : 'hidden w-80 xl:block'
+            isComponent
+              ? 'hidden'
+              : showStructure
+                ? 'absolute inset-y-0 right-0 z-10 w-[min(320px,100%)] shadow-xl xl:static xl:shadow-none'
+                : 'hidden w-80 xl:block'
           }
         >
           <BIMStructureSidebar

@@ -22,12 +22,14 @@ type BimUploadDialogProps = {
 export function BimUploadDialog({ onUploaded }: BimUploadDialogProps) {
   const [open, setOpen] = useState(false);
   const [file, setFile] = useState<File | null>(null);
+  const [image, setImage] = useState<File | null>(null);
   const [category, setCategory] = useState<BimCategory | ''>('');
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const reset = () => {
     setFile(null);
+    setImage(null);
     setCategory('');
     setError(null);
   };
@@ -38,7 +40,7 @@ export function BimUploadDialog({ onUploaded }: BimUploadDialogProps) {
     try {
       setUploading(true);
       setError(null);
-      const result = await uploadBimFile(file, category);
+      const result = await uploadBimFile(file, category, image);
       setFile(null);
       try {
         await onUploaded(result);
@@ -86,6 +88,13 @@ export function BimUploadDialog({ onUploaded }: BimUploadDialogProps) {
             file={file}
             onChange={setFile}
             accept=".ifc,.ifczip,.ifcxml"
+            disabled={uploading}
+          />
+          <FilePicker
+            label="Building image (optional)"
+            file={image}
+            onChange={setImage}
+            accept=".jpg,.jpeg,.png,.webp"
             disabled={uploading}
           />
 

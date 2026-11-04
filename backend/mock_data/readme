@@ -1,0 +1,1 @@
+docker compose --env-file infra/.env -f infra/compose.yaml exec backend python -m mock_data.seed_modular_components

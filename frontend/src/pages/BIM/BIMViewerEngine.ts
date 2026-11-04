@@ -66,6 +66,14 @@ export class BIMViewerEngine {
     // Minimal init in constructor (no IFC/worker/wasm here)
     this.components.init();
     this.scene.setup();
+    this.scene.three.background = new THREE.Color('#e8eef2');
+    this.scene.three.add(new THREE.HemisphereLight(0xffffff, 0xb8c9d1, 1.2));
+    const keyLight = new THREE.DirectionalLight(0xffffff, 1.5);
+    keyLight.position.set(8, 14, 10);
+    this.scene.three.add(keyLight);
+    const fillLight = new THREE.DirectionalLight(0xd6e8f2, 0.55);
+    fillLight.position.set(-8, 5, -6);
+    this.scene.three.add(fillLight);
   }
 
   // Call this once after construction
