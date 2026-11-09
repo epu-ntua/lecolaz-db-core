@@ -16,30 +16,31 @@ import {
 import type { SensorObservationTypeDto } from '@/types/api/sensors';
 
 // Each selection mounts a keyed child, so old results never appear under new filters.
-function useSensorQuery<T>(load: () => Promise<T>) {
+function useSensorQuery<T>(load: (signal: AbortSignal) => Promise<T>) {
   const [data, setData] = useState<T | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [attempt, setAttempt] = useState(0);
   useEffect(() => {
-    let cancelled = false;
+    const controller = new AbortController();
+    const { signal } = controller;
     setLoading(true);
     setError(null);
-    load()
+    load(signal)
       .then((result) => {
-        if (!cancelled) setData(result);
+        if (!signal.aborted) setData(result);
       })
       .catch((reason: unknown) => {
-        if (!cancelled)
+        if (!signal.aborted)
           setError(
             reason instanceof Error ? reason.message : 'Sensor data could not be loaded.',
           );
       })
       .finally(() => {
-        if (!cancelled) setLoading(false);
+        if (!signal.aborted) setLoading(false);
       });
     return () => {
-      cancelled = true;
+      controller.abort();
     };
   }, [load, attempt]);
   return { data, loading, error, retry: () => setAttempt((value) => value + 1) };
@@ -75,7 +76,10 @@ export function SensorChartDialog({
 }
 
 function SensorMeasurements({ sensorId }: { sensorId: string }) {
-  const load = useCallback(() => listSensorObservationTypes(sensorId), [sensorId]);
+  const load = useCallback(
+    (signal: AbortSignal) => listSensorObservationTypes(sensorId, signal),
+    [sensorId],
+  );
   const { data: types, loading, error, retry } = useSensorQuery(load);
   const [typeId, setTypeId] = useState('');
   const selectId = useId();
@@ -184,33 +188,26 @@ function SensorMeasurement({
   measurement: SensorObservationTypeDto;
 }) {
   const load = useCallback(
-    () => getSensorTimestampBounds(sensorId, measurement.id),
+    (signal: AbortSignal) => getSensorTimestampBounds(sensorId, measurement.id, signal),
     [sensorId, measurement.id],
   );
   const { data: bounds, loading, error, retry } = useSensorQuery(load);
-  if (loading || error || !bounds?.start || !bounds.end) {
-    return (
-      <>
-        <DateRangeFields />
-        {loading ? (
-          <LoadingState label="Loading measurement date range…" />
-        ) : error ? (
-          <ErrorNotice message={error} onRetry={retry} />
-        ) : (
-          <p className="text-sm text-muted-foreground">
-            No time-series values found for this measurement.
-          </p>
-        )}
-      </>
-    );
-  }
   return (
-    <SensorRange
-      sensorId={sensorId}
-      measurement={measurement}
-      earliest={bounds.start}
-      latest={bounds.end}
-    />
+    <>
+      <SensorRange
+        sensorId={sensorId}
+        measurement={measurement}
+        earliest={bounds?.start}
+        latest={bounds?.end}
+      />
+      {loading && <LoadingState label="Loading measurement date range…" />}
+      {error && <ErrorNotice message={error} onRetry={retry} />}
+      {!loading && !error && (!bounds?.start || !bounds.end) && (
+        <p className="text-sm text-muted-foreground">
+          No time-series values found for this measurement.
+        </p>
+      )}
+    </>
   );
 }
 
@@ -231,24 +228,27 @@ function SensorRange({
 }: {
   sensorId: string;
   measurement: SensorObservationTypeDto;
-  earliest: string;
-  latest: string;
+  earliest?: string | null;
+  latest?: string | null;
 }) {
-  const min = dateInput(earliest);
-  const max = dateInput(latest, true);
-  const [start, setStart] = useState(min);
-  const [end, setEnd] = useState(max);
+  const min = earliest ? dateInput(earliest) : undefined;
+  const max = latest ? dateInput(latest, true) : undefined;
+  // Bounds can arrive after editing starts; only default untouched fields.
+  const [selectedStart, setStart] = useState<string | null>(null);
+  const [selectedEnd, setEnd] = useState<string | null>(null);
+  const start = selectedStart ?? min ?? '';
+  const end = selectedEnd ?? max ?? '';
   const startTime = Date.parse(`${start}Z`);
   const endTime = Date.parse(`${end}Z`);
-  const from = startTime === Date.parse(`${min}Z`) ? earliest : `${start}Z`;
-  const to = endTime === Date.parse(`${max}Z`) ? latest : `${end}Z`;
+  const from = earliest && startTime === Date.parse(`${min}Z`) ? earliest : `${start}Z`;
+  const to = latest && endTime === Date.parse(`${max}Z`) ? latest : `${end}Z`;
   const valid =
     Number.isFinite(startTime) &&
     Number.isFinite(endTime) &&
     startTime <= endTime &&
     Date.parse(from) <= Date.parse(to) &&
-    startTime >= Date.parse(`${min}Z`) &&
-    endTime <= Date.parse(`${max}Z`);
+    (!min || startTime >= Date.parse(`${min}Z`)) &&
+    (!max || endTime <= Date.parse(`${max}Z`));
   return (
     <>
       <DateRangeFields
@@ -267,11 +267,11 @@ function SensorRange({
           start={from}
           end={to}
         />
-      ) : (
+      ) : start || end ? (
         <p role="alert" className="text-sm text-destructive">
           Choose both dates within the available range, with start at or before end.
         </p>
-      )}
+      ) : null}
     </>
   );
 }
@@ -288,7 +288,8 @@ function SensorRangeChart({
   end: string;
 }) {
   const load = useCallback(
-    () => listSensorTimeseries(sensorId, measurement.id, start, end),
+    (signal: AbortSignal) =>
+      listSensorTimeseries(sensorId, measurement.id, start, end, signal),
     [sensorId, measurement.id, start, end],
   );
   const { data: points, loading, error, retry } = useSensorQuery(load);

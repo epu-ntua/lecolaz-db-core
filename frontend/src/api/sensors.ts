@@ -12,8 +12,14 @@ import type {
 
 export async function listSensorObservationTypes(
   sensorId: string,
+  signal?: AbortSignal,
 ): Promise<SensorObservationTypeDto[]> {
-  const response = await sensorFetch(`${API_BASE}/sensors/${sensorId}/observation-types`);
+  const response = await sensorFetch(
+    `${API_BASE}/sensors/${sensorId}/observation-types`,
+    {
+      signal,
+    },
+  );
   if (!response.ok)
     throw new Error(await readError(response, 'Sensor measurements could not be loaded'));
   return response.json() as Promise<SensorObservationTypeDto[]>;
@@ -22,10 +28,12 @@ export async function listSensorObservationTypes(
 export async function getSensorTimestampBounds(
   sensorId: string,
   observationTypeId: string,
+  signal?: AbortSignal,
 ): Promise<SensorTimestampBoundsDto> {
   const query = new URLSearchParams({ observation_type_id: observationTypeId });
   const response = await sensorFetch(
     `${API_BASE}/sensors/${sensorId}/timeseries/bounds?${query}`,
+    { signal },
   );
   if (!response.ok)
     throw new Error(
@@ -39,6 +47,7 @@ export async function listSensorTimeseries(
   observationTypeId: string,
   start: string,
   end: string,
+  signal?: AbortSignal,
 ): Promise<SensorTimeseriesPointDto[]> {
   const query = new URLSearchParams({
     observation_type_id: observationTypeId,
@@ -47,6 +56,7 @@ export async function listSensorTimeseries(
   });
   const response = await sensorFetch(
     `${API_BASE}/sensors/${sensorId}/timeseries?${query}`,
+    { signal },
   );
   if (!response.ok)
     throw new Error(
@@ -65,10 +75,11 @@ async function readError(response: Response, fallback: string) {
 }
 
 async function sensorFetch(input: string, init: RequestInit = {}, timeoutMs = 45_000) {
+  const timeout = AbortSignal.timeout(timeoutMs);
   try {
     return await fetch(input, {
       ...init,
-      signal: AbortSignal.timeout(timeoutMs),
+      signal: init.signal ? AbortSignal.any([init.signal, timeout]) : timeout,
     });
   } catch (error) {
     if (error instanceof DOMException && error.name === 'TimeoutError') {

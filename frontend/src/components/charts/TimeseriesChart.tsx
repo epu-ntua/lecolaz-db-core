@@ -40,23 +40,9 @@ export function TimeseriesChart({
   }, [points]);
   const chartData = points.map((point, index) => ({
     id: point.id,
+    index,
     timestamp: point.timestamp ? new Date(point.timestamp).getTime() : index,
     value: point.value,
-    axisLabel: point.timestamp
-      ? new Date(point.timestamp).toLocaleString(undefined, {
-          month: 'short',
-          day: 'numeric',
-          hour: '2-digit',
-          minute: '2-digit',
-          timeZone: timeScale ? 'UTC' : undefined,
-        })
-      : `Point ${index + 1}`,
-    timestampLabel: point.timestamp
-      ? new Date(point.timestamp).toLocaleString(undefined, {
-          timeZone: timeScale ? 'UTC' : undefined,
-          timeZoneName: timeScale ? 'short' : undefined,
-        })
-      : `Point ${index + 1}`,
   }));
 
   return (
@@ -108,21 +94,21 @@ export function TimeseriesChart({
         >
           <CartesianGrid vertical={false} />
           <XAxis
-            dataKey={timeScale ? 'timestamp' : 'axisLabel'}
+            dataKey={timeScale ? 'timestamp' : 'index'}
             type={timeScale ? 'number' : 'category'}
             domain={timeScale ? ['dataMin', 'dataMax'] : undefined}
-            tickFormatter={
-              timeScale
-                ? (value: number) =>
-                    new Date(value).toLocaleString(undefined, {
-                      month: 'short',
-                      day: 'numeric',
-                      hour: '2-digit',
-                      minute: '2-digit',
-                      timeZone: 'UTC',
-                    })
-                : undefined
-            }
+            tickFormatter={(value: number) => {
+              const timestamp = timeScale ? value : points[value]?.timestamp || null;
+              return timestamp == null
+                ? `Point ${value + 1}`
+                : new Date(timestamp).toLocaleString(undefined, {
+                    month: 'short',
+                    day: 'numeric',
+                    hour: '2-digit',
+                    minute: '2-digit',
+                    timeZone: timeScale ? 'UTC' : undefined,
+                  });
+            }}
             tickLine={false}
             axisLine={false}
             minTickGap={64}
@@ -147,9 +133,18 @@ export function TimeseriesChart({
             cursor={false}
             content={
               <ChartTooltipContent
-                labelFormatter={(_, payload) =>
-                  payload?.[0]?.payload?.timestampLabel ?? ''
-                }
+                labelFormatter={(_, payload) => {
+                  const point = payload?.[0]?.payload as
+                    | (typeof chartData)[number]
+                    | undefined;
+                  if (!point) return '';
+                  return points[point.index]?.timestamp
+                    ? new Date(point.timestamp).toLocaleString(undefined, {
+                        timeZone: timeScale ? 'UTC' : undefined,
+                        timeZoneName: timeScale ? 'short' : undefined,
+                      })
+                    : `Point ${point.index + 1}`;
+                }}
               />
             }
           />
