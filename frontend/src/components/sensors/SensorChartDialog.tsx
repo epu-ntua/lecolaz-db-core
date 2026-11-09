@@ -6,6 +6,7 @@ import {
 } from '@/api/sensors';
 import { TimeseriesChart } from '@/components/charts/TimeseriesChart';
 import { ErrorNotice, LoadingState } from '@/components/layout/Feedback';
+import { DateTimePicker } from '@/components/ui/date-time-picker';
 import {
   Dialog,
   DialogContent,
@@ -148,32 +149,24 @@ function DateRangeFields({
         <label htmlFor={`${id}-start`} className="text-sm font-medium">
           Start date (UTC)
         </label>
-        <input
+        <DateTimePicker
           id={`${id}-start`}
-          className="field w-full"
-          type="datetime-local"
-          step="1"
           value={start}
           min={min}
           max={end || max}
-          disabled={!onStart}
-          onChange={(event) => onStart?.(event.target.value)}
+          onChange={onStart}
         />
       </div>
       <div className="space-y-2">
         <label htmlFor={`${id}-end`} className="text-sm font-medium">
           End date (UTC)
         </label>
-        <input
+        <DateTimePicker
           id={`${id}-end`}
-          className="field w-full"
-          type="datetime-local"
-          step="1"
           value={end}
           min={start || min}
           max={max}
-          disabled={!onEnd}
-          onChange={(event) => onEnd?.(event.target.value)}
+          onChange={onEnd}
         />
       </div>
     </div>
