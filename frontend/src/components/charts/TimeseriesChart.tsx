@@ -101,13 +101,16 @@ export function TimeseriesChart({
               const timestamp = timeScale ? value : points[value]?.timestamp || null;
               return timestamp == null
                 ? `Point ${value + 1}`
-                : new Date(timestamp).toLocaleString(undefined, {
-                    month: 'short',
-                    day: 'numeric',
-                    hour: '2-digit',
-                    minute: '2-digit',
-                    timeZone: timeScale ? 'UTC' : undefined,
-                  });
+                : new Date(timestamp)
+                    .toLocaleString('en-GB', {
+                      year: 'numeric',
+                      month: '2-digit',
+                      day: '2-digit',
+                      hour: '2-digit',
+                      minute: '2-digit',
+                      timeZone: timeScale ? 'UTC' : undefined,
+                    })
+                    .replaceAll('/', '-');
             }}
             tickLine={false}
             axisLine={false}
@@ -139,10 +142,12 @@ export function TimeseriesChart({
                     | undefined;
                   if (!point) return '';
                   return points[point.index]?.timestamp
-                    ? new Date(point.timestamp).toLocaleString(undefined, {
-                        timeZone: timeScale ? 'UTC' : undefined,
-                        timeZoneName: timeScale ? 'short' : undefined,
-                      })
+                    ? new Date(point.timestamp)
+                        .toLocaleString('en-GB', {
+                          timeZone: timeScale ? 'UTC' : undefined,
+                          timeZoneName: timeScale ? 'short' : undefined,
+                        })
+                        .replaceAll('/', '-')
                     : `Point ${point.index + 1}`;
                 }}
               />
