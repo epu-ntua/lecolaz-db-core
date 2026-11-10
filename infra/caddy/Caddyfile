@@ -5,7 +5,7 @@ lecolaz.epu.ntua.gr {
 
     redir /portainer /portainer/ 308
 
-    handle_path /portainer/* {
+    handle /portainer/* {
         reverse_proxy portainer:9000
     }
 
